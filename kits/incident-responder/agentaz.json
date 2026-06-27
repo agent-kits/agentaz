@@ -1,0 +1,71 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "agent_id": "incident-response-agent",
+  "version": "2.0.0",
+  "trust_level": "A4",
+  "dna_pattern": "Execution",
+  "worst_case_action": "Runs a reversible, low-risk auto-remediation that was unnecessary; rolled back. Irreversible actions require human approval.",
+  "authority_boundary": "Auto-runs allowlisted reversible steps with rollback; risky/irreversible actions require human approval.",
+  "last_reviewed": "2026-06-24",
+  "tags": [
+    "devops",
+    "sre",
+    "security",
+    "sandboxed",
+    "rollback",
+    "human-approval",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "tool_boundary": {
+    "auto_executable_tools": [
+      "restart_service",
+      "clear_cache",
+      "rotate_log",
+      "health_check"
+    ],
+    "approval_required_tools": [
+      "rollback_deploy",
+      "scale_service",
+      "change_config",
+      "modify_security_group"
+    ],
+    "execution_tools_absent": false,
+    "rollback_required": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_without_approval": [
+      "rollback_deploy",
+      "scale_service",
+      "change_config",
+      "modify_security_group"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.35,
+    "alert_threshold_usd": 0.25
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 12
+  },
+  "human_handoff": {
+    "triggers": [
+      "sev1",
+      "irreversible_action",
+      "low_confidence"
+    ],
+    "destination": "oncall_engineer"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "actions",
+      "rollbacks",
+      "approvals",
+      "escalations"
+    ]
+  }
+}

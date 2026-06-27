@@ -1,0 +1,54 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "disruption-monitor-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Evaluation",
+  "worst_case_action": "Raises a false disruption alert for human review. Cannot reroute, reorder, or change suppliers.",
+  "authority_boundary": "Monitors and assesses disruption signals; action tools absent.",
+  "tags": [
+    "supply-chain",
+    "monitoring",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_signals",
+      "assess_impact",
+      "prioritize",
+      "alert"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "reorder",
+      "reroute",
+      "supplier_change"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.22,
+    "alert_threshold_usd": 0.15
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "high_impact",
+      "uncertain_signal"
+    ],
+    "destination": "supply_planner"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "signals",
+      "assessments"
+    ]
+  }
+}

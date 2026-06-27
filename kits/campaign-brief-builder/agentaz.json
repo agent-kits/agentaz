@@ -1,0 +1,55 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "campaign-brief-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Synthesis",
+  "worst_case_action": "Produces a brief with a flawed assumption for lead review. No fabricated stats; results never guaranteed.",
+  "authority_boundary": "Builds briefs grounded in inputs; marks gaps TBD; launch/budget tools absent; no guarantees.",
+  "tags": [
+    "marketing",
+    "campaign-brief",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_inputs",
+      "structure_brief",
+      "mark_tbd",
+      "flag_assumptions"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "launch",
+      "commit_budget"
+    ],
+    "never_fabricates": true,
+    "estimates_not_guarantees": true
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.2,
+    "alert_threshold_usd": 0.14
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "missing_input",
+      "assumption_made"
+    ],
+    "destination": "marketing_lead"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "inputs",
+      "assumptions"
+    ]
+  }
+}

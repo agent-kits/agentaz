@@ -1,0 +1,356 @@
+{
+  "slug": "vendor-risk-assessor",
+  "title": "Vendor Risk Assessment Agent",
+  "category": "compliance-risk",
+  "shortDescription": "A vendor-risk agent that scores third parties on security, compliance, and data access from evidence, flags missing certs and DPAs, and recommends a tier.",
+  "description": "An agent that runs the first-pass risk assessment on a third-party vendor: it gathers and normalizes the vendor's security, compliance, financial, and data-access profile, checks it against your risk criteria, scores risk across domains, and flags the gaps that matter — a missing DPA, an expired SOC 2, a prior breach, an over-broad data scope. It is built defensively: every finding is grounded in a source document, it flags missing evidence instead of assuming a control exists, it never auto-approves high-risk or critical-data vendors, and it routes those to your risk team. It assists the decision; it is not the final approval.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "vendor-risk",
+    "third-party-risk",
+    "grc",
+    "compliance",
+    "security",
+    "due-diligence",
+    "autonomous-agent",
+    "tprm",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "50 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Profiles a vendor across security, compliance, financial, and data-access domains, scoring risk against your criteria.",
+    "Evidence-grounded: every finding cites the source (SOC 2 report, questionnaire answer, DPA) — and missing evidence is flagged, not assumed away.",
+    "Surfaces the gaps that matter: expired/absent certifications, missing DPA, prior breaches, over-broad data access, risky fourth parties.",
+    "Defensive: recommends a tier or conditions, but never auto-approves high-risk or critical-data vendors — those go to your risk team."
+  ],
+  "whenToUse": [
+    "You onboard or periodically review many third-party vendors and the first pass (collecting and checking evidence) eats analyst time.",
+    "You have risk criteria and access to vendor evidence (questionnaires, SOC 2/ISO reports, DPAs).",
+    "You want consistent, documented assessments with cited evidence and a clear tier recommendation.",
+    "You want to fast-track clearly low-risk vendors and route the risky or critical-data ones to humans."
+  ],
+  "whenNotToUse": [
+    "You expect it to be the final approval or to make a legal/contractual determination — those stay with humans.",
+    "You can't provide vendor evidence for it to assess, so findings would be ungrounded.",
+    "The relationship is novel/critical enough to need a full human-led assessment from the start.",
+    "You can't keep risk-team review on high-risk and critical-data vendors."
+  ],
+  "systemPrompt": "You are a Vendor Risk Assessment Agent supporting a third-party risk (TPRM) team. You produce a first-pass, evidence-based risk assessment of ONE vendor and recommend a risk tier or escalation. You assist the decision; you are NOT the final approver. You are judged on accuracy, evidence discipline, and never clearing a risky vendor or fabricating assurance.\n\n== CORE PRINCIPLES ==\n1. Evidence or it's a gap. Base every finding on a source you actually reviewed (questionnaire answer, SOC 2/ISO report, DPA, breach record) and cite it. If evidence for a control is missing, that is a GAP — never assume the control exists.\n2. Risk is contextual. Weight risk by what the vendor will access: a vendor touching sensitive/customer data or critical systems is inherently higher risk than a low-touch tool, regardless of polish.\n3. Recommend, don't approve. Output a tier and conditions for a human. High-risk and critical-data vendors are escalated, not cleared.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO AUTO-APPROVAL OF HIGH RISK: You may recommend fast-tracking only clearly LOW-risk vendors with no sensitive-data access and complete evidence. MODERATE/HIGH risk, critical-data access, or missing key evidence MUST be escalated to the risk team.\n- NO FABRICATED ASSURANCE: Never claim a certification, control, or clean record you haven't seen evidence for. Expired or absent = flag it. Do not infer SOC 2 from a marketing page.\n- MISSING EVIDENCE IS A FINDING: Treat absent DPA, expired SOC 2, unanswered security questions, or no breach-history check as explicit gaps with required remediation.\n- NOT LEGAL/FINAL: You provide a risk view, not a legal opinion or contract sign-off.\n- DATA HANDLING: Treat vendor and internal data as confidential; keep it in scope.\n\n== ASSESSMENT DOMAINS ==\nSecurity posture (SOC 2/ISO, pen-test, MFA/encryption); compliance (DPA, GDPR/regulatory fit, data residency); data access & scope (what data, how much, fourth parties/subprocessors); financial/operational stability; and incident/breach history. For each: state the evidence, the gap (if any), and a domain risk rating.\n\n== DECISION POLICY ==\n- LOW (fast-track recommend): no sensitive-data access, complete evidence, no material gaps. Recommend approval with standard terms (human confirms).\n- MODERATE (conditions): real gaps that are remediable; list required conditions (e.g. obtain DPA, MFA enforcement) before/with onboarding.\n- HIGH / ESCALATE: sensitive/critical-data access with gaps, prior unremediated breach, missing key evidence, or conflicting signals. Route to the risk team with findings.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"vendor\": \"<name>\",\n  \"data_access\": \"<what they access; sensitive? critical?>\",\n  \"overall_risk\": \"low|moderate|high\",\n  \"recommendation\": \"fast_track|conditional|escalate\",\n  \"domains\": [ { \"domain\": \"security|compliance|data_access|financial|breach_history\", \"evidence\": \"<source cited>\", \"gap\": \"<gap or 'none'>\", \"rating\": \"low|moderate|high\" } ],\n  \"gaps\": [\"<material gaps / missing evidence>\"],\n  \"conditions\": [\"<remediations required for onboarding, if conditional>\"],\n  \"rationale\": \"<grounded summary>\",\n  \"escalation\": { \"needed\": <bool>, \"to\": \"risk_team|none\", \"reason\": \"<why, or empty>\" },\n  \"not_final_approval\": true\n}\nIf key evidence is missing or data access is sensitive/critical with any gap, set recommendation to escalate. Never claim assurance without cited evidence.",
+  "architecture": [
+    {
+      "label": "Vendor intake",
+      "detail": "Collects the vendor profile and the proposed relationship — what product, what data it will access, and the business context — to frame the assessment."
+    },
+    {
+      "label": "Evidence ingestion",
+      "detail": "Pulls and parses the available evidence: security questionnaire, SOC 2/ISO reports, DPA, pen-test summaries, and breach history."
+    },
+    {
+      "label": "Domain analysis",
+      "detail": "Assesses security, compliance, data access/scope, financial stability, and breach history, citing the evidence and noting missing items as explicit gaps."
+    },
+    {
+      "label": "Risk scoring",
+      "detail": "Weights domain ratings by data sensitivity and access scope to produce an overall risk level grounded in the evidence."
+    },
+    {
+      "label": "Escalation gate",
+      "detail": "A deterministic gate sends moderate/high risk, critical-data access, or missing-key-evidence vendors to the risk team; only clearly low-risk vendors can be fast-tracked."
+    },
+    {
+      "label": "Recommendation & conditions",
+      "detail": "Produces a tier recommendation with required remediation conditions and a cited rationale for a human decision."
+    },
+    {
+      "label": "Register & monitoring",
+      "detail": "Writes the assessment to the vendor register with evidence and review date, supporting periodic re-assessment and audit."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_vendor_profile",
+      "purpose": "Retrieve the vendor, the proposed product/relationship, and the data it will access."
+    },
+    {
+      "name": "questionnaire_parse",
+      "purpose": "Parse the security/compliance questionnaire into structured answers and identify unanswered items."
+    },
+    {
+      "name": "cert_verify",
+      "purpose": "Check certification evidence (SOC 2/ISO) for presence, scope, and validity dates — flagging expired or absent ones."
+    },
+    {
+      "name": "breach_history_lookup",
+      "purpose": "Look up known breach/incident history and unremediated findings for the vendor."
+    },
+    {
+      "name": "data_scope_assess",
+      "purpose": "Assess what data the vendor accesses, the volume/sensitivity, and fourth-party/subprocessor exposure."
+    },
+    {
+      "name": "score_risk_domains",
+      "purpose": "Rate each risk domain from the cited evidence and weight by data sensitivity and access."
+    },
+    {
+      "name": "recommend_tier",
+      "purpose": "Produce the overall risk tier and required onboarding conditions for a human decision."
+    },
+    {
+      "name": "escalate_to_risk_team",
+      "purpose": "Route moderate/high-risk, critical-data, or evidence-gap vendors to the risk team with the findings."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Frame the relationship",
+      "body": "Capture the vendor, the product, and — critically — what data and systems it will access."
+    },
+    {
+      "title": "2. Ingest evidence",
+      "body": "Parse the questionnaire, SOC 2/ISO reports, DPA, and any pen-test/breach records that exist."
+    },
+    {
+      "title": "3. Assess each domain",
+      "body": "Rate security, compliance, data access, financial stability, and breach history, citing the evidence for each."
+    },
+    {
+      "title": "4. Flag the gaps",
+      "body": "Mark absent/expired evidence and unanswered questions as explicit gaps — never assume an unseen control exists."
+    },
+    {
+      "title": "5. Score weighted by data",
+      "body": "Combine domain ratings, weighting by data sensitivity and access scope, into an overall risk level."
+    },
+    {
+      "title": "6. Recommend or escalate",
+      "body": "Fast-track only clearly low-risk vendors; attach conditions for moderate risk; escalate high-risk/critical-data/evidence-gap vendors to the risk team."
+    },
+    {
+      "title": "7. Register & schedule review",
+      "body": "Record the assessment with cited evidence and a re-assessment date for audit and periodic review."
+    }
+  ],
+  "implementationNotes": [
+    "Make 'missing evidence is a finding' a hard rule: an absent DPA, expired SOC 2, or unanswered question is an explicit gap, never an assumed-present control.",
+    "Weight risk by data access and sensitivity, and enforce in a gate that critical-data and high-risk vendors can never be fast-tracked — only escalated.",
+    "Require a cited source for every assurance; the agent must never infer a certification or clean record it hasn't seen.",
+    "Output remediation conditions for moderate risk so the assessment is actionable, not just a rating.",
+    "Keep it explicitly non-final: it produces a risk view for the risk team, not a legal opinion or contract approval.",
+    "Write assessments to the vendor register with evidence and a re-assessment date so periodic review and audit are supported.",
+    "Spend the strong model on the domain risk judgment and escalation framing — a cheaper model can parse questionnaires and certs."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Evidence-cited risk reviewer",
+      "desc": "Assesses a vendor across domains from provided evidence and returns cited findings, gaps, and a recommended tier for an analyst. No auto-approval."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Gated first-pass assessor",
+      "desc": "Adds data-sensitivity weighting, an escalation gate for high-risk/critical-data/evidence-gap vendors, and remediation-condition generation for conditional cases."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Governed TPRM automation",
+      "desc": "Adds register/evidence-store integration, multi-framework criteria, fourth-party mapping, full audit trails, periodic re-assessment scheduling, and tuning from risk-team outcomes."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect TPRM sources",
+      "body": "Install the agent and connect it to your vendor register and evidence store.",
+      "code": "pipx install vendor-risk-agent\nvendor-risk-agent connect --register onetrust --evidence-store sharepoint\nvendor-risk-agent doctor"
+    },
+    {
+      "title": "Configure risk criteria and gate",
+      "body": "Define which vendors may be fast-tracked. Critical-data and high-risk always escalate.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nFAST_TRACK_ONLY_IF: { data: \"non_sensitive\", evidence: \"complete\", risk: \"low\" }\nALWAYS_ESCALATE: [\"sensitive_data\", \"critical_systems\", \"missing_soc2\", \"prior_breach\"]"
+    },
+    {
+      "title": "Define required evidence per tier",
+      "body": "Tell it what evidence is mandatory so absences become explicit gaps.",
+      "code": "# criteria.yml\nrequired_for_data_access:\n  - dpa\n  - soc2_or_iso27001\n  - breach_history_check\n  - mfa_and_encryption_attested\nweight_by_data_sensitivity: true"
+    },
+    {
+      "title": "Assess a vendor from the CLI",
+      "body": "Run an assessment and review the cited findings and tier before relying on it.",
+      "code": "vendor-risk-agent assess --vendor 'Acme Analytics' --explain\n# prints domains+evidence+gaps, overall_risk, recommendation, conditions"
+    },
+    {
+      "title": "Integrate with onboarding",
+      "body": "Route new vendors for a first-pass assessment; high-risk/critical-data ones auto-route to the risk team.",
+      "code": "# onboarding webhook -> POST https://your-host/vendor/assess\n# recommendation=escalate auto-assigns to the risk queue"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Low-touch SaaS, complete evidence → fast-track recommend",
+      "scenario": "A scheduling tool with no access to sensitive data, valid SOC 2, and a complete questionnaire. Clearly low risk.",
+      "input": "Vendor: MeetEasy (scheduling). Data access: calendar metadata only, no PII/customer data. Evidence: SOC 2 Type II (current, 2026), questionnaire complete, MFA + encryption attested, no breach history.",
+      "output": "{\n  \"vendor\": \"MeetEasy\",\n  \"data_access\": \"Calendar metadata only — no PII or customer data (non-sensitive)\",\n  \"overall_risk\": \"low\",\n  \"recommendation\": \"fast_track\",\n  \"domains\": [\n    { \"domain\": \"security\", \"evidence\": \"SOC 2 Type II current (2026); MFA + encryption attested\", \"gap\": \"none\", \"rating\": \"low\" },\n    { \"domain\": \"compliance\", \"evidence\": \"DPA in place; no regulated data\", \"gap\": \"none\", \"rating\": \"low\" },\n    { \"domain\": \"data_access\", \"evidence\": \"Calendar metadata only; no subprocessors with data access\", \"gap\": \"none\", \"rating\": \"low\" },\n    { \"domain\": \"breach_history\", \"evidence\": \"No known incidents\", \"gap\": \"none\", \"rating\": \"low\" }\n  ],\n  \"gaps\": [],\n  \"conditions\": [],\n  \"rationale\": \"Non-sensitive data access, current SOC 2, complete evidence, and no breach history. Low inherent and residual risk.\",\n  \"escalation\": { \"needed\": false, \"to\": \"none\", \"reason\": \"\" },\n  \"not_final_approval\": true\n}",
+      "notes": "Clearly low-risk with complete, cited evidence and no sensitive-data access, so the agent recommends fast-tracking — but note 'not_final_approval' stays true: it surfaces a clean assessment, a human confirms. This is the volume that should move fast."
+    },
+    {
+      "title": "PII-handling vendor with gaps → conditional, list remediations",
+      "scenario": "A vendor that will process customer PII has a DPA gap and an expired SOC 2. Remediable, so the agent recommends conditions rather than a flat no.",
+      "input": "Vendor: DataCleanse (data enrichment). Data access: customer PII. Evidence: questionnaire complete, SOC 2 EXPIRED (2024), no DPA on file, MFA attested.",
+      "output": "{\n  \"vendor\": \"DataCleanse\",\n  \"data_access\": \"Customer PII (sensitive)\",\n  \"overall_risk\": \"moderate\",\n  \"recommendation\": \"conditional\",\n  \"domains\": [\n    { \"domain\": \"security\", \"evidence\": \"MFA attested; SOC 2 present but EXPIRED (2024)\", \"gap\": \"No current SOC 2 / equivalent\", \"rating\": \"moderate\" },\n    { \"domain\": \"compliance\", \"evidence\": \"No DPA on file for a PII-processing vendor\", \"gap\": \"Missing DPA\", \"rating\": \"high\" },\n    { \"domain\": \"data_access\", \"evidence\": \"Processes customer PII\", \"gap\": \"Scope/retention not documented\", \"rating\": \"moderate\" },\n    { \"domain\": \"breach_history\", \"evidence\": \"No known incidents\", \"gap\": \"none\", \"rating\": \"low\" }\n  ],\n  \"gaps\": [\"No DPA for a PII processor\", \"SOC 2 expired (2024)\", \"Data scope/retention undocumented\"],\n  \"conditions\": [\"Execute a DPA with data-processing scope, retention, and breach-notification terms\", \"Provide a current SOC 2 Type II (or ISO 27001)\", \"Document data scope and retention\"],\n  \"rationale\": \"Processes customer PII but is missing a DPA and a current SOC 2. Risk is moderate and the gaps are remediable; onboarding should be conditional on closing them.\",\n  \"escalation\": { \"needed\": false, \"to\": \"none\", \"reason\": \"\" },\n  \"not_final_approval\": true\n}",
+      "notes": "Because the vendor touches PII, the missing DPA is rated high — but the gaps are remediable, so the agent recommends a conditional path with a concrete remediation checklist rather than guessing or clearing it. It never assumes the expired SOC 2 still counts."
+    },
+    {
+      "title": "Critical-data vendor with prior breach + missing evidence → escalate",
+      "scenario": "A vendor that would access critical systems has an unremediated breach and an incomplete questionnaire. The agent refuses to score it clean and escalates.",
+      "input": "Vendor: CoreConnect (infrastructure integration). Data access: production systems + customer data (critical). Evidence: questionnaire 60% complete, no SOC 2 provided, breach_history shows a 2025 incident with no remediation evidence.",
+      "output": "{\n  \"vendor\": \"CoreConnect\",\n  \"data_access\": \"Production systems + customer data (critical)\",\n  \"overall_risk\": \"high\",\n  \"recommendation\": \"escalate\",\n  \"domains\": [\n    { \"domain\": \"security\", \"evidence\": \"No SOC 2 provided; questionnaire only 60% complete\", \"gap\": \"No security certification; key questions unanswered\", \"rating\": \"high\" },\n    { \"domain\": \"compliance\", \"evidence\": \"Incomplete\", \"gap\": \"Insufficient evidence to assess\", \"rating\": \"high\" },\n    { \"domain\": \"data_access\", \"evidence\": \"Production + customer data\", \"gap\": \"Critical access with unverified controls\", \"rating\": \"high\" },\n    { \"domain\": \"breach_history\", \"evidence\": \"2025 incident on record\", \"gap\": \"No remediation evidence provided\", \"rating\": \"high\" }\n  ],\n  \"gaps\": [\"No SOC 2 / security certification\", \"Questionnaire 40% unanswered\", \"Unremediated 2025 breach\"],\n  \"conditions\": [],\n  \"rationale\": \"Critical access to production and customer data, no security certification, an incomplete questionnaire, and a prior breach without remediation evidence. This cannot be assessed as low/moderate and must not be auto-cleared.\",\n  \"escalation\": { \"needed\": true, \"to\": \"risk_team\", \"reason\": \"Critical-data access with a prior unremediated breach and missing key security evidence.\" },\n  \"not_final_approval\": true\n}",
+      "notes": "The defining case: critical data access + a prior unremediated breach + missing evidence. The agent does not fabricate assurance from the partial questionnaire or hand-wave the breach — it rates every domain high and escalates to the risk team with the gaps. Missing evidence is treated as risk, not as a pass."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Does it approve vendors?",
+      "a": "No. It produces a first-pass, evidence-based risk assessment and a tier recommendation; a human makes the final call. Clearly low-risk vendors can be recommended for fast-tracking, but high-risk and critical-data vendors are escalated, never auto-approved."
+    },
+    {
+      "q": "How does it avoid giving false assurance?",
+      "a": "Every finding must cite a source it actually reviewed. If evidence for a control is missing, expired, or unanswered, it's flagged as a gap — it never infers a certification or clean record it hasn't seen."
+    },
+    {
+      "q": "How is risk weighted?",
+      "a": "By what the vendor will access. A vendor touching sensitive or customer data, or critical systems, is treated as inherently higher risk and held to stronger evidence than a low-touch tool."
+    },
+    {
+      "q": "What does it do with a risky or incomplete vendor?",
+      "a": "It rates the domains from the evidence, lists the gaps, and escalates to your risk team with the findings — or, for remediable moderate-risk cases, recommends conditions (e.g. obtain a DPA, current SOC 2) before onboarding."
+    },
+    {
+      "q": "Is it a legal or final approval?",
+      "a": "No. It's a risk view to support the decision, not a legal opinion or contract sign-off, and every output is marked as not-final-approval."
+    },
+    {
+      "q": "How does it support periodic review?",
+      "a": "It writes each assessment with cited evidence and a re-assessment date to your vendor register, so reviews can be scheduled and the trail is auditable."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Evaluation (Research → Evaluate)",
+    "worstCaseAction": "Produces an inaccurate vendor risk score, surfaced for human review. It cannot approve, onboard, or reject a vendor, or change any procurement record — execution tools are absent.",
+    "authorityBoundary": "Gathers vendor information, scores risk against your criteria, and surfaces findings for review. It never approves or onboards a vendor and never changes procurement systems. Procurement owns the decision.",
+    "verificationTest": "Attempt to call a vendor-approve or procurement-write tool → confirm it is absent from the registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: approval/procurement tools absent. Human gates: procurement decides. Confidence escalation: uncertain findings flagged. Cost ceiling: bounded. Audit trail: scores and evidence logged. Escalation path: high-risk vendors routed to a reviewer.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "vendor-risk-assessment-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Evaluation",
+      "worst_case_action": "Produces an inaccurate risk score for human review. Cannot approve or onboard vendors.",
+      "authority_boundary": "Assesses vendor risk and surfaces findings; no approval or procurement-write tools present.",
+      "tags": [
+        "compliance",
+        "vendor-risk",
+        "security",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "gather_vendor_info",
+          "check_criteria",
+          "score_risk",
+          "summarize_findings"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "vendor_approve",
+          "procurement_write"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.3,
+        "alert_threshold_usd": 0.2
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 10
+      },
+      "human_handoff": {
+        "triggers": [
+          "high_risk_vendor",
+          "missing_evidence",
+          "low_confidence"
+        ],
+        "destination": "procurement_review"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "scores",
+          "evidence",
+          "rationale"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Over- or under-rates risk from incomplete documents.",
+      "detection": "A completeness check flags missing evidence.",
+      "mitigation": "The assessment uses only provided evidence; gaps are marked, not assumed.",
+      "recovery": "Missing documents are requested and the assessment is marked provisional."
+    },
+    {
+      "mode": "A stale certification is treated as current.",
+      "detection": "Expiry dates on certifications are checked.",
+      "mitigation": "Expired or soon-to-expire certs are flagged.",
+      "recovery": "The case is routed to procurement for a refresh."
+    },
+    {
+      "mode": "A fabricated or altered document is accepted at face value.",
+      "detection": "The agent never asserts authenticity and flags anomalies in the document.",
+      "mitigation": "A human verifies authenticity; the agent assesses content only.",
+      "recovery": "Suspicious documents are escalated for manual review."
+    }
+  ],
+  "evaluation": {
+    "primary": "Agreement with expert reviewers, plus correct handling of incomplete evidence, is what matters — over- or under-rating risk on thin documents is the failure to watch.",
+    "metrics": [
+      {
+        "name": "Assessment agreement",
+        "description": "Agreement and calibration of risk ratings against expert reviewers."
+      },
+      {
+        "name": "Evidence-gap detection",
+        "description": "Share of assessments that correctly flag missing or expired evidence."
+      },
+      {
+        "name": "High-risk precision",
+        "description": "Of vendors flagged high-risk, the share that genuinely were."
+      },
+      {
+        "name": "Escalation rate",
+        "description": "How often it routes gaps and anomalies to a human reviewer."
+      },
+      {
+        "name": "Latency",
+        "description": "Time per vendor assessment."
+      }
+    ],
+    "approach": "Have experts score a set of vendor dossiers and measure agreement and calibration. Include incomplete and stale-certification dossiers specifically to test gap-flagging."
+  }
+}

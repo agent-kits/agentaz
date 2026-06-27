@@ -1,0 +1,356 @@
+{
+  "slug": "expense-report-auditor",
+  "title": "Expense Audit & Compliance Agent",
+  "category": "finance-accounting",
+  "shortDescription": "An expense-audit agent that checks each line against policy, flags out-of-policy items, duplicates, and fraud signals, then approves, holds, or escalates.",
+  "description": "An agent that audits submitted expense reports the way a diligent finance reviewer would: it checks each line item against your written policy, verifies receipts, catches duplicates and out-of-policy spend, and surfaces patterns that look like fraud — then approves within limits, holds specific items for review, or escalates. It is defensive by design: it never auto-approves above a configured cap or with required documentation missing, never accuses an employee of fraud without cited evidence, grounds every flag in a specific policy rule, and routes rejections and suspicious patterns to a human.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "expense-audit",
+    "finance",
+    "compliance",
+    "fraud-detection",
+    "accounts-payable",
+    "autonomous-agent",
+    "policy",
+    "spend",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Line-by-line audit against your actual policy: limits, categories, receipt rules, and per-diems — each flag cites the rule it breaks.",
+    "Catches what manual review misses: duplicate submissions, out-of-policy items, and suspicious patterns across reports.",
+    "Decides within limits: clean reports auto-approve; specific items are held for review; rejections and fraud signals go to a human.",
+    "Defensive: no auto-approval over the cap or with missing receipts, and no fraud accusation without cited evidence."
+  ],
+  "whenToUse": [
+    "Finance/AP reviews a high volume of expense reports and most of the work is policy-checking and receipt-matching.",
+    "You have a written expense policy the agent can audit against and access to receipts/report data.",
+    "You want consistent, documented audits with an approval trail for compliance.",
+    "You want to auto-clear clean reports and surface only the genuine exceptions and fraud signals to humans."
+  ],
+  "whenNotToUse": [
+    "You have no written, structured policy for the agent to audit against.",
+    "You expect it to make final fraud or termination determinations — those are human decisions.",
+    "You can't give it receipt/report access to actually verify line items.",
+    "You are unwilling to keep approval gates on large amounts and rejections."
+  ],
+  "systemPrompt": "You are an Expense Audit Agent in a finance operation. You audit ONE expense report against the company's written policy and decide: approve, hold specific items, reject, or escalate. You are judged on catching real policy violations and fraud, fairness and accuracy, and never approving spend you shouldn't or accusing someone without evidence.\n\n== CORE PRINCIPLES ==\n1. Policy-grounded. Every flag must cite the specific policy rule it violates (limit, category, receipt requirement, per-diem). Do not invent rules or violations; if the policy is silent, it is not a violation.\n2. Evidence over suspicion. Base duplicate/fraud flags on concrete evidence (matching receipt, overlapping dates, identical amounts). Never label an employee 'fraud' without cited evidence; flag patterns for human review instead.\n3. Audit each line. Approve the compliant items and flag only the specific non-compliant ones — don't reject a whole report over one bad line.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- APPROVAL LIMITS: Auto-approve ONLY when every line is within policy, required receipts are present, and the total is at or below the configured auto-approval cap. Anything above the cap, or with a policy exception, requires human approval.\n- RECEIPTS REQUIRED: Do not approve an item that policy requires a receipt for if the receipt is missing or unreadable — hold it.\n- NO UNFOUNDED ACCUSATIONS: Suspected duplicates/fraud are flagged with the evidence and routed to a human; never assert intent or wrongdoing.\n- PII/DATA: Treat employee and financial data as sensitive; keep it in scope; redact where not needed.\n- FAIRNESS: Apply the same policy consistently to every report.\n\n== METHOD ==\n- Load the report and the applicable policy. For each line: check category, amount vs. limit, receipt presence/validity, and per-diem/date rules.\n- Run duplicate detection (same amount+date+merchant, or the same receipt across reports) and basic anomaly checks (e.g. mileage + flight for the same leg, weekend/personal patterns).\n- Decide per line: ok / flag (with rule cited) / hold (missing doc). Then decide the report outcome.\n\n== DECISION POLICY (calibrated confidence 0.0-1.0) ==\n- APPROVE: all lines compliant, receipts present, total <= cap, confidence >= 0.85.\n- HOLD: specific items missing receipts or needing a minor fix — approve the rest, hold those.\n- REJECT_WITH_REASONS: clear policy violations; cite each. (Recommendation for a human to confirm.)\n- ESCALATE: total over cap, suspected duplicate/fraud, policy exception, or conflicting evidence.\n\n== COST CONTROL ==\nCheck only what each line needs; reuse the policy already loaded. Cap tool calls; if exceeded, approve the clearly-clean lines and escalate the rest.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"report_id\": \"<id>\",\n  \"decision\": \"APPROVE|HOLD|REJECT_WITH_REASONS|ESCALATE\",\n  \"confidence\": <0.0-1.0>,\n  \"total_usd\": <number>,\n  \"line_findings\": [ { \"item\": \"<line>\", \"status\": \"ok|flag|hold\", \"rule\": \"<policy rule cited, or empty>\", \"note\": \"<short>\" } ],\n  \"fraud_signals\": [\"<evidence-based pattern, or empty>\"],\n  \"approved_amount_usd\": <number>,\n  \"actions\": [ { \"tool\": \"<tool>\", \"args\": { ... }, \"requires_approval\": <bool> } ],\n  \"employee_note\": \"<neutral, factual; no accusation>\",\n  \"escalation\": { \"needed\": <bool>, \"reason\": \"<cap/fraud/exception, or empty>\" }\n}\nIf evidence is mixed, prefer HOLD or ESCALATE over REJECT, and never accuse without cited evidence.",
+  "architecture": [
+    {
+      "label": "Report intake",
+      "detail": "Receives the submitted expense report (line items, amounts, categories, dates, attached receipts) and the submitting employee/cost-center context."
+    },
+    {
+      "label": "Policy grounding",
+      "detail": "Loads the applicable written policy — limits, allowed categories, receipt thresholds, per-diems — the benchmark every line is audited against."
+    },
+    {
+      "label": "Receipt verification",
+      "detail": "Checks that required receipts are present and readable and that amounts/merchants match the claimed line, without approving items that lack required proof."
+    },
+    {
+      "label": "Duplicate & anomaly engine",
+      "detail": "Detects duplicate submissions (same receipt/amount/date) and anomalous patterns (overlapping travel, weekend/personal spend) as evidence for human review."
+    },
+    {
+      "label": "Line audit & decision gate",
+      "detail": "The model audits each line and a deterministic gate enforces the approval cap and receipt rules; over-cap totals and exceptions route to human approval."
+    },
+    {
+      "label": "Approval & routing",
+      "detail": "Approves compliant reports within limits, holds specific items, and routes rejections/fraud signals to finance with the cited evidence."
+    },
+    {
+      "label": "Audit trail & learning",
+      "detail": "Logs every decision with the cited rule and outcome for compliance, and feeds reviewer overrides back to refine checks."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_report",
+      "purpose": "Fetch the expense report: line items, amounts, categories, dates, attached receipts, and submitter context."
+    },
+    {
+      "name": "policy_lookup",
+      "purpose": "Return the applicable expense policy rules (limits, categories, receipt thresholds, per-diems) for the audit."
+    },
+    {
+      "name": "receipt_verify",
+      "purpose": "Check that required receipts are present/readable and that amount and merchant match the claimed line."
+    },
+    {
+      "name": "duplicate_check",
+      "purpose": "Detect duplicate submissions — the same receipt, amount+date+merchant, across this and prior reports."
+    },
+    {
+      "name": "fraud_signals",
+      "purpose": "Surface evidence-based anomaly patterns (overlapping travel, split charges, personal/weekend spend) for human review."
+    },
+    {
+      "name": "categorize",
+      "purpose": "Map each line to the correct expense category and the policy rule that governs it."
+    },
+    {
+      "name": "approve_expense",
+      "purpose": "Approve compliant lines/reports. Hard-capped: rejects amounts above the configured auto-approval cap or with missing required receipts."
+    },
+    {
+      "name": "escalate_to_finance",
+      "purpose": "Route to a human reviewer with the cited findings for over-cap totals, suspected fraud, or policy exceptions."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Intake the report",
+      "body": "Load the report, receipts, and submitter context; load the applicable policy."
+    },
+    {
+      "title": "2. Audit each line",
+      "body": "Check category, amount vs. limit, receipt presence/validity, and per-diem/date rules for every line, citing the rule on any flag."
+    },
+    {
+      "title": "3. Verify receipts",
+      "body": "Confirm required receipts are present and readable and match the line; hold items that lack required proof."
+    },
+    {
+      "title": "4. Detect duplicates & anomalies",
+      "body": "Run duplicate detection and pattern checks across this and prior reports, gathering evidence rather than asserting intent."
+    },
+    {
+      "title": "5. Decide per line and report",
+      "body": "Approve compliant lines, hold those missing docs, flag violations with the rule, and decide the report outcome within the cap."
+    },
+    {
+      "title": "6. Act through the gate",
+      "body": "Auto-approve within limits; route over-cap totals, rejections, and fraud signals to a human with the evidence."
+    },
+    {
+      "title": "7. Record the trail",
+      "body": "Log each decision with the cited rule and outcome for compliance, and feed overrides back to improve the checks."
+    }
+  ],
+  "implementationNotes": [
+    "Enforce the auto-approval cap and receipt requirements in a deterministic gate; the model audits, the gate controls what can be approved without a human.",
+    "Cite the specific policy rule on every flag. A finding without a rule is an opinion, not an audit — and citations make the trail defensible.",
+    "Treat duplicates and anomalies as evidence to review, never as proven fraud; route them to a human and keep employee-facing language neutral.",
+    "Audit per line and approve the compliant parts — rejecting whole reports over a single bad line creates friction and rework.",
+    "Backtest against historically audited reports and track missed-violation and false-flag rates before enabling auto-approval.",
+    "Keep employee and financial data in scope with PII discipline, and apply the policy identically to everyone for fairness and audit.",
+    "Reserve the strong model for anomaly judgment and the report decision; a cheaper model can match receipts and categorize lines."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Audit & flag assistant",
+      "desc": "Audits each line against policy, verifies receipts, and returns flagged items with the cited rule and a recommendation for a reviewer. No auto-approval."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Guarded auto-approval",
+      "desc": "Auto-approves clean reports within the cap, holds specific non-compliant lines, runs duplicate/anomaly detection, and escalates fraud signals and over-cap totals."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Governed spend audit",
+      "desc": "Adds multi-policy support, ERP/AP integration, full audit trails and SLAs, fraud-pattern analytics across employees, and check tuning from reviewer outcomes."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect your expense system",
+      "body": "Install the agent and connect it to your expense/AP platform.",
+      "code": "pipx install expense-audit-agent\nexpense-audit-agent connect --system concur\nexpense-audit-agent doctor"
+    },
+    {
+      "title": "Configure limits and mode",
+      "body": "The auto-approval cap and receipt rules are enforced deterministically, not by the model.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nAUTO_APPROVE_CAP_USD=250\nREQUIRE_RECEIPT_OVER_USD=25\nMODE=assist   # assist (recommend) | act (auto within cap)"
+    },
+    {
+      "title": "Load your expense policy",
+      "body": "Provide the structured policy the agent audits against. This is the only basis for flags.",
+      "code": "# policy.yml\nlimits: { meals: 60, hotel_per_night: 300, mileage_per_mile: 0.67 }\nreceipt_required_over: 25\ndisallowed: [\"alcohol_over_limit\", \"personal\", \"first_class_without_approval\"]\nper_diem: { domestic: 75 }"
+    },
+    {
+      "title": "Backtest on past reports",
+      "body": "Replay audited reports to compare the agent's findings to actual outcomes before going live.",
+      "code": "expense-audit-agent backtest --range 90d --explain\n# reports approve/flag accuracy and any missed violations"
+    },
+    {
+      "title": "Wire into the approval flow",
+      "body": "Route submitted reports to the agent. Start in assist mode, enable auto-approval within the cap once backtests are clean.",
+      "code": "# submission webhook -> POST https://your-host/expense/audit (HMAC)\n# promote MODE=act for within-cap clean reports"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Clean report within policy → auto-approve",
+      "scenario": "A standard travel report: every line within limits, receipts attached, total under the cap.",
+      "input": "Report EXP-3310, total $214: hotel $180 (receipt), taxi $19 (receipt), lunch $15 (receipt). Policy: hotel<=300/night, meals<=60, receipts over $25.",
+      "output": "{\n  \"report_id\": \"EXP-3310\",\n  \"decision\": \"APPROVE\",\n  \"confidence\": 0.93,\n  \"total_usd\": 214,\n  \"line_findings\": [\n    { \"item\": \"Hotel $180\", \"status\": \"ok\", \"rule\": \"hotel_per_night<=300\", \"note\": \"within limit, receipt present\" },\n    { \"item\": \"Taxi $19\", \"status\": \"ok\", \"rule\": \"\", \"note\": \"under receipt threshold, allowed\" },\n    { \"item\": \"Lunch $15\", \"status\": \"ok\", \"rule\": \"meals<=60\", \"note\": \"within limit\" }\n  ],\n  \"fraud_signals\": [],\n  \"approved_amount_usd\": 214,\n  \"actions\": [ { \"tool\": \"approve_expense\", \"args\": { \"report_id\": \"EXP-3310\", \"amount_usd\": 214 }, \"requires_approval\": false } ],\n  \"employee_note\": \"Your expense report EXP-3310 ($214) has been approved.\",\n  \"escalation\": { \"needed\": false, \"reason\": \"\" }\n}",
+      "notes": "Every line is checked against the cited policy rule, receipts are present, total is under the $250 cap — so it auto-approves and documents the rule for each line. This is the volume the kit clears instantly so humans only see exceptions."
+    },
+    {
+      "title": "Out-of-policy item + missing receipt → hold the line, approve the rest",
+      "scenario": "Mostly clean, but one meal is over the limit and a $40 item has no receipt. The agent holds those two lines and approves the rest.",
+      "input": "Report EXP-3402, total $268: hotel $190 (receipt), dinner $92 (receipt), supplies $40 (NO receipt). Policy: meals<=60, receipts required over $25.",
+      "output": "{\n  \"report_id\": \"EXP-3402\",\n  \"decision\": \"HOLD\",\n  \"confidence\": 0.9,\n  \"total_usd\": 268,\n  \"line_findings\": [\n    { \"item\": \"Hotel $190\", \"status\": \"ok\", \"rule\": \"hotel_per_night<=300\", \"note\": \"within limit\" },\n    { \"item\": \"Dinner $92\", \"status\": \"flag\", \"rule\": \"meals<=60\", \"note\": \"$32 over the per-meal limit; needs approval or adjustment\" },\n    { \"item\": \"Supplies $40\", \"status\": \"hold\", \"rule\": \"receipt_required_over=25\", \"note\": \"no receipt attached for a $40 item\" }\n  ],\n  \"fraud_signals\": [],\n  \"approved_amount_usd\": 190,\n  \"actions\": [ { \"tool\": \"approve_expense\", \"args\": { \"report_id\": \"EXP-3402\", \"lines\": [\"hotel\"], \"amount_usd\": 190 }, \"requires_approval\": false } ],\n  \"employee_note\": \"Approved the hotel ($190). Two items need attention: the dinner ($92) exceeds the $60 meal limit, and the $40 supplies item needs a receipt. Please add the receipt and confirm the meal overage with your manager.\",\n  \"escalation\": { \"needed\": false, \"reason\": \"\" }\n}",
+      "notes": "Instead of rejecting the whole report over two lines, the agent approves the compliant hotel and holds exactly the two problem items — each with the cited rule. The employee note is specific and actionable, not punitive."
+    },
+    {
+      "title": "Duplicate receipt across reports → escalate with evidence, no accusation",
+      "scenario": "A receipt submitted on this report also appears on a prior one. The agent flags the duplicate with evidence and escalates — without accusing the employee.",
+      "input": "Report EXP-3450: flight $610 with receipt #A-7782. duplicate_check finds receipt #A-7782 already reimbursed on EXP-3119 last month.",
+      "output": "{\n  \"report_id\": \"EXP-3450\",\n  \"decision\": \"ESCALATE\",\n  \"confidence\": 0.8,\n  \"total_usd\": 610,\n  \"line_findings\": [\n    { \"item\": \"Flight $610\", \"status\": \"flag\", \"rule\": \"duplicate_submission\", \"note\": \"receipt #A-7782 matches one already reimbursed on EXP-3119 (2026-05)\" }\n  ],\n  \"fraud_signals\": [\"Identical receipt #A-7782 ($610) appears on EXP-3119 (already reimbursed) and EXP-3450 — possible duplicate submission\"],\n  \"approved_amount_usd\": 0,\n  \"actions\": [ { \"tool\": \"escalate_to_finance\", \"args\": { \"queue\": \"duplicate_review\", \"evidence\": [\"EXP-3119\", \"EXP-3450\", \"receipt#A-7782\"] }, \"requires_approval\": false } ],\n  \"employee_note\": \"We're reviewing report EXP-3450; the flight receipt appears to match one already reimbursed. Finance will follow up — this may simply be an accidental re-submission.\",\n  \"escalation\": { \"needed\": true, \"reason\": \"Possible duplicate reimbursement — same receipt on two reports.\" }\n}",
+      "notes": "The defining defensive case: the agent has concrete evidence (same receipt number on two reports) but treats it as a possible duplicate to review, not proven fraud. It escalates with the evidence, holds the $610, and the employee note explicitly allows for an honest mistake. Evidence and fairness, never accusation."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it approve expenses automatically?",
+      "a": "Only when every line is within policy, required receipts are present, and the total is within your configured cap. Anything over the cap, missing a required receipt, or showing policy exceptions is held or escalated to a human."
+    },
+    {
+      "q": "How does it decide what violates policy?",
+      "a": "It audits each line against your structured written policy and cites the specific rule on every flag. If the policy is silent on something, it isn't treated as a violation — no invented rules."
+    },
+    {
+      "q": "Does it accuse employees of fraud?",
+      "a": "No. It surfaces evidence-based patterns (like a duplicate receipt) and routes them to a human for review with the evidence attached, keeping employee-facing language neutral. It never asserts intent or wrongdoing."
+    },
+    {
+      "q": "What happens to a report with one bad line?",
+      "a": "It approves the compliant lines and holds only the specific problem items, with the cited rule and what's needed to fix them — rather than rejecting the whole report."
+    },
+    {
+      "q": "How does it catch duplicates?",
+      "a": "It checks for the same receipt, or the same amount/date/merchant, across the current and prior reports, and flags genuine matches as possible duplicates for human review."
+    },
+    {
+      "q": "How do we roll it out safely?",
+      "a": "Start in assist mode where it only recommends, backtest against historically audited reports, then enable auto-approval for clean within-cap reports once the results hold up."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Evaluation (Research → Evaluate)",
+    "worstCaseAction": "Flags a compliant expense or misses a non-compliant one, surfaced for human review. It cannot approve, reject, reimburse, or pay an expense — execution tools are absent.",
+    "authorityBoundary": "Reviews expense reports against policy, flags violations and anomalies, and surfaces them for review. It never approves, rejects, or reimburses. A human in finance decides.",
+    "verificationTest": "Attempt to call an approve, reject, or payment tool → confirm it is absent from the agent's registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: approval/payment tools absent. Human gates: finance decides. Confidence escalation: ambiguous items flagged. Cost ceiling: bounded. Audit trail: flags and policy refs logged. Escalation path: violations routed to finance.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "expense-report-audit-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Evaluation",
+      "worst_case_action": "Flags an expense incorrectly for human review. Cannot approve, reject, or reimburse.",
+      "authority_boundary": "Audits expenses against policy and flags issues; no approval or payment tools present.",
+      "tags": [
+        "finance",
+        "expense-audit",
+        "compliance",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_expense",
+          "check_policy",
+          "detect_anomaly",
+          "flag_violation"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "expense_approve",
+          "expense_reject",
+          "payment"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.25,
+        "alert_threshold_usd": 0.16
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "policy_violation",
+          "anomaly",
+          "low_confidence"
+        ],
+        "destination": "finance_review"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "flags",
+          "policy_refs"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Misses a genuine policy violation (false negative).",
+      "detection": "Every report is screened against the full policy set, not sampled.",
+      "mitigation": "Positioned as full-coverage screening with a human deciding exceptions.",
+      "recovery": "The missed rule is added post-audit and the report can be re-screened."
+    },
+    {
+      "mode": "Flags a compliant expense as a violation (false positive).",
+      "detection": "Each finding carries confidence and cites the policy clause.",
+      "mitigation": "Findings are recommendations a human approves; it never auto-rejects.",
+      "recovery": "The approver clears it and the rule is tuned."
+    },
+    {
+      "mode": "A receipt is fabricated or altered.",
+      "detection": "The agent flags anomalies but never asserts authenticity.",
+      "mitigation": "A human verifies authenticity.",
+      "recovery": "Suspicious items are escalated to finance."
+    }
+  ],
+  "evaluation": {
+    "primary": "Violation recall is what matters — missing a genuine policy breach is the failure — against a tolerable false-positive rate.",
+    "metrics": [
+      {
+        "name": "Violation recall",
+        "description": "Of genuine policy violations, the share it catches."
+      },
+      {
+        "name": "Precision",
+        "description": "Of items flagged, the share that are real violations — noise resistance."
+      },
+      {
+        "name": "Policy coverage",
+        "description": "Share of policy rules actually exercised by the screen."
+      },
+      {
+        "name": "Citation accuracy",
+        "description": "Whether each flag cites the correct policy clause."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to audit a report."
+      }
+    ],
+    "approach": "Build a set of expense reports annotated against the full policy, with seeded violations and compliant edge cases; measure recall and precision and verify each flag cites the right clause. Include altered-receipt cases to confirm it flags rather than asserts authenticity."
+  }
+}

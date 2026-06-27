@@ -1,0 +1,55 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "daily-planner-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Planning",
+  "worst_case_action": "Proposes a suboptimal schedule for user review. Cannot book, schedule, or block time.",
+  "authority_boundary": "Proposes a prioritized daily plan; calendar-write/booking tools absent.",
+  "tags": [
+    "personal-productivity",
+    "planning",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_tasks",
+      "read_constraints",
+      "prioritize",
+      "propose_plan"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "book_meeting",
+      "block_calendar",
+      "send_invite",
+      "schedule"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.18,
+    "alert_threshold_usd": 0.12
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 6
+  },
+  "human_handoff": {
+    "triggers": [
+      "scheduling_conflict",
+      "overcommitted"
+    ],
+    "destination": "user"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "plan",
+      "inputs"
+    ]
+  }
+}

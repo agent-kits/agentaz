@@ -1,0 +1,56 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "literature-synthesis-agent",
+  "trust_level": "A1",
+  "dna_pattern": "Research",
+  "worst_case_action": "Includes an overstated claim in a synthesis for human review. Never fabricates citations; no actions.",
+  "authority_boundary": "Synthesizes literature with citations; never fabricates; action tools absent.",
+  "tags": [
+    "research",
+    "literature",
+    "read-only",
+    "cited"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_sources",
+      "synthesize",
+      "cite_source",
+      "grade_evidence",
+      "flag_gap"
+    ],
+    "execution_tools_absent": true,
+    "read_only": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "action"
+    ],
+    "never_fabricates": true
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.3,
+    "alert_threshold_usd": 0.2
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 10
+  },
+  "human_handoff": {
+    "triggers": [
+      "weak_evidence",
+      "conflicting_findings"
+    ],
+    "destination": "researcher"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "sources",
+      "citations",
+      "evidence_grades"
+    ]
+  }
+}

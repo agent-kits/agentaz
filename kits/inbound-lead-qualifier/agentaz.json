@@ -1,0 +1,55 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "lead-qualification-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Evaluation",
+  "worst_case_action": "Produces an inaccurate lead score for rep review. Cannot contact leads or write to a CRM.",
+  "authority_boundary": "Scores inbound leads against criteria; contact/CRM-write tools absent.",
+  "tags": [
+    "sales",
+    "lead-qualification",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_lead",
+      "match_criteria",
+      "score",
+      "explain"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "email_lead",
+      "crm_write",
+      "auto_route"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.2,
+    "alert_threshold_usd": 0.14
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "borderline_score",
+      "high_value_lead",
+      "insufficient_info"
+    ],
+    "destination": "sales_rep"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "scores",
+      "reasoning"
+    ]
+  }
+}

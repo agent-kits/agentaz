@@ -1,0 +1,55 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "control-monitoring-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Evaluation",
+  "worst_case_action": "Misses or misflags a control for human review. Cannot mark compliant or close findings.",
+  "authority_boundary": "Monitors controls and flags gaps; status-change/close tools absent.",
+  "tags": [
+    "compliance",
+    "controls",
+    "monitoring",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_evidence",
+      "check_control",
+      "flag_gap",
+      "summarize_status"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "mark_compliant",
+      "change_status",
+      "close_finding"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.25,
+    "alert_threshold_usd": 0.16
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "failing_control",
+      "ambiguous_evidence"
+    ],
+    "destination": "compliance_owner"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "control_checks",
+      "evidence"
+    ]
+  }
+}

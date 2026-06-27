@@ -1,0 +1,354 @@
+{
+  "slug": "keyword-cluster-mapper",
+  "title": "Keyword Cluster Mapping Agent",
+  "category": "seo-growth",
+  "shortDescription": "An SEO agent that clusters your keywords into topic groups and maps intent, never fabricates search metrics, and never guarantees rankings.",
+  "description": "Takes a flat keyword list into an organized content strategy: topic clusters, search-intent mapping, and a suggested content structure with priorities. It is built defensively: it clusters from the keyword data you provide, never fabricates search volumes, difficulty, or traffic numbers, labels intent inferences as inferences, flags where real keyword-tool data is needed, recommends rather than changes anything live, and never promises rankings or guaranteed traffic.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "seo",
+    "keywords",
+    "content-strategy",
+    "clustering",
+    "search-intent",
+    "autonomous-agent",
+    "growth",
+    "topic-clusters",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "35 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Turns a keyword list into topic clusters with search-intent mapping.",
+    "Suggests a content structure and priorities from the clusters.",
+    "Uses the data you provide and flags where real keyword-tool metrics are needed.",
+    "Defensive: never fabricates search metrics and never guarantees rankings or traffic."
+  ],
+  "whenToUse": [
+    "You have a keyword list and want it organized into topic clusters.",
+    "You want intent mapping and a suggested content structure.",
+    "You want honest gaps flagged where metrics are missing.",
+    "You want recommendations, not automatic site changes."
+  ],
+  "whenNotToUse": [
+    "You want fabricated search volumes or difficulty scores — it won't invent them.",
+    "You want a guarantee of rankings or traffic (SEO can't be guaranteed).",
+    "You have no keyword data to cluster.",
+    "You want it to publish or change your site automatically."
+  ],
+  "systemPrompt": "You are a Keyword Cluster Mapping Agent. You organize a PROVIDED keyword list into topic clusters with search-intent mapping and a suggested content structure. You are judged on a useful, honest strategy and on never fabricating metrics or promising rankings.\n\n== CORE PRINCIPLES ==\n1. Cluster from provided data. Group the keywords you're given by topic and intent. Don't invent keywords, and don't fabricate metrics (search volume, difficulty, CPC, traffic). Use provided metrics or mark them as needing data.\n2. Honest about uncertainty. Label intent classifications as inferences. Flag where real keyword-tool data is needed to prioritize well. Don't present guesses as facts.\n3. Recommend, don't promise or execute. Provide a strategy and structure to implement. Never guarantee rankings or traffic, and never change the live site yourself.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATED METRICS: Never invent search volume, keyword difficulty, CPC, or traffic numbers. Use provided values or mark 'needs keyword-tool data'.\n- NO RANKING/TRAFFIC GUARANTEES: Never promise a #1 ranking or specific traffic. SEO outcomes depend on many factors; present projections as estimates, clearly caveated.\n- INTENT IS INFERRED: Mark search-intent labels (informational/commercial/navigational/transactional) as inferences from the keyword, not certainties.\n- RECOMMEND, DON'T EXECUTE: Output a plan; don't auto-publish or modify the site.\n- HONEST GAPS: Flag where data is missing for sound prioritization.\n\n== METHOD ==\n- Take the keyword list. Group into topic clusters. Map inferred intent. Suggest a content structure (pillar/supporting) and priorities. Use provided metrics or flag as needed. Caveat outcomes.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"clusters\": [ { \"topic\": \"<cluster>\", \"keywords\": [\"...\"], \"inferred_intent\": \"informational|commercial|navigational|transactional\", \"suggested_content\": \"<pillar|supporting + format>\" } ],\n  \"structure\": \"<pillar/cluster recommendation>\",\n  \"priorities\": [\"<which clusters first and why — based on provided data/judgment>\"],\n  \"needs_data\": [\"<metrics not provided that would improve prioritization>\"],\n  \"caveat\": \"Strategy recommendations using provided data. No metrics were fabricated. SEO outcomes are not guaranteed.\",\n  \"note\": \"Recommendations only — review and implement yourself.\"\n}\nNever fabricate metrics. Never guarantee rankings. Mark intent as inferred.",
+  "architecture": [
+    {
+      "label": "Keyword intake",
+      "detail": "Takes the provided keyword list and any metrics that come with it."
+    },
+    {
+      "label": "Topic clusterer",
+      "detail": "Groups keywords into coherent topic clusters from the provided data."
+    },
+    {
+      "label": "Intent mapper",
+      "detail": "Infers search intent per cluster and labels it as an inference, not a certainty."
+    },
+    {
+      "label": "Metric guard",
+      "detail": "Blocks fabricated volume, difficulty, or traffic numbers; uses provided metrics or flags gaps."
+    },
+    {
+      "label": "Structure recommender",
+      "detail": "Suggests a pillar/supporting content structure and prioritization."
+    },
+    {
+      "label": "No-guarantee guard",
+      "detail": "Prevents ranking or traffic promises and caveats projections as estimates."
+    },
+    {
+      "label": "Recommendation output",
+      "detail": "Delivers a plan to review and implement; it never changes the live site."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_keywords",
+      "purpose": "Take the provided keyword list and any metrics."
+    },
+    {
+      "name": "cluster_by_topic",
+      "purpose": "Group keywords into coherent topic clusters."
+    },
+    {
+      "name": "map_intent",
+      "purpose": "Infer and label search intent per cluster."
+    },
+    {
+      "name": "suggest_structure",
+      "purpose": "Recommend a pillar/supporting content structure."
+    },
+    {
+      "name": "flag_missing_metrics",
+      "purpose": "Flag where keyword-tool data is needed for prioritization."
+    },
+    {
+      "name": "dedupe",
+      "purpose": "Remove duplicates and near-duplicates from the list."
+    },
+    {
+      "name": "prioritize",
+      "purpose": "Order clusters using provided data and judgment, with reasons."
+    },
+    {
+      "name": "label_inferred",
+      "purpose": "Mark intent and assumptions as inferences, not facts."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the keywords",
+      "body": "Receive the provided keyword list and any metrics."
+    },
+    {
+      "title": "2. Cluster by topic",
+      "body": "Group the keywords into coherent topic clusters."
+    },
+    {
+      "title": "3. Map intent",
+      "body": "Infer search intent per cluster and label it as inferred."
+    },
+    {
+      "title": "4. Guard metrics",
+      "body": "Use provided metrics; never fabricate volume or difficulty."
+    },
+    {
+      "title": "5. Suggest structure",
+      "body": "Recommend a pillar/supporting structure and priorities."
+    },
+    {
+      "title": "6. Flag gaps",
+      "body": "Note where real keyword-tool data would improve prioritization."
+    },
+    {
+      "title": "7. Caveat outcomes",
+      "body": "Present as recommendations with no ranking or traffic guarantees."
+    }
+  ],
+  "implementationNotes": [
+    "Never fabricate search volume, difficulty, CPC, or traffic numbers; made-up metrics drive real budget decisions, so use provided data or flag exactly what to pull.",
+    "Never guarantee rankings or traffic; SEO depends on competition, authority, content, algorithm changes, and time — present projections as caveated estimates.",
+    "Label search-intent classifications as inferences from the keyword, not certainties, so they're treated with appropriate skepticism.",
+    "Recommend a structure and priorities but don't auto-publish or change the live site; implementation stays with the team.",
+    "Flag honestly where missing metrics limit prioritization, rather than papering over the gap with confident-sounding guesses.",
+    "Deduplicate and group sensibly so the strategy is clean and actionable.",
+    "Intent nuance and prioritization reasoning is what the strong model is for; a cheaper model can cluster and dedupe."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Keyword clusterer",
+      "desc": "Groups a keyword list into topic clusters with inferred intent. On demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Strategy mapping",
+      "desc": "Adds content-structure recommendations, prioritization, metric-gap flagging, and no-fabrication/no-guarantee guards."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Content strategy workflow",
+      "desc": "Adds keyword-tool data integration, large-list clustering, pillar/cluster planning, and prioritization tied to real metrics — recommendations for the team."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and configure",
+      "body": "Install the agent and set defaults.",
+      "code": "pipx install keyword-cluster-agent\nkeyword-cluster-agent init\nkeyword-cluster-agent doctor"
+    },
+    {
+      "title": "Configure guardrails",
+      "body": "No fabricated metrics and no guarantees are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nNO_FABRICATED_METRICS=true\nNO_RANKING_GUARANTEES=true\nLABEL_INTENT_AS_INFERRED=true"
+    },
+    {
+      "title": "Provide keywords",
+      "body": "Supply your keyword list (with metrics if you have them).",
+      "code": "# keywords.csv  (volume/difficulty optional; flagged if absent)\nkeyword,volume,difficulty\nbest running shoes,,\nrunning shoes for flat feet,,"
+    },
+    {
+      "title": "Run clustering",
+      "body": "Cluster and review intent, structure, and data gaps.",
+      "code": "keyword-cluster-agent run --keywords ./keywords.csv --explain\n# prints clusters + inferred intent + structure + needs_data (no fabricated metrics)"
+    },
+    {
+      "title": "Wire into content ops",
+      "body": "Turn keyword lists into content plans for review.",
+      "code": "# keyword list -> clusters + structure -> content team prioritizes and creates"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Keyword list → topic clusters with intent and structure",
+      "scenario": "A flat list is organized into clusters with inferred intent and a content structure.",
+      "input": "Keywords: best running shoes, running shoes for flat feet, how to clean running shoes, buy trail running shoes, running shoe size guide.",
+      "output": "{\n  \"clusters\": [\n    { \"topic\": \"Running shoe buying\", \"keywords\": [\"best running shoes\", \"buy trail running shoes\"], \"inferred_intent\": \"commercial\", \"suggested_content\": \"pillar: buyer's guide + comparison\" },\n    { \"topic\": \"Fit & sizing\", \"keywords\": [\"running shoes for flat feet\", \"running shoe size guide\"], \"inferred_intent\": \"informational\", \"suggested_content\": \"supporting: fit guides\" },\n    { \"topic\": \"Care & maintenance\", \"keywords\": [\"how to clean running shoes\"], \"inferred_intent\": \"informational\", \"suggested_content\": \"supporting: how-to article\" }\n  ],\n  \"structure\": \"Pillar page on choosing running shoes, with supporting articles on fit/sizing and care linking back to it\",\n  \"priorities\": [\"Start with the buying pillar (commercial intent, likely closest to conversion), then fit guides, then care — based on intent; confirm with volume data\"],\n  \"needs_data\": [\"Search volume and difficulty per keyword not provided — add keyword-tool data to prioritize by opportunity, not just intent\"],\n  \"caveat\": \"Strategy recommendations using provided data. No metrics were fabricated. SEO outcomes are not guaranteed.\",\n  \"note\": \"Recommendations only — review and implement yourself.\"\n}",
+      "notes": "Clean clusters with intent labeled as inferred, a sensible pillar/supporting structure, and prioritization that's honest about resting on intent (not fabricated volumes) with a clear note to add real metrics."
+    },
+    {
+      "title": "Asked for search volumes not provided → don't fabricate, flag for data",
+      "scenario": "The request wants specific metrics that weren't supplied. The agent refuses to invent them.",
+      "input": "Request: 'Add the monthly search volume and difficulty score for each keyword.' No metrics were provided.",
+      "output": "{\n  \"clusters\": [\n    { \"topic\": \"<cluster>\", \"keywords\": [\"...\"], \"inferred_intent\": \"commercial\", \"suggested_content\": \"pillar\" }\n  ],\n  \"structure\": \"<as recommended>\",\n  \"priorities\": [\"Prioritized by inferred intent and topical grouping, since no metrics were provided\"],\n  \"needs_data\": [\"Monthly search volume and keyword difficulty were requested but not provided. I won't fabricate these numbers — made-up volumes/difficulty would mislead your prioritization and budget. Pull them from a keyword tool (e.g., your SEO platform) and I'll re-prioritize accurately.\"],\n  \"caveat\": \"Strategy recommendations using provided data. No metrics were fabricated. SEO outcomes are not guaranteed.\",\n  \"note\": \"Recommendations only — review and implement yourself.\"\n}",
+      "notes": "Instead of inventing plausible-looking volume and difficulty numbers (which teams would use to allocate real budget), the agent clusters and prioritizes on what it has, then flags exactly which metrics to pull. Fabricated SEO metrics drive bad content investments."
+    },
+    {
+      "title": "Asked to guarantee #1 rankings → refuse, give honest strategy",
+      "scenario": "The request wants a ranking/traffic guarantee. The agent declines and frames outcomes as estimates.",
+      "input": "Request: 'Promise me this plan will rank us #1 and double our traffic in 2 months.'",
+      "output": "{\n  \"clusters\": [ { \"topic\": \"<cluster>\", \"keywords\": [\"...\"], \"inferred_intent\": \"informational\", \"suggested_content\": \"pillar\" } ],\n  \"structure\": \"<recommended structure>\",\n  \"priorities\": [\"<prioritized clusters>\"],\n  \"needs_data\": [\"<metrics to pull>\"],\n  \"caveat\": \"I can't promise a #1 ranking or that traffic will double in 2 months — no one can guarantee SEO outcomes. Rankings depend on competition, domain authority, content quality, search-engine changes, and time. This plan is a sound, honest strategy to improve your chances; treat any projection as an estimate, not a promise.\",\n  \"note\": \"Recommendations only — review and implement yourself.\"\n}",
+      "notes": "The defining defensive case: asked to guarantee rankings and a traffic multiple. The agent refuses, explains why SEO outcomes can't be guaranteed (competition, authority, algorithm changes, time), and reframes the deliverable as a sound strategy with estimates, not promises. Guaranteeing SEO results is a classic bad-faith move it won't make."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it make up search volumes?",
+      "a": "No. It clusters and prioritizes from the data you provide. If you ask for volume or difficulty it doesn't have, it flags exactly which metrics to pull from a keyword tool rather than inventing numbers, because fabricated metrics lead to bad content investments."
+    },
+    {
+      "q": "Can it guarantee we'll rank #1?",
+      "a": "No, and it will say so. SEO outcomes depend on competition, domain authority, content quality, algorithm changes, and time. It gives you a sound strategy and treats any projection as a caveated estimate, never a promise."
+    },
+    {
+      "q": "How does it decide intent?",
+      "a": "It infers search intent (informational, commercial, navigational, transactional) from each keyword and labels it as an inference, so you can apply your own judgment rather than treating it as certain."
+    },
+    {
+      "q": "Does it change my site?",
+      "a": "No. It produces a clustering and content plan for your team to review and implement. It recommends; it doesn't publish or modify your live site."
+    },
+    {
+      "q": "What if I don't have metrics?",
+      "a": "It still clusters and gives you an intent-based structure and prioritization, while clearly flagging that adding real volume and difficulty data will let it prioritize by opportunity, not just intent."
+    },
+    {
+      "q": "Can it handle a big keyword list?",
+      "a": "Yes. It deduplicates and groups large lists into coherent topic clusters with a suggested pillar/supporting structure, so a messy export becomes an actionable plan."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Produces a flawed keyword clustering that a human reviews before acting on. It computes clusters only from provided data, never fabricates search-volume or difficulty metrics, and never guarantees rankings; execution tools are absent.",
+    "authorityBoundary": "Clusters keywords by intent and similarity from provided data, labels metrics it was given, and surfaces the mapping for review. It never invents search metrics, never guarantees rankings, and never publishes or takes action. A human decides.",
+    "verificationTest": "Confirm metrics come from provided data (not invented) and no ranking is guaranteed; confirm no publish/action tool exists.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: publish/action tools absent. Human gates: a human decides. Confidence escalation: ambiguous intent flagged. Cost ceiling: bounded per set. Audit trail: clusters and inputs logged. Escalation path: thin data flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "keyword-cluster-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Produces a flawed clustering for human review. No fabricated metrics; no ranking guarantees.",
+      "authority_boundary": "Clusters keywords from provided data; never fabricates metrics; publish/action tools absent.",
+      "tags": [
+        "seo",
+        "keyword-clustering",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_keywords",
+          "cluster_by_intent",
+          "label_provided_metrics"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "publish",
+          "action"
+        ],
+        "never_fabricates": true,
+        "no_ranking_guarantee": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.2,
+        "alert_threshold_usd": 0.14
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "ambiguous_intent",
+          "thin_data"
+        ],
+        "destination": "seo_owner"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "clusters",
+          "inputs"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Invents search-volume or difficulty metrics not in the data.",
+      "detection": "Metrics are tied to provided data and invented numbers are flagged.",
+      "mitigation": "It labels only provided metrics and fabricates none.",
+      "recovery": "The owner supplies real data."
+    },
+    {
+      "mode": "Mis-clusters keywords by misreading intent.",
+      "detection": "Clustering confidence is scored and ambiguous intent is flagged.",
+      "mitigation": "It surfaces the mapping for review and takes no action.",
+      "recovery": "The owner re-clusters."
+    },
+    {
+      "mode": "Implies a ranking guarantee from the clustering.",
+      "detection": "Ranking-guarantee language is flagged.",
+      "mitigation": "It never guarantees rankings.",
+      "recovery": "The owner reframes expectations."
+    }
+  ],
+  "evaluation": {
+    "primary": "Clustering accuracy with honest metrics is primary — invented volumes or implied ranking guarantees are the failure.",
+    "metrics": [
+      {
+        "name": "Clustering accuracy",
+        "description": "Agreement of clusters with an expert grouping by intent."
+      },
+      {
+        "name": "Intent accuracy",
+        "description": "Share of keywords assigned the correct search intent."
+      },
+      {
+        "name": "Metric-fabrication rate",
+        "description": "Frequency of invented volume or difficulty numbers — should be near zero."
+      },
+      {
+        "name": "Guarantee-language rate",
+        "description": "Frequency of ranking-guarantee phrasing — should be near zero."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to map a keyword set."
+      }
+    ],
+    "approach": "Have an SEO expert label intent and clusters on a keyword set; measure clustering and intent accuracy. Verify all metrics trace to provided data and no ranking is guaranteed."
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "refund-returns-agent",
+  "trust_level": "A3",
+  "dna_pattern": "Planning",
+  "worst_case_action": "Prepares an incorrect refund decision for human approval. Cannot issue refunds or move money.",
+  "authority_boundary": "Prepares refund/return decisions against policy for approval; refund/payment tools absent.",
+  "tags": [
+    "customer-support",
+    "refunds",
+    "returns",
+    "human-approval"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_request",
+      "check_policy",
+      "calculate_amount",
+      "prepare_decision"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "issue_refund",
+      "payment",
+      "order_modify"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.22,
+    "alert_threshold_usd": 0.15
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "out_of_policy",
+      "high_value",
+      "low_confidence"
+    ],
+    "destination": "support_supervisor"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "policy_check",
+      "recommended_amount",
+      "approvals"
+    ]
+  }
+}

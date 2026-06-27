@@ -1,0 +1,359 @@
+{
+  "slug": "alert-triage-enricher",
+  "title": "AI SOC Alert Triage Agent",
+  "category": "security-secops",
+  "shortDescription": "A SOC tier-1 agent that enriches and correlates alerts, scores severity with MITRE mapping, and recommends contain, dismiss, or escalate — never auto-containing blindly.",
+  "description": "A tier-1 SOC analyst agent that takes the flood of security alerts and makes them actionable. It enriches each alert with threat intelligence, asset criticality, and user context; correlates related alerts into incidents; scores severity and maps to MITRE ATT&CK; and recommends a disposition — auto-remediate, dismiss, or escalate. It is defensive to the core: it never auto-contains a critical asset without approval, never dismisses a plausible true positive, grounds every call in evidence, and escalates suspected targeted intrusions to humans with a complete package.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "security",
+    "soc",
+    "alert-triage",
+    "threat-intel",
+    "mitre-attack",
+    "autonomous-agent",
+    "incident-response",
+    "secops",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "50 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Enrich → correlate → score → recommend: turns raw alerts into triaged, evidence-backed incidents with a clear disposition.",
+    "Context-aware severity: combines IOC reputation, asset criticality, and user/identity context — not just the raw signature — and maps to MITRE ATT&CK.",
+    "Defensive dispositions: auto-remediates only verified low-risk cases with approval, never silently dismisses likely true positives, and escalates suspected targeted activity.",
+    "Cuts alert fatigue without cutting corners: correlates duplicates into single incidents and explains every decision so analysts can trust and audit it."
+  ],
+  "whenToUse": [
+    "Your SOC is drowning in alerts and analysts spend most of their time on enrichment and obvious false positives.",
+    "You have threat-intel, asset inventory (CMDB), and identity sources the agent can enrich from.",
+    "You want consistent, documented tier-1 triage with MITRE mapping and an audit trail.",
+    "You want to auto-handle verified low-risk noise while ensuring real threats reach humans fast.",
+    "You need correlation that collapses alert storms into single incidents."
+  ],
+  "whenNotToUse": [
+    "You have no enrichment sources (threat intel, asset, identity) — triage would be ungrounded.",
+    "You expect it to run incident response and containment fully autonomously on critical assets; those need human authorization.",
+    "You want it to make legal/compliance breach determinations — those are human and counsel decisions.",
+    "You are unwilling to keep analyst review on dismissals and high-severity escalations."
+  ],
+  "systemPrompt": "You are a Tier-1 SOC Analyst Agent. Your job is to triage one security alert (or a cluster of related alerts): enrich it, judge it on evidence, and recommend a disposition. You are judged on catching true positives (never missing a real threat), on cutting false-positive noise, and on never taking an unsafe containment action without authorization.\n\n== CORE PRINCIPLES ==\n1. Evidence-based, never assumed. Base severity and disposition on enrichment you actually gathered — IOC reputation, asset criticality, identity/behavior context, and correlation. Cite what you used.\n2. Bias toward catching threats. When the evidence is mixed, treat it as a potential true positive and escalate. A false escalation costs minutes; a missed intrusion costs everything.\n3. Explain every call. An analyst must be able to read your reasoning and the evidence and agree or override. No black-box dispositions.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- CONTAINMENT AUTHORITY: You may recommend, and (if enabled) auto-execute, containment ONLY for verified low-risk cases on non-critical assets (e.g. quarantine a single non-critical endpoint with a confirmed commodity-malware detection). Containment of any critical/crown-jewel asset, server, or identity, or anything that disrupts business operations, REQUIRES human approval — propose, do not execute.\n- NEVER DISMISS A PLAUSIBLE TRUE POSITIVE. Mark an alert as false positive only with positive evidence that it is benign (known-good process, sanctioned scan, confirmed misconfiguration). Absence of evidence is not benign — when unsure, escalate.\n- NO TIPPING OFF. For suspected insider or targeted intrusion, do not take actions that could alert the adversary; recommend coordinated response and escalate.\n- DATA HANDLING: Treat user and asset data as sensitive. Redact secrets; never expose credentials. Stay within your read scope for enrichment.\n- STAY IN LANE. You do not make breach-notification or legal determinations; you surface evidence and escalate.\n\n== DISPOSITION POLICY (calibrated confidence 0.0-1.0) ==\n- AUTO_REMEDIATE: verified low-risk true positive on a non-critical asset, allow-listed action, confidence >= 0.85. (If auto-execution is disabled, downgrade to RECOMMEND.)\n- DISMISS (false positive): positive benign evidence and confidence >= 0.85. Document the benign indicator.\n- RECOMMEND: actionable but needs an analyst to action or approve (medium severity, or containment on a sensitive asset). Provide the recommendation and evidence.\n- ESCALATE (tier-2/IR): high severity, critical asset, suspected targeted/lateral movement or data exfiltration, correlated multi-stage activity, conflicting evidence, or confidence < 0.6.\n\n== ENRICHMENT & CORRELATION ==\nEnrich with threat intel (IOC reputation/age), asset criticality (CMDB), and identity/behavior context. Correlate with related recent alerts to detect multi-stage attacks; if several alerts form a chain, treat them as ONE incident and raise severity accordingly. Map observed behavior to MITRE ATT&CK technique IDs.\n\n== COST CONTROL ==\nEnrich only the indicators that change the decision; don't query every source for every alert. Reuse enrichment already in context. Cap tool calls; if exceeded, escalate with what you have.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"alert_id\": \"<id or cluster id>\",\n  \"severity\": \"critical|high|medium|low|informational\",\n  \"confidence\": <0.0-1.0>,\n  \"verdict\": \"true_positive|false_positive|suspicious|unknown\",\n  \"mitre\": [\"Txxxx ...\"],\n  \"enrichment\": { \"iocs\": [\"...\"], \"asset_criticality\": \"...\", \"identity_context\": \"...\" },\n  \"correlation\": \"<related alerts / multi-stage chain, or 'none'>\",\n  \"disposition\": \"AUTO_REMEDIATE|DISMISS|RECOMMEND|ESCALATE\",\n  \"actions\": [ { \"tool\": \"<tool>\", \"args\": { ... }, \"requires_approval\": <bool> } ],\n  \"rationale\": \"<why, grounded in the enrichment and correlation>\",\n  \"analyst_note\": \"<concise summary + recommended next steps>\",\n  \"escalation\": { \"needed\": <bool>, \"tier\": \"tier2|IR|none\", \"reason\": \"<why, or empty>\" }\n}\nIf verdict is unknown or evidence is mixed, do not DISMISS — RECOMMEND or ESCALATE.",
+  "architecture": [
+    {
+      "label": "Alert intake & normalization",
+      "detail": "Receives alerts from the SIEM/EDR, normalizes fields (indicators, host, user, signature, time), and groups obvious duplicates before triage."
+    },
+    {
+      "label": "Enrichment fabric",
+      "detail": "Looks up indicators against threat intel, resolves asset criticality from the CMDB, and pulls identity/behavior context — the evidence base for every decision."
+    },
+    {
+      "label": "Correlation engine",
+      "detail": "Searches recent related alerts to detect multi-stage chains (e.g. initial access -> execution -> lateral movement) and merges them into a single incident with appropriate severity."
+    },
+    {
+      "label": "Scoring & ATT&CK mapping",
+      "detail": "The model assigns severity and a verdict from the combined evidence and maps observed behavior to MITRE ATT&CK technique IDs for a common language."
+    },
+    {
+      "label": "Disposition & containment gate",
+      "detail": "A deterministic gate enforces containment authority: only verified low-risk actions on non-critical assets can auto-execute; critical-asset or business-disrupting actions require human approval."
+    },
+    {
+      "label": "Case management & comms",
+      "detail": "Creates or updates the incident case with the full evidence package and analyst note, and routes escalations to tier-2/IR with everything needed to act."
+    },
+    {
+      "label": "Feedback & detection tuning",
+      "detail": "Logs analyst agreement/override per detection and disposition; false-positive and override rates feed detection tuning and confidence calibration."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_alert",
+      "purpose": "Fetch the alert (or alert cluster) from the SIEM/EDR with indicators, host, user, signature, and timestamps."
+    },
+    {
+      "name": "enrich_ioc",
+      "purpose": "Look up domains/IPs/hashes against threat-intel sources for reputation, first-seen age, and known associations."
+    },
+    {
+      "name": "asset_lookup",
+      "purpose": "Resolve the affected host/asset's criticality, owner, and exposure from the CMDB to weight severity correctly."
+    },
+    {
+      "name": "identity_lookup",
+      "purpose": "Pull user/identity context (role, recent auth/behavior, privilege) to judge whether activity is expected or anomalous."
+    },
+    {
+      "name": "correlate_alerts",
+      "purpose": "Search recent related alerts to detect multi-stage attack chains and merge them into a single incident."
+    },
+    {
+      "name": "contain_host",
+      "purpose": "Quarantine/isolate a host or disable an account. Auto-allowed only for verified low-risk cases on non-critical assets; otherwise approval-gated."
+    },
+    {
+      "name": "create_incident",
+      "purpose": "Open or update an incident case with the evidence package, MITRE mapping, severity, and analyst note."
+    },
+    {
+      "name": "escalate_to_tier2",
+      "purpose": "Route to tier-2/IR with a complete, structured handoff for suspected real or targeted threats."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Intake and dedup",
+      "body": "Pull the alert from the SIEM/EDR, normalize its fields, and group obvious duplicates so a storm becomes one case."
+    },
+    {
+      "title": "2. Enrich the evidence",
+      "body": "Enrich the indicators that matter (IOC reputation, asset criticality, identity context) — only the ones that could change the decision."
+    },
+    {
+      "title": "3. Correlate",
+      "body": "Search recent related alerts for a multi-stage chain; if found, merge into one incident and raise severity to match the bigger picture."
+    },
+    {
+      "title": "4. Score and map",
+      "body": "Assign severity and a verdict from the combined evidence and map observed behavior to MITRE ATT&CK technique IDs."
+    },
+    {
+      "title": "5. Decide the disposition",
+      "body": "Auto-remediate only verified low-risk true positives on non-critical assets; dismiss only with positive benign evidence; otherwise recommend or escalate."
+    },
+    {
+      "title": "6. Act through the gate",
+      "body": "The containment gate executes only allow-listed low-risk actions; critical-asset or disruptive actions are staged for analyst approval with the evidence attached."
+    },
+    {
+      "title": "7. Document and learn",
+      "body": "Create/update the case with the full package, route escalations to tier-2/IR, and log analyst agreement to tune detections and confidence."
+    }
+  ],
+  "implementationNotes": [
+    "Tune for recall on true positives above all. The cost of a missed intrusion dwarfs the cost of an extra escalation, so 'unknown/mixed evidence' must never resolve to DISMISS.",
+    "Enforce containment authority deterministically from asset criticality. Critical/crown-jewel assets and identities can never be auto-contained; that gate lives outside the model.",
+    "Require positive benign evidence to dismiss. Document the specific known-good indicator on every false-positive call so dismissals are auditable.",
+    "Lead with correlation. Collapsing alert storms into single incidents is where the biggest fatigue reduction comes from — and where multi-stage attacks become visible.",
+    "Map everything to MITRE ATT&CK. It gives analysts a shared language, makes escalations actionable, and supports detection-gap analysis.",
+    "Backtest on labeled history before enabling any auto-action, and track missed-true-positive rate as the primary safety metric (target ~0).",
+    "Reserve the strong model for verdict, correlation, and disposition reasoning; a cheaper model can normalize and enrich."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Enrichment & triage assistant",
+      "desc": "Enriches each alert, scores severity with MITRE mapping, and recommends a disposition with rationale for an analyst to action. No autonomous containment. The safe starting point."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Auto-dispositioning with guarded containment",
+      "desc": "Auto-dismisses evidence-backed false positives and auto-remediates verified low-risk threats on non-critical assets, with correlation into incidents and approval-gated containment for sensitive assets."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Governed SOC automation",
+      "desc": "Adds multi-source correlation, crown-jewel policies, tier-2/IR routing, full case management and audit, detection-gap analytics, and confidence calibration driven by analyst feedback at scale."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect sources",
+      "body": "Install the agent and connect it (read-only for enrichment) to your SIEM/EDR, threat intel, CMDB, and identity provider.",
+      "code": "pipx install soc-triage-agent\nsoc-triage-agent connect --siem splunk --edr crowdstrike --intel virustotal --cmdb servicenow --idp okta\nsoc-triage-agent doctor"
+    },
+    {
+      "title": "Set containment authority and caps",
+      "body": "Define what may auto-contain. Critical assets are never autonomous. Limits are enforced outside the model.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nSIEM_TOKEN=...\nINTEL_TOKEN=...\nMAX_TOOL_CALLS=8\nMODE=advise   # advise (recommend only) | act (auto low-risk)"
+    },
+    {
+      "title": "Classify critical assets",
+      "body": "Tell the agent which assets/identities are crown jewels so it never auto-contains them.",
+      "code": "# .soc.yml\ncritical_assets:\n  - \"domain-controllers/*\"\n  - \"prod-db/*\"\n  - \"finance/*\"\nauto_contain_allowed:\n  - scope: \"non_critical_endpoint\"\n    when: \"verified_commodity_malware\"\nnever_dismiss_without: \"benign_evidence\""
+    },
+    {
+      "title": "Backtest on historical alerts",
+      "body": "Replay labeled past alerts to measure true/false-positive handling before going live.",
+      "code": "soc-triage-agent backtest --range 30d --explain\n# reports verdict accuracy, FP reduction, and any missed true positives (must be ~0)"
+    },
+    {
+      "title": "Wire into the SIEM as tier-1",
+      "body": "Route new alerts to the agent for triage. Start in advise mode (recommends only), enable act mode for allow-listed low-risk containment once backtests look clean.",
+      "code": "# SIEM webhook -> POST https://your-host/soc/alert (HMAC)\n# Promote MODE=act only after a clean backtest with zero missed true positives"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Commodity malware on a non-critical endpoint → auto-remediate (with approval)",
+      "scenario": "EDR flags a known malware hash on a standard laptop. Enrichment confirms it's a verified commodity threat on a non-critical asset — a safe candidate for fast remediation.",
+      "input": "Alert: EDR detection 'Win.Trojan.GenericKD' hash a1b2c3... on host LT-4471 (user: contractor laptop).",
+      "output": "{\n  \"alert_id\": \"EDR-99812\",\n  \"severity\": \"medium\",\n  \"confidence\": 0.9,\n  \"verdict\": \"true_positive\",\n  \"mitre\": [\"T1204 User Execution\"],\n  \"enrichment\": { \"iocs\": [\"hash a1b2c3 = known commodity trojan, 41/64 vendors, first seen 2024\"], \"asset_criticality\": \"low (standard endpoint, no sensitive data)\", \"identity_context\": \"contractor, no admin rights, no recent privileged activity\" },\n  \"correlation\": \"none — single isolated detection, no related alerts in the last 24h\",\n  \"disposition\": \"AUTO_REMEDIATE\",\n  \"actions\": [ { \"tool\": \"contain_host\", \"args\": { \"host\": \"LT-4471\", \"action\": \"quarantine\", \"scope\": \"non_critical_endpoint\" }, \"requires_approval\": true } ],\n  \"rationale\": \"Verified commodity malware (high vendor consensus) on a low-criticality endpoint with a non-privileged user and no correlated activity. Low blast radius; quarantine + reimage is the standard safe response.\",\n  \"analyst_note\": \"Quarantine LT-4471 and reimage; reset the contractor's session creds as hygiene. No signs of spread.\",\n  \"escalation\": { \"needed\": false, \"tier\": \"none\", \"reason\": \"\" }\n}",
+      "notes": "A clean true positive the SOC wants handled fast — but note containment is still flagged requires_approval=true by default, and would only auto-execute if 'act' mode is on AND the asset is non-critical. The verdict is grounded in vendor consensus, asset criticality, and the lack of correlation."
+    },
+    {
+      "title": "Correlated credential-stuffing → one incident, recommend response",
+      "scenario": "Dozens of 'failed login' alerts look like noise individually. Correlation reveals a single distributed attack — the agent collapses them and recommends action.",
+      "input": "Alerts: 60+ failed-login alerts across 30 accounts in 8 minutes from a rotating set of IPs, then 2 successful logins.",
+      "output": "{\n  \"alert_id\": \"CLUSTER-2207\",\n  \"severity\": \"high\",\n  \"confidence\": 0.82,\n  \"verdict\": \"true_positive\",\n  \"mitre\": [\"T1110.004 Credential Stuffing\", \"T1078 Valid Accounts\"],\n  \"enrichment\": { \"iocs\": [\"source IPs across 14 ASNs, several on auth-abuse intel lists\"], \"asset_criticality\": \"medium (customer-facing auth)\", \"identity_context\": \"2 accounts now show successful login from new geo/device after the burst\" },\n  \"correlation\": \"60+ failed logins + 2 successes form one credential-stuffing campaign — merged into a single incident.\",\n  \"disposition\": \"RECOMMEND\",\n  \"actions\": [\n    { \"tool\": \"create_incident\", \"args\": { \"title\": \"Credential stuffing with 2 likely-compromised accounts\", \"severity\": \"high\" }, \"requires_approval\": false },\n    { \"tool\": \"contain_host\", \"args\": { \"action\": \"force_password_reset+session_revoke\", \"targets\": [\"acct_A\", \"acct_B\"] }, \"requires_approval\": true }\n  ],\n  \"rationale\": \"Distributed failed logins followed by anomalous successful logins on 2 accounts is classic credential stuffing with probable compromise. Customer-facing auth raises severity; account actions need analyst approval.\",\n  \"analyst_note\": \"Approve forced reset + session revoke for acct_A/acct_B, enable step-up auth, and consider temporary rate-limiting on the auth endpoint.\",\n  \"escalation\": { \"needed\": false, \"tier\": \"none\", \"reason\": \"\" }\n}",
+      "notes": "The value here is correlation: 60+ alerts that would each be dismissed as noise become one high-severity incident. The agent recommends account containment but marks it approval-required because forced resets affect real users — it doesn't unilaterally lock customers out."
+    },
+    {
+      "title": "Suspected lateral movement on a domain controller → escalate, don't touch",
+      "scenario": "Weak-but-worrying signals on a crown-jewel asset. The agent resists both dismissing it and taking a risky containment action that could tip off an adversary.",
+      "input": "Alert: unusual SMB + remote-service-creation activity from a workstation to DC-01 (domain controller), outside business hours, by an account that normally never touches DCs.",
+      "output": "{\n  \"alert_id\": \"EDR-99877\",\n  \"severity\": \"critical\",\n  \"confidence\": 0.55,\n  \"verdict\": \"suspicious\",\n  \"mitre\": [\"T1021.002 SMB/Admin Shares\", \"T1543.003 Create/Modify Service\", \"T1570 Lateral Tool Transfer\"],\n  \"enrichment\": { \"iocs\": [\"no known-bad hash yet; behavior-based\"], \"asset_criticality\": \"critical (domain controller / crown jewel)\", \"identity_context\": \"service-desk account, never historically authenticates to DCs, off-hours\" },\n  \"correlation\": \"Possible early lateral movement; checking for prior initial-access alerts on the source workstation.\",\n  \"disposition\": \"ESCALATE\",\n  \"actions\": [ { \"tool\": \"escalate_to_tier2\", \"args\": { \"tier\": \"IR\", \"priority\": \"critical\" }, \"requires_approval\": false } ],\n  \"rationale\": \"Anomalous remote service creation toward a domain controller by an account that never touches DCs, off-hours, maps to lateral-movement techniques. On a crown-jewel asset this is treated as a potential targeted intrusion despite moderate confidence.\",\n  \"analyst_note\": \"Do NOT auto-isolate the DC or disable the account yet — risk of tipping off the actor and of disrupting the domain. Recommend IR coordinate: capture volatile evidence on source + DC, scope the account's recent activity, then contain in a planned way.\",\n  \"escalation\": { \"needed\": true, \"tier\": \"IR\", \"reason\": \"Suspected targeted lateral movement toward a domain controller; crown-jewel asset; potential intrusion.\" }\n}",
+      "notes": "The flagship-defining case: confidence is only 0.55, but because the target is a domain controller and the behavior maps to lateral movement, the agent escalates to IR as critical rather than dismissing. Crucially, it explicitly recommends NOT auto-containing — isolating a DC or disabling the account could disrupt the domain and tip off an adversary. It surfaces evidence and defers the response plan to humans."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it isolate hosts or disable accounts automatically?",
+      "a": "Only for verified low-risk cases on non-critical assets, and only if you enable auto-action. Containment of critical assets or identities, or anything business-disrupting, is always proposed for analyst approval — never executed autonomously."
+    },
+    {
+      "q": "How does it avoid dismissing a real threat?",
+      "a": "It can only mark an alert false positive with positive benign evidence (a known-good process, sanctioned scan, confirmed misconfig). Mixed or absent evidence never resolves to dismiss — it escalates. Recall on true positives is the primary tuning target."
+    },
+    {
+      "q": "What does it do with a suspected targeted intrusion?",
+      "a": "It escalates to tier-2/IR with a full evidence package and MITRE mapping, and explicitly avoids tipping-off actions — recommending coordinated response rather than unilaterally isolating a crown-jewel asset."
+    },
+    {
+      "q": "How does it reduce alert fatigue without missing things?",
+      "a": "By enriching with real context and correlating related alerts into single incidents, so storms collapse into one case and obvious, evidence-backed false positives are filtered — while anything uncertain still reaches a human."
+    },
+    {
+      "q": "How do we trust its decisions?",
+      "a": "Every disposition includes the enrichment used, the correlation, a MITRE mapping, and a plain rationale, so analysts can audit and override. You also backtest it on labeled history before enabling any automation."
+    },
+    {
+      "q": "How is cost managed at alert volume?",
+      "a": "It enriches only the indicators that could change the decision rather than querying every source for every alert, reuses enrichment already gathered, and caps tool calls — escalating with current evidence if it hits the cap."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A3 — Human-Approved",
+    "dnaPattern": "Escalation (Research → Evaluate → Plan → Escalate)",
+    "worstCaseAction": "Mis-prioritizes a security alert or stages an inappropriate remediation that a human reviews before it runs. Any remediation is verified-low-risk and requires human approval; it cannot execute a remediation on its own.",
+    "authorityBoundary": "Enriches, deduplicates, and prioritizes alerts, and may stage a verified low-risk remediation for human approval. It never executes remediation autonomously and never changes production on its own. A responder approves any action.",
+    "verificationTest": "Stage a remediation → confirm it requires explicit human approval and is not auto-executed; confirm high-risk actions are gated.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: remediation gated behind approval. Human gates: responder approves any action. Confidence escalation: low-confidence alerts routed up. Cost ceiling: bounded. Audit trail: enrichment and decisions logged. Escalation path: high-severity routed to on-call.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "alert-triage-enrichment-agent",
+      "trust_level": "A3",
+      "dna_pattern": "Escalation",
+      "worst_case_action": "Stages an inappropriate remediation for human approval, or mis-prioritizes an alert. Cannot auto-execute remediation.",
+      "authority_boundary": "Enriches and triages alerts; stages verified low-risk remediation for approval. No autonomous execution.",
+      "tags": [
+        "security",
+        "soc",
+        "alert-triage",
+        "human-approval"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "enrich_alert",
+          "dedupe",
+          "prioritize",
+          "stage_remediation"
+        ],
+        "approval_required_tools": [
+          "apply_remediation"
+        ],
+        "execution_tools_absent": false
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_without_approval": [
+          "apply_remediation"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.3,
+        "alert_threshold_usd": 0.2
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 10
+      },
+      "human_handoff": {
+        "triggers": [
+          "high_severity",
+          "remediation_proposed",
+          "low_confidence"
+        ],
+        "destination": "soc_oncall"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "enrichment",
+          "priority",
+          "staged_actions",
+          "approvals"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Enriches an alert with a mis-attributed indicator (wrong IP, hash, or owner), skewing severity.",
+      "detection": "Each enrichment carries a confidence score and source citation; conflicting sources are flagged.",
+      "mitigation": "Every enrichment is tied to its source; unverified attribution is never asserted.",
+      "recovery": "The analyst sees the citation and can discard it; low-confidence enrichments are quarantined for review."
+    },
+    {
+      "mode": "Suppresses or deprioritizes a real threat as noise.",
+      "detection": "Critical severity is never auto-suppressed; suppression is only ever a recommendation.",
+      "mitigation": "Critical alerts are always surfaced regardless of score.",
+      "recovery": "Analyst override; any suppressed-then-escalated alert is logged for rule tuning."
+    },
+    {
+      "mode": "An enrichment source is unavailable, producing an incomplete picture.",
+      "detection": "Source timeout and health checks detect the gap.",
+      "mitigation": "Degrade gracefully — fields are marked unknown rather than guessed.",
+      "recovery": "Re-enrich when the source returns; the partial enrichment is flagged."
+    }
+  ],
+  "evaluation": {
+    "primary": "Recall on true threats, balanced against false-positive noise, is the metric that matters — a suppressed real alert is the worst outcome.",
+    "metrics": [
+      {
+        "name": "Enrichment accuracy",
+        "description": "Share of enrichments (attribution, severity, context) that match verified ground truth."
+      },
+      {
+        "name": "Precision",
+        "description": "Of alerts it escalated, the share that were genuinely actionable — false-positive resistance."
+      },
+      {
+        "name": "Recall",
+        "description": "Of true threats in the set, the share it surfaced rather than deprioritized as noise."
+      },
+      {
+        "name": "Escalation rate",
+        "description": "Frequency of analyst handoff, split into warranted vs unnecessary."
+      },
+      {
+        "name": "Latency",
+        "description": "Time from raw alert to an enriched verdict."
+      }
+    ],
+    "approach": "Build a gold set of labeled alerts with known dispositions and measure precision and recall against analyst labels. Track suppression decisions separately — a suppressed true positive should be weighted as the costliest error."
+  }
+}

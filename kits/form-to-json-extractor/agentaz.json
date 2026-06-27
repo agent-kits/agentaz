@@ -1,0 +1,52 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "form-to-json-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Extraction",
+  "worst_case_action": "Returns a wrong/absent field for review; never fabricates. Cannot write data.",
+  "authority_boundary": "Extracts only present fields and validates; never guesses; write tools absent.",
+  "tags": [
+    "document-processing",
+    "forms",
+    "extraction",
+    "read-only"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_form",
+      "extract_present_fields",
+      "validate_schema",
+      "mark_absent"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "data_write"
+    ],
+    "never_fabricates": true
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.18,
+    "alert_threshold_usd": 0.12
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 6
+  },
+  "human_handoff": {
+    "triggers": [
+      "ambiguous_field",
+      "low_confidence"
+    ],
+    "destination": "review_queue"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "fields"
+    ]
+  }
+}

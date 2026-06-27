@@ -1,0 +1,5 @@
+# Dependencies for run.py (the runnable demo).
+# Install with: pip install -r requirements.txt
+# You only need ONE provider — install whichever matches your API key.
+anthropic>=0.40.0
+openai>=1.50.0

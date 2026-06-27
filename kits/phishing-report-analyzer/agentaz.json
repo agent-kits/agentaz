@@ -1,0 +1,61 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "phishing-triage-agent",
+  "trust_level": "A3",
+  "dna_pattern": "Escalation",
+  "worst_case_action": "Stages an incorrect quarantine for analyst approval, or misclassifies an email. Cannot auto-contain.",
+  "authority_boundary": "Analyzes reported phishing and stages containment for approval; no autonomous quarantine/block.",
+  "tags": [
+    "security",
+    "phishing",
+    "soc",
+    "human-approval"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_report",
+      "extract_indicators",
+      "score_risk",
+      "stage_containment"
+    ],
+    "approval_required_tools": [
+      "quarantine",
+      "block_sender"
+    ],
+    "execution_tools_absent": false
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_without_approval": [
+      "quarantine",
+      "block_sender",
+      "delete_mail"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.25,
+    "alert_threshold_usd": 0.16
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "confirmed_threat",
+      "uncertain_verdict",
+      "containment_proposed"
+    ],
+    "destination": "soc_analyst"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "indicators",
+      "verdict",
+      "staged_actions",
+      "approvals"
+    ]
+  }
+}

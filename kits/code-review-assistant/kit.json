@@ -1,0 +1,359 @@
+{
+  "slug": "code-review-assistant",
+  "title": "Production-Grade AI Code Review Agent",
+  "category": "software-engineering",
+  "shortDescription": "An evidence-based code review agent for real PRs: security, correctness, concurrency, performance — with file:line findings, risk scores, and a human-escalation gate.",
+  "description": "A code review agent built for real engineering teams, not demos. It pulls the actual PR diff and just enough surrounding context, runs static analysis, and reviews with a senior-engineer lens: security first, then correctness, concurrency, error handling, performance, API/back-compat, and tests. Every comment cites file and line, carries a severity, and proposes a concrete fix. It optimizes for signal over noise, never fabricates findings, controls cost by scoping to changed code, and is defensive by policy — it will not approve security- or data-critical changes on its own and escalates them to a human.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "code-review",
+    "pull-request",
+    "static-analysis",
+    "security",
+    "ci-cd",
+    "developer-tools",
+    "autonomous-agent",
+    "guardrails",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-20",
+  "overview": [
+    "Reviews the real diff: fetches the PR, scopes to changed hunks plus necessary context, and skips generated, vendored, and lockfile noise.",
+    "Security-first and evidence-based: every finding cites file:line, names a category and severity, explains impact, and proposes a fix — no vague nitpicks, no fabricated issues.",
+    "Defensive by policy: it never auto-approves changes to auth, crypto, payments, migrations, or infra; those are flagged and escalated to a human reviewer.",
+    "Cost-aware and CI-ready: model tiering, scoped context, and a hard file/line budget keep it cheap enough to run on every PR as a GitHub Action or CLI."
+  ],
+  "whenToUse": [
+    "You want a fast, consistent first-pass review on every pull request before a human looks.",
+    "Your team cares about catching security and correctness regressions (injection, authz, race conditions, breaking API changes) early.",
+    "You want review comments that are specific and actionable (file:line + fix), not generic 'consider refactoring' noise.",
+    "You run CI and can add a GitHub Action or a pre-merge check that posts inline comments and a verdict.",
+    "You want automation that knows its limits and routes risky changes to humans instead of rubber-stamping them."
+  ],
+  "whenNotToUse": [
+    "You expect it to fully replace human review and merge unilaterally — it is a force multiplier and a gate, not the final authority on risky code.",
+    "Your changes are dominated by binary assets or generated code where a diff review adds little.",
+    "You cannot provide repository read access or run it in CI, which it needs for grounded, in-context review.",
+    "You want it to execute untrusted PR code without a sandbox — that is disabled by default for good reason."
+  ],
+  "systemPrompt": "You are a Staff Software Engineer performing a rigorous, production-grade code review of a single pull request. Your reviews are trusted to gate merges. You are judged on catching real defects (especially security and correctness), on the precision of your feedback, and on NOT wasting engineers' time with noise or false alarms.\n\n== REVIEW PHILOSOPHY ==\n1. Evidence over opinion. Every finding must cite a concrete location (path:line) from the diff and explain the actual impact (\"user input flows unescaped into SQL\" — not \"this looks unsafe\"). If you are not sure, raise it as a QUESTION, not an assertion. Never invent a vulnerability, a line number, or a behavior you cannot see.\n2. Signal over noise. Do not comment on anything the project's formatter/linter already enforces. Do not restyle code against the configured style. Collapse trivial nits into a single optional note. A review with 3 real findings beats one with 30 nitpicks.\n3. Security first, then correctness, then the rest. Review in this priority order and let it drive severity.\n\n== WHAT TO REVIEW (in priority order) ==\n- SECURITY: injection (SQL/command/template), broken authn/authz, secrets committed to source, SSRF, path traversal, unsafe deserialization, weak/misused crypto, missing input validation, sensitive data in logs.\n- CORRECTNESS: logic errors, off-by-one, null/None handling, incorrect error handling, swallowed exceptions, wrong edge-case behavior.\n- CONCURRENCY: race conditions, check-then-act, shared mutable state, missing locks/idempotency, deadlocks.\n- PERFORMANCE: N+1 queries, unbounded loops/allocations, missing pagination, blocking I/O on hot paths — only when the impact is plausibly real.\n- API & BACK-COMPAT: breaking changes to public signatures, response shapes, DB schemas; removed/renamed fields without versioning or deprecation.\n- TESTS: missing or weak tests for new logic and bug fixes; tests that assert nothing.\n\n== SEVERITY RUBRIC ==\n- BLOCKER: exploitable security flaw, data-loss/corruption risk, or a committed secret. Merge must not proceed.\n- CRITICAL: a real bug or race that will fail in production under normal conditions.\n- MAJOR: breaking change, missing test for risky logic, or significant performance regression.\n- MINOR: localized correctness/readability issue worth fixing.\n- NIT: optional/style; group these and keep them few.\n\n== HARD RULES (DEFENSIVE) ==\n- DO NOT auto-approve. You may recommend a verdict, but for any PR that touches authentication, authorization, cryptography, payments/billing, database migrations, access control, or infrastructure/deploy config, you MUST set escalate=true and verdict no higher than \"request_changes\" — a human must review these regardless of how clean they look.\n- SECRETS: if you detect a credential/API key/private key in the diff, mark it BLOCKER and DO NOT reproduce the secret value in your output. Reference its location only.\n- NO EXECUTION by default. Do not assume code was run. Only rely on test/static-analysis results that are provided to you. Never request to run untrusted code outside the sandbox.\n- SCOPE: review only changed hunks plus the minimal surrounding context you are given. Do not review unrelated existing code. If the diff exceeds the configured budget, review the highest-risk files, say what you skipped, and recommend splitting the PR.\n- RESPECT CONVENTIONS: defer to the repo's linter/formatter and CODEOWNERS. If a finding contradicts a configured rule, note it as a question.\n\n== COST CONTROL ==\nSkip generated, vendored, minified, and lockfile paths. Do not re-read files already provided in context. Prefer one well-targeted codebase search over many. Keep comments concise — impact + fix, no essays.\n\n== OUTPUT FORMAT (return ONE JSON object, nothing else) ==\n{\n  \"summary\": \"<2-4 sentence overview: what the PR does and the headline risks>\",\n  \"verdict\": \"approve|comment|request_changes|block\",\n  \"risk_score\": <0-100>,\n  \"escalate\": { \"needed\": <bool>, \"reason\": \"<which protected area, or empty>\" },\n  \"comments\": [\n    {\n      \"path\": \"<file path>\",\n      \"line\": <line in the new file>,\n      \"severity\": \"BLOCKER|CRITICAL|MAJOR|MINOR|NIT\",\n      \"category\": \"security|correctness|concurrency|performance|api|tests|style\",\n      \"message\": \"<impact, grounded in the diff>\",\n      \"suggestion\": \"<concrete fix, code where helpful>\"\n    }\n  ],\n  \"skipped\": [\"<paths or reasons you did not review>\"],\n  \"tests_recommended\": [\"<specific tests to add>\"]\n}\nSet verdict from the highest-severity finding: any BLOCKER -> \"block\"; any CRITICAL/MAJOR -> \"request_changes\"; only MINOR/NIT -> \"comment\"; nothing of substance and no protected area -> \"approve\". When escalate.needed is true, verdict must be \"request_changes\" or \"block\".",
+  "architecture": [
+    {
+      "label": "Diff acquisition & scoping",
+      "detail": "Fetches the PR diff and the list of changed files, then filters out generated/vendored/minified/lockfile paths. Splits the remaining changes into hunks and enforces a file/line budget so cost stays bounded."
+    },
+    {
+      "label": "Context assembly",
+      "detail": "For each changed hunk, pulls just enough surrounding code and the definitions of referenced symbols via codebase search — not whole files — so the model reviews with real context without blowing the token budget."
+    },
+    {
+      "label": "Static analysis pass",
+      "detail": "Runs the repo's linter, type checker, and a SAST tool over the changed files. Deterministic findings are fed to the model as evidence so it can corroborate or prioritize, and so it never re-flags style the linter owns."
+    },
+    {
+      "label": "Reasoning & review engine",
+      "detail": "The strong model reviews in the security-first priority order, applies the severity rubric, and emits grounded, file:line comments with fixes. Uncertain items become questions, not assertions."
+    },
+    {
+      "label": "Policy & escalation gate",
+      "detail": "A deterministic gate inspects changed paths against protected areas (auth, crypto, payments, migrations, infra) and a secret-scanner. It forces escalate=true and caps the verdict for those, independent of the model's recommendation."
+    },
+    {
+      "label": "Publishing layer",
+      "detail": "Posts inline comments and a summary verdict to the PR, sets a status check (pass/neutral/fail), and adds labels (e.g. security, needs-human). Idempotent: re-runs update prior bot comments instead of duplicating."
+    },
+    {
+      "label": "Observability & tuning",
+      "detail": "Logs findings, verdicts, and whether humans agreed (resolved vs. dismissed). False-positive and dismissal rates drive prompt and threshold tuning over time."
+    }
+  ],
+  "tools": [
+    {
+      "name": "fetch_diff",
+      "purpose": "Retrieve the PR's unified diff and changed-file list from the host (GitHub/GitLab), with base and head refs."
+    },
+    {
+      "name": "repo_context",
+      "purpose": "Read specific files or symbol definitions referenced by the diff, returning only the needed ranges rather than entire files."
+    },
+    {
+      "name": "search_codebase",
+      "purpose": "Semantic + symbol search across the repo to find callers, related implementations, and existing patterns the change should match."
+    },
+    {
+      "name": "run_static_analysis",
+      "purpose": "Execute the repo's linter, type checker, and SAST scanner over changed files; returns structured findings as evidence."
+    },
+    {
+      "name": "run_tests",
+      "purpose": "Optionally run the affected test suite in a sandbox (disabled by default). Used only to confirm behavior, never to execute untrusted code unguarded."
+    },
+    {
+      "name": "secret_scan",
+      "purpose": "Deterministically scan the diff for committed credentials/keys; returns locations only, never the secret values."
+    },
+    {
+      "name": "policy_check",
+      "purpose": "Match changed paths against protected areas (auth, crypto, payments, migrations, infra) and CODEOWNERS to drive the escalation gate."
+    },
+    {
+      "name": "post_review",
+      "purpose": "Publish inline comments, a summary, a verdict/status check, and labels back to the PR; updates prior bot output idempotently."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Fetch and scope the diff",
+      "body": "Pull the PR diff and changed files via fetch_diff, drop generated/vendored/lockfile paths, and split into hunks within the configured file/line budget."
+    },
+    {
+      "title": "2. Assemble minimal context",
+      "body": "For each hunk, use repo_context and search_codebase to gather surrounding code and referenced symbol definitions — only what is needed to judge the change."
+    },
+    {
+      "title": "3. Run static analysis & secret scan",
+      "body": "Execute run_static_analysis and secret_scan over the changed files and pass their structured results to the model as corroborating evidence."
+    },
+    {
+      "title": "4. Review security-first",
+      "body": "The model reviews in priority order (security, correctness, concurrency, performance, API, tests), applies the severity rubric, and writes grounded file:line comments with fixes."
+    },
+    {
+      "title": "5. Apply the escalation gate",
+      "body": "policy_check flags protected areas; any match (or a detected secret) forces escalate=true and caps the verdict, regardless of the model's view."
+    },
+    {
+      "title": "6. Publish the review",
+      "body": "post_review posts inline comments, a summary and verdict, sets the status check, and labels the PR. Re-runs update existing comments instead of duplicating."
+    },
+    {
+      "title": "7. Learn from outcomes",
+      "body": "Record which findings humans accepted vs. dismissed; use false-positive and dismissal rates to tune prompts, severity thresholds, and the ignore list."
+    }
+  ],
+  "implementationNotes": [
+    "Enforce the escalation gate deterministically from changed paths (auth, crypto, payments, migrations, infra) and a secret scanner — never let the model alone decide that a protected change is safe to approve.",
+    "Feed real static-analysis/SAST output into the prompt as evidence. It grounds findings, prevents the model from re-flagging style the linter owns, and sharply reduces false positives.",
+    "Scope hard: review changed hunks plus minimal symbol context, skip generated/vendored/lockfiles, and cap files/lines. For oversized PRs, review the riskiest files and recommend splitting rather than reviewing everything shallowly.",
+    "Start non-blocking. Post comments and a neutral check first; only enable fail_on (BLOCKER/CRITICAL) once your dismissal/false-positive rate is low enough to trust as a gate.",
+    "Make re-runs idempotent — update the bot's previous comments instead of stacking duplicates on every push.",
+    "Track which findings humans resolve vs. dismiss. Dismissal rate per category is your tuning signal for thresholds and the ignore list.",
+    "The actual reasoning-heavy review is what the strong model is for; a cheaper model can scope the diff and summarize static-analysis output."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Inline PR comments",
+      "desc": "Runs on each PR, posts grounded inline comments and a summary as a non-blocking check. Static analysis optional. The simplest way to add a consistent first-pass reviewer."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Gating review with static analysis",
+      "desc": "Integrates the repo's linter/type-checker/SAST as evidence, enforces the protected-path escalation gate, and fails the check on BLOCKER/CRITICAL findings so risky PRs cannot merge without changes."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Governed org-wide reviewer",
+      "desc": "Adds per-repo policies and CODEOWNERS-aware routing, sandboxed test execution, secret-scanning enforcement, full audit logs of findings and human outcomes, and a tuning loop that adjusts thresholds from dismissal rates across the org."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Get the agent from its bundle",
+      "body": "Download this kit's bundle from its AgentKits page, then create an isolated Python environment.",
+      "code": "# Download this kit's bundle from its AgentKits page, then:\nunzip code-review-assistant.zip && cd code-review-assistant\npython -m venv .venv && source .venv/bin/activate"
+    },
+    {
+      "title": "Configure models, keys, and tools",
+      "body": "Set model keys and point the agent at your repo's existing linters/type-checkers/SAST so its findings are grounded in real tools.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nOPENAI_API_KEY=sk-...\nGITHUB_TOKEN=ghp_...\nSTATIC_ANALYSIS=\"ruff,mypy,semgrep\"\nMAX_FILES=40\nMAX_DIFF_LINES=1500"
+    },
+    {
+      "title": "Set the review policy",
+      "body": "Declare protected areas, ignore globs, and severity gating in config — not in the prompt — so the rules are enforced deterministically.",
+      "code": "# .codereview.yml\nprotected_paths:\n  - \"**/auth/**\"\n  - \"**/payments/**\"\n  - \"**/*crypto*\"\n  - \"migrations/**\"\n  - \"infra/**\"\nignore:\n  - \"**/*.lock\"\n  - \"**/generated/**\"\n  - \"vendor/**\"\nrun_tests: false        # enable only with a sandbox\nfail_on: [\"BLOCKER\", \"CRITICAL\"]"
+    },
+    {
+      "title": "Try it locally on a diff",
+      "body": "Run a review against the current branch's diff before wiring CI, and read the JSON/inline output.",
+      "code": "git fetch origin main\ncodereview-agent review --base origin/main --head HEAD --explain\n# prints summary, verdict, risk_score, and inline comments"
+    },
+    {
+      "title": "Add it to CI as a PR check",
+      "body": "Run on every pull request and post inline comments plus a status check. Start non-blocking, then turn on fail_on once false-positive rates are low.",
+      "code": "# .github/workflows/code-review.yml\nname: AI Code Review\non: pull_request\njobs:\n  review:\n    runs-on: ubuntu-latest\n    permissions: { contents: read, pull-requests: write, checks: write }\n    steps:\n      - uses: actions/checkout@v4\n        with: { fetch-depth: 0 }\n      - run: pipx install codereview-agent\n      - run: codereview-agent review --base ${{ github.event.pull_request.base.sha }} --head ${{ github.sha }} --post\n        env:\n          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}\n          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Catches a SQL injection (BLOCKER)",
+      "scenario": "A PR adds a search endpoint that builds a query by concatenating user input. The diff looks small and 'works', but it is exploitable.",
+      "input": "diff --git a/api/search.py b/api/search.py\n@@ +42,7 @@ def search_users(request):\n+    term = request.args.get(\"q\", \"\")\n+    query = \"SELECT id, email FROM users WHERE name LIKE '%\" + term + \"%'\"\n+    rows = db.execute(query).fetchall()\n+    return jsonify([dict(r) for r in rows])",
+      "output": "{\n  \"summary\": \"Adds a user search endpoint. It builds a raw SQL string from untrusted query input, creating a SQL injection vulnerability that must be fixed before merge.\",\n  \"verdict\": \"block\",\n  \"risk_score\": 95,\n  \"escalate\": { \"needed\": false, \"reason\": \"\" },\n  \"comments\": [\n    {\n      \"path\": \"api/search.py\",\n      \"line\": 43,\n      \"severity\": \"BLOCKER\",\n      \"category\": \"security\",\n      \"message\": \"User input 'term' is concatenated directly into the SQL string, so a value like ' OR '1'='1 (or a stacked statement) is executed as SQL. This is an exploitable SQL injection that can read or modify the entire users table.\",\n      \"suggestion\": \"Use a parameterized query and bind the term:\\n  query = \\\"SELECT id, email FROM users WHERE name LIKE ?\\\"\\n  rows = db.execute(query, (f\\\"%{term}%\\\",)).fetchall()\"\n    },\n    {\n      \"path\": \"api/search.py\",\n      \"line\": 45,\n      \"severity\": \"MAJOR\",\n      \"category\": \"api\",\n      \"message\": \"Endpoint returns user emails with no pagination or auth check shown in the diff; confirm access control and add a limit to avoid leaking the full user list.\",\n      \"suggestion\": \"Require an authenticated/authorized caller and add LIMIT/offset pagination.\"\n    }\n  ],\n  \"skipped\": [],\n  \"tests_recommended\": [\"A test asserting that a malicious term (e.g. \\\"' OR '1'='1\\\") returns no rows / is safely escaped\"]\n}",
+      "notes": "The headline finding is grounded in the exact line and explained in terms of impact and exploit, with a parameterized-query fix. It also notices a secondary access-control/pagination risk without drifting into nitpicks. Any BLOCKER drives the verdict to 'block'."
+    },
+    {
+      "title": "Spots a race condition and an N+1 (CRITICAL + MAJOR)",
+      "scenario": "A PR adds a 'claim coupon' feature with a check-then-act race, and a reporting loop that issues a query per item. Neither is a security hole, so this tests correctness/performance depth.",
+      "input": "diff --git a/services/coupons.py b/services/coupons.py\n@@ +18,9 @@ def claim_coupon(user_id, code):\n+    coupon = Coupon.get(code)\n+    if coupon.remaining > 0:\n+        grant_to_user(user_id, coupon)\n+        coupon.remaining -= 1\n+        coupon.save()\n@@ +60,5 @@ def report(order_ids):\n+    totals = []\n+    for oid in order_ids:\n+        order = Order.get(oid)            # one query per id\n+        totals.append(order.total)\n+    return sum(totals)",
+      "output": "{\n  \"summary\": \"Adds coupon claiming and a totals report. The claim path has a check-then-act race that can over-grant a limited coupon, and the report issues an N+1 query. No security issues found.\",\n  \"verdict\": \"request_changes\",\n  \"risk_score\": 68,\n  \"escalate\": { \"needed\": false, \"reason\": \"\" },\n  \"comments\": [\n    {\n      \"path\": \"services/coupons.py\",\n      \"line\": 20,\n      \"severity\": \"CRITICAL\",\n      \"category\": \"concurrency\",\n      \"message\": \"remaining is read, checked, then decremented without atomicity. Two concurrent claims can both see remaining > 0 and both succeed, over-issuing a limited coupon (lost-update race).\",\n      \"suggestion\": \"Make it atomic: a conditional UPDATE that decrements only if remaining > 0 (e.g. UPDATE coupons SET remaining = remaining - 1 WHERE code = ? AND remaining > 0) and grant only if a row was affected, or take a row lock in a transaction.\"\n    },\n    {\n      \"path\": \"services/coupons.py\",\n      \"line\": 62,\n      \"severity\": \"MAJOR\",\n      \"category\": \"performance\",\n      \"message\": \"Order.get is called once per id, producing N+1 database queries that will not scale for large reports.\",\n      \"suggestion\": \"Fetch in one query: Order.where(id IN order_ids) and sum totals in memory, or push the SUM into the database.\"\n    }\n  ],\n  \"skipped\": [],\n  \"tests_recommended\": [\n    \"Concurrency test: two parallel claims on a coupon with remaining=1 grant exactly one\",\n    \"Query-count assertion that report() issues a single query for N ids\"\n  ]\n}",
+      "notes": "This shows reasoning beyond pattern-matching for vulnerabilities: it identifies a genuine lost-update race and proposes an atomic conditional update, and it quantifies the N+1 impact. The verdict is request_changes (no BLOCKER), and it recommends the specific tests that would prevent regressions."
+    },
+    {
+      "title": "Clean-looking PR with a breaking change + risky migration (escalate)",
+      "scenario": "A tidy, well-formatted PR renames a public API field and adds a database migration with no down path and no tests. Nothing is 'ugly', so a naive reviewer would approve. The protected-path gate must force a human.",
+      "input": "diff --git a/api/serializers.py b/api/serializers.py\n@@ -10,1 +10,1 @@\n-    \"full_name\": user.name,\n+    \"name\": user.name\ndiff --git a/migrations/0042_drop_legacy.py b/migrations/0042_drop_legacy.py\n@@ +1,6 @@\n+def up():\n+    execute(\"ALTER TABLE users DROP COLUMN full_name\")\n+# no down() / rollback defined",
+      "output": "{\n  \"summary\": \"Renames a public API field full_name -> name and drops the underlying column via migration. The code is clean, but this is a breaking API change plus an irreversible migration with no rollback and no tests, and it touches a protected path (migrations).\",\n  \"verdict\": \"request_changes\",\n  \"risk_score\": 80,\n  \"escalate\": { \"needed\": true, \"reason\": \"Touches migrations/ (protected: irreversible schema change) — human review required.\" },\n  \"comments\": [\n    {\n      \"path\": \"api/serializers.py\",\n      \"line\": 10,\n      \"severity\": \"MAJOR\",\n      \"category\": \"api\",\n      \"message\": \"Renaming the response field 'full_name' to 'name' is a breaking change for any client reading full_name. There is no versioning or deprecation window in the diff.\",\n      \"suggestion\": \"Emit both fields for a deprecation period (keep full_name as an alias) and announce the change, or version the endpoint before removing the old field.\"\n    },\n    {\n      \"path\": \"migrations/0042_drop_legacy.py\",\n      \"line\": 2,\n      \"severity\": \"BLOCKER\",\n      \"category\": \"correctness\",\n      \"message\": \"DROP COLUMN is irreversible and has no down()/rollback. Combined with the API rename, a failed deploy cannot be cleanly rolled back, risking data loss.\",\n      \"suggestion\": \"Split into a safe sequence: (1) stop writing the column, (2) deploy, (3) drop in a later migration; provide a down() and back up the column first. Coordinate with the data owner.\"\n    }\n  ],\n  \"skipped\": [],\n  \"tests_recommended\": [\n    \"Contract test pinning the API response shape so field renames are caught\",\n    \"Migration test verifying up/down round-trips on a copy of the schema\"\n  ]\n}",
+      "notes": "The most important example: the PR is clean and would sail through a style-only reviewer, but the agent catches a non-obvious breaking change and an unsafe migration, and the deterministic policy gate forces escalate=true because migrations are protected. This is exactly the defensive behavior that makes the agent safe to run on every PR."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Does it replace human reviewers?",
+      "a": "No — it is a high-quality first pass and a safety gate. It handles the consistent, tireless checks (security patterns, N+1s, missing tests, breaking changes) and explicitly escalates anything touching auth, crypto, payments, migrations, or infra to a human."
+    },
+    {
+      "q": "How does it avoid noisy, useless comments?",
+      "a": "It is told to prefer signal over noise: it won't comment on what your formatter/linter already enforces, it groups trivial nits, and every real finding must cite file:line with concrete impact and a fix. Static-analysis evidence further cuts false positives."
+    },
+    {
+      "q": "How does it not hallucinate vulnerabilities?",
+      "a": "Findings must be grounded in the actual diff with a specific location; uncertain items are raised as questions rather than assertions. It reviews only the code it can see and reports what it skipped."
+    },
+    {
+      "q": "What stops it from approving something dangerous?",
+      "a": "A deterministic policy gate. Changes to protected paths or any detected secret force escalate=true and cap the verdict at request_changes/block, independent of the model's recommendation."
+    },
+    {
+      "q": "Will it run my untrusted PR code?",
+      "a": "Not by default. Test execution is off unless you explicitly enable a sandbox. It relies on provided static-analysis and test results rather than executing arbitrary PR code."
+    },
+    {
+      "q": "How do I keep CI cost reasonable?",
+      "a": "It scopes to changed hunks with minimal context, skips generated/vendored/lockfiles, caps files and lines, and uses model tiering — so a typical PR review is small and cheap enough to run on every push."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Evaluation (Research → Evaluate)",
+    "worstCaseAction": "Posts an incorrect or noisy review comment that a human can dismiss. It cannot merge, push, approve, or modify code — write and merge tools are absent from its registry.",
+    "authorityBoundary": "Reads a diff, evaluates it for bugs, security, and style, and posts review comments and suggestions. It never merges, pushes, approves a PR, or edits the branch. A human reviewer decides.",
+    "verificationTest": "Attempt to call a merge, push, or approve-PR tool → confirm it is absent from the agent's registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: merge/push/approve tools absent. Human gates: a reviewer decides and merges. Confidence escalation: low-confidence findings flagged as suggestions. Cost ceiling: bounded per diff. Audit trail: comments and rationale logged. Escalation path: security-sensitive findings flagged for a human.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "code-review-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Evaluation",
+      "worst_case_action": "Posts an incorrect review comment a human can dismiss. Cannot merge, push, or modify code.",
+      "authority_boundary": "Reviews diffs and posts comments; merge/push/approve tools absent.",
+      "tags": [
+        "code-review",
+        "software-engineering",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_diff",
+          "analyze_code",
+          "check_security",
+          "post_comment",
+          "suggest_change"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "merge",
+          "push",
+          "approve_pr",
+          "code_write"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.3,
+        "alert_threshold_usd": 0.2
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 10
+      },
+      "human_handoff": {
+        "triggers": [
+          "security_finding",
+          "high_severity",
+          "low_confidence"
+        ],
+        "destination": "reviewer"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "comments",
+          "findings",
+          "rationale"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "False positive — flags correct code as a bug, creating review noise.",
+      "detection": "Each finding carries a confidence score; low-confidence items are posted as 'consider', not 'must fix'.",
+      "mitigation": "Comments are suggestions only and never block a merge.",
+      "recovery": "The reviewer dismisses it; dismissed patterns feed back into prompt tuning."
+    },
+    {
+      "mode": "False negative — misses a real security flaw.",
+      "detection": "Security-sensitive findings are always escalated to a human; coverage is scoped to the diff.",
+      "mitigation": "Positioned as a first pass, not the sole gate — a human reviewer is required.",
+      "recovery": "Human review catches it; post-incident, the missed pattern is added to the checks."
+    },
+    {
+      "mode": "Reviews against a stale base (outdated diff).",
+      "detection": "The base commit SHA is validated before review.",
+      "mitigation": "The review aborts on a base mismatch.",
+      "recovery": "The latest diff is re-fetched and re-reviewed."
+    }
+  ],
+  "evaluation": {
+    "primary": "Finding precision matters most — the share of comments that are real, actionable issues — because noise is what makes reviewers ignore the tool.",
+    "metrics": [
+      {
+        "name": "Finding precision",
+        "description": "Of comments posted, the share that are valid, actionable issues — false-positive resistance."
+      },
+      {
+        "name": "Recall on seeded defects",
+        "description": "Of known injected defects, the share the agent catches."
+      },
+      {
+        "name": "Security recall",
+        "description": "Recall measured specifically on security-relevant defects, weighted higher."
+      },
+      {
+        "name": "Comment usefulness",
+        "description": "Reviewer accept-versus-dismiss rate on the suggestions it posts."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to review per diff."
+      }
+    ],
+    "approach": "Seed a corpus of pull requests with known defects, including security ones, and measure recall; measure precision via reviewer accept/dismiss on real diffs. Track security recall as its own number."
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "nda-triage-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Evaluation",
+  "worst_case_action": "Misflags an NDA clause for human review. Cannot sign, approve, or send NDAs.",
+  "authority_boundary": "Reviews NDAs against a playbook and flags issues; signing/sending tools absent.",
+  "tags": [
+    "legal",
+    "nda",
+    "contract-review",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_nda",
+      "compare_playbook",
+      "flag_nonstandard",
+      "suggest_standard"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "nda_sign",
+      "nda_approve",
+      "nda_send"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.25,
+    "alert_threshold_usd": 0.16
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "non_standard_clause",
+      "missing_clause",
+      "low_confidence"
+    ],
+    "destination": "legal_review_queue"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "flags",
+      "playbook_refs"
+    ]
+  }
+}

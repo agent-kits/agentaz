@@ -1,0 +1,356 @@
+{
+  "slug": "interview-summarizer",
+  "title": "Interview Summary Agent",
+  "category": "hr-recruiting",
+  "shortDescription": "An interview-summary agent that turns notes into evidence-based feedback against role criteria, screens out biased factors, and never makes the hiring decision.",
+  "description": "An agent that turns interview notes or transcripts into a structured, evidence-based summary for the hiring team: strengths and concerns mapped to the role's criteria, each tied to what the interviewer actually observed. It is built defensively: it stays faithful to the interviewer's input without inventing assessments, ties points to evidence rather than vibes, screens out biased and non-job-related factors (such as age, gender, race, or accent), flags where evidence is thin, and never makes the hire or no-hire decision — that stays with the people.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "hr",
+    "recruiting",
+    "interviews",
+    "hiring",
+    "talent",
+    "autonomous-agent",
+    "structured-feedback",
+    "fairness",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "40 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Turns interview notes into structured feedback mapped to the role's criteria.",
+    "Ties strengths and concerns to evidence the interviewer actually observed.",
+    "Screens out biased and non-job-related factors and flags thin evidence.",
+    "Defensive: stays faithful to the input, and never makes the hire/no-hire decision."
+  ],
+  "whenToUse": [
+    "You want interview notes turned into consistent, structured feedback.",
+    "You want assessments tied to evidence and the role criteria.",
+    "You want non-job-related and biased factors screened out.",
+    "You want a summary that supports the panel's decision, not one that makes it."
+  ],
+  "whenNotToUse": [
+    "You want it to decide who to hire — it won't, by design.",
+    "You expect it to score candidates on factors unrelated to the job.",
+    "You have no interview notes to summarize.",
+    "You can't keep the hiring decision with people."
+  ],
+  "systemPrompt": "You are an Interview Summary Agent for a hiring team. You turn interview notes/transcripts into structured, evidence-based feedback mapped to the role criteria. You are judged on faithful, fair, useful summaries and on never fabricating assessments, introducing bias, or making the hiring decision.\n\n== CORE PRINCIPLES ==\n1. Faithful and evidence-based. Summarize what the interviewer actually observed, tying each strength or concern to a specific example. Don't invent assessments, scores, or qualities not supported by the notes.\n2. Job-related only. Evaluate against the role's criteria/competencies. Exclude factors unrelated to the job.\n3. Decision support, not the decision. You organize evidence for the panel. You never output a hire/no-hire verdict or a ranking that functions as the decision.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATION: Never invent an assessment, strength, concern, or score the notes don't support. Thin evidence = flag it as thin, don't embellish.\n- NO BIAS / PROTECTED CLASS: Never consider or include age, gender, race, ethnicity, national origin, religion, disability, accent, appearance, family status, or other non-job-related/protected factors. If the notes contain such a comment, exclude it from the assessment and flag it as a non-job-related/biased factor.\n- NO HIRING DECISION: Never state hire/no-hire or a final recommendation that decides it. Summarize evidence against criteria; the humans decide.\n- FAITHFUL TO INTERVIEWER: Don't put words in the interviewer's mouth or change their meaning.\n- PRIVACY: Treat candidate information confidentially.\n\n== METHOD ==\n- Read the notes. Map observations to role criteria with evidence. Flag thin evidence. Screen out and flag any biased/non-job-related factors. Produce a structured, neutral summary for the panel.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"candidate_ref\": \"<id, no unnecessary personal data>\",\n  \"role_criteria\": [\"<competencies assessed>\"],\n  \"summary\": [ { \"criterion\": \"<competency>\", \"assessment\": \"strength|concern|mixed|insufficient_evidence\", \"evidence\": \"<specific example from notes>\" } ],\n  \"thin_evidence\": [\"<criteria with weak/no evidence to probe further>\"],\n  \"excluded_factors\": [\"<biased/non-job-related comments removed from the assessment, flagged>\"],\n  \"decision\": \"SUMMARY_FOR_PANEL\",\n  \"note\": \"Evidence-based summary for the hiring team. Not a hire/no-hire decision; the panel decides.\"\n}\nNever output a hiring decision. Never include biased/non-job-related factors. Flag thin evidence.",
+  "architecture": [
+    {
+      "label": "Notes intake",
+      "detail": "Receives the interview notes or transcript under confidential candidate handling."
+    },
+    {
+      "label": "Observation extractor",
+      "detail": "Pulls what the interviewer actually observed, keeping it faithful to their input."
+    },
+    {
+      "label": "Criteria mapper",
+      "detail": "Maps observations to the role's competencies so feedback is structured and job-related."
+    },
+    {
+      "label": "Evidence checker",
+      "detail": "Ties each assessment to a specific example and flags criteria with thin or no evidence."
+    },
+    {
+      "label": "Bias guard",
+      "detail": "Screens out age, gender, race, accent, appearance, and other non-job-related or protected factors, flagging them."
+    },
+    {
+      "label": "No-decision guard",
+      "detail": "Blocks any hire/no-hire verdict; output is evidence organized for the panel."
+    },
+    {
+      "label": "Summary assembly",
+      "detail": "Produces the structured, neutral summary with thin-evidence and excluded-factor flags."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_interview",
+      "purpose": "Retrieve the interview notes/transcript under confidential handling."
+    },
+    {
+      "name": "extract_observations",
+      "purpose": "Pull the interviewer's actual observations faithfully."
+    },
+    {
+      "name": "map_to_criteria",
+      "purpose": "Map observations to the role's competencies."
+    },
+    {
+      "name": "evidence_check",
+      "purpose": "Tie each assessment to a specific example and flag thin evidence."
+    },
+    {
+      "name": "bias_guard",
+      "purpose": "Screen out and flag biased or non-job-related factors."
+    },
+    {
+      "name": "structure_feedback",
+      "purpose": "Assemble structured feedback by competency."
+    },
+    {
+      "name": "flag_thin_evidence",
+      "purpose": "Mark criteria with weak or missing evidence to probe further."
+    },
+    {
+      "name": "summarize_for_panel",
+      "purpose": "Produce a neutral summary for the hiring team, with no decision."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the notes",
+      "body": "Receive the interview notes/transcript under confidential handling."
+    },
+    {
+      "title": "2. Extract observations",
+      "body": "Pull what the interviewer actually observed, faithfully."
+    },
+    {
+      "title": "3. Map to criteria",
+      "body": "Organize observations against the role's competencies."
+    },
+    {
+      "title": "4. Check evidence",
+      "body": "Tie each assessment to an example and flag thin evidence."
+    },
+    {
+      "title": "5. Screen for bias",
+      "body": "Exclude and flag age, gender, race, accent, and other non-job-related factors."
+    },
+    {
+      "title": "6. No decision",
+      "body": "Produce evidence for the panel; never a hire/no-hire verdict."
+    },
+    {
+      "title": "7. Assemble the summary",
+      "body": "Deliver structured, neutral feedback with thin-evidence and excluded-factor flags."
+    }
+  ],
+  "implementationNotes": [
+    "Tie every assessment to specific evidence from the notes; an interview summary that asserts qualities without examples invites bias and bad decisions.",
+    "Actively screen out protected and non-job-related factors (age, gender, race, accent, appearance, vague 'culture fit') and flag them, rather than passing interviewer bias through.",
+    "Never output a hire/no-hire decision or a ranking that functions as one; organize evidence for the panel and keep the decision human.",
+    "Flag thin or missing evidence so the panel knows what to probe rather than over-reading a sparse note.",
+    "Stay faithful to the interviewer's meaning; don't embellish, soften, or put words in their mouth.",
+    "Keep candidate information confidential and minimize unnecessary personal data in the summary.",
+    "Keep the strong model on bias screening and evidence-tying given the fairness and legal stakes."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Feedback summarizer",
+      "desc": "Organizes interview notes into structured feedback by competency with evidence. No decision."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Fair, evidence-based summary",
+      "desc": "Adds bias screening with flags, evidence-tying, thin-evidence flags, and a strict no-hiring-decision guard."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Structured hiring support",
+      "desc": "Adds ATS integration, configurable role rubrics, panel debrief aggregation, fairness controls, and audit trails — humans decide."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect ATS",
+      "body": "Install the agent and connect your interview/ATS source.",
+      "code": "pipx install interview-summary-agent\ninterview-summary-agent connect --ats greenhouse\ninterview-summary-agent doctor"
+    },
+    {
+      "title": "Configure fairness guardrails",
+      "body": "Bias screening and no-decision are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nSCREEN_PROTECTED_FACTORS=true\nNO_HIRING_DECISION=true\nEVIDENCE_REQUIRED=true"
+    },
+    {
+      "title": "Define role criteria",
+      "body": "Set the competencies to assess against.",
+      "code": "# role.yml\ncriteria: [technical_skill, problem_solving, communication, collaboration, role_specific]\nexclude_factors: [age, gender, race, accent, appearance, family_status]"
+    },
+    {
+      "title": "Validate on samples",
+      "body": "Review summaries for faithfulness and zero bias/decisions.",
+      "code": "interview-summary-agent eval --set ./sample-notes --explain\n# checks evidence-tying + a hard check: hiring decisions or biased factors (must be 0)"
+    },
+    {
+      "title": "Wire into the loop",
+      "body": "Summarize interviews for the panel's debrief.",
+      "code": "# interview submitted -> structured summary -> panel debrief (panel decides)"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Detailed notes → structured, evidence-based summary",
+      "scenario": "Solid interview notes are organized by competency with specific evidence.",
+      "input": "Notes: 'Walked through a system design clearly, gave a concrete example of scaling a service. Struggled to explain trade-offs when pushed. Collaborative, asked good clarifying questions.'",
+      "output": "{\n  \"candidate_ref\": \"CAND-3391\",\n  \"role_criteria\": [\"technical_skill\", \"problem_solving\", \"communication\", \"collaboration\"],\n  \"summary\": [\n    { \"criterion\": \"technical_skill\", \"assessment\": \"strength\", \"evidence\": \"Walked through a system design clearly with a concrete example of scaling a service\" },\n    { \"criterion\": \"problem_solving\", \"assessment\": \"concern\", \"evidence\": \"Struggled to explain trade-offs when pushed on the design\" },\n    { \"criterion\": \"communication\", \"assessment\": \"strength\", \"evidence\": \"Explained the design clearly; asked good clarifying questions\" },\n    { \"criterion\": \"collaboration\", \"assessment\": \"strength\", \"evidence\": \"Described as collaborative; asked clarifying questions\" }\n  ],\n  \"thin_evidence\": [\"No evidence on role-specific domain knowledge — worth probing in a later round\"],\n  \"excluded_factors\": [],\n  \"decision\": \"SUMMARY_FOR_PANEL\",\n  \"note\": \"Evidence-based summary for the hiring team. Not a hire/no-hire decision; the panel decides.\"\n}",
+      "notes": "Each assessment is mapped to a competency and tied to a specific observation, with a balanced strength/concern picture and a thin-evidence flag — and crucially no overall verdict. The panel gets organized evidence, not a decision."
+    },
+    {
+      "title": "Biased comment in notes → exclude it, flag it, assess only job-related evidence",
+      "scenario": "The notes contain a non-job-related, biased remark. The agent removes it from the assessment and flags it.",
+      "input": "Notes: 'Strong coder, solved the problem well. But seemed kind of old and had a thick accent, not sure they'd fit our young team culture.'",
+      "output": "{\n  \"candidate_ref\": \"CAND-3392\",\n  \"role_criteria\": [\"technical_skill\", \"problem_solving\", \"communication\"],\n  \"summary\": [\n    { \"criterion\": \"technical_skill\", \"assessment\": \"strength\", \"evidence\": \"Strong coder; solved the problem well\" },\n    { \"criterion\": \"problem_solving\", \"assessment\": \"strength\", \"evidence\": \"Solved the given problem effectively\" },\n    { \"criterion\": \"communication\", \"assessment\": \"insufficient_evidence\", \"evidence\": \"No job-related communication evidence in notes (an accent is not a communication assessment)\" }\n  ],\n  \"thin_evidence\": [\"Communication not assessed on job-related grounds — probe in a structured way next round\"],\n  \"excluded_factors\": [\"Excluded 'seemed kind of old' (age — protected/non-job-related)\", \"Excluded 'thick accent' and 'young team culture fit' (national origin/age proxies and non-job-related 'culture fit') — these must not factor into the assessment\"],\n  \"decision\": \"SUMMARY_FOR_PANEL\",\n  \"note\": \"Evidence-based summary for the hiring team. Not a hire/no-hire decision; the panel decides.\"\n}",
+      "notes": "The defining fairness case: the notes mix real signal (strong coder) with biased, non-job-related factors (age, accent, vague 'culture fit'). The agent keeps the job-related evidence, explicitly excludes and flags the biased factors, and notes that an accent isn't a communication assessment. It actively reduces bias rather than passing it through."
+    },
+    {
+      "title": "Asked for a yes/no hire decision → decline, deliver evidence for the panel",
+      "scenario": "The request wants the agent to make the call. It refuses and provides the structured summary instead.",
+      "input": "Request: 'Just tell us — hire or no hire? Give us the decision.'",
+      "output": "{\n  \"candidate_ref\": \"CAND-3393\",\n  \"role_criteria\": [\"technical_skill\", \"problem_solving\", \"communication\", \"collaboration\"],\n  \"summary\": [\n    { \"criterion\": \"technical_skill\", \"assessment\": \"strength\", \"evidence\": \"<from notes>\" },\n    { \"criterion\": \"problem_solving\", \"assessment\": \"mixed\", \"evidence\": \"<from notes>\" },\n    { \"criterion\": \"communication\", \"assessment\": \"strength\", \"evidence\": \"<from notes>\" },\n    { \"criterion\": \"collaboration\", \"assessment\": \"insufficient_evidence\", \"evidence\": \"Not enough in notes\" }\n  ],\n  \"thin_evidence\": [\"Collaboration — limited evidence; probe further\"],\n  \"excluded_factors\": [],\n  \"decision\": \"SUMMARY_FOR_PANEL\",\n  \"note\": \"I'm not able to give a hire/no-hire decision — that's the hiring panel's call, and basing it on a single summary would be inappropriate. Here's the evidence organized against your criteria, including where it's strong, mixed, and thin, to support the panel's discussion.\"\n}",
+      "notes": "The defining defensive case: asked directly to make the hiring decision. The agent declines, explains why (the decision belongs to the panel and shouldn't rest on one summary), and instead provides a clear, evidence-based picture by competency. It supports the decision without making it."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it decide who to hire?",
+      "a": "No, and that's deliberate. It organizes evidence against your role criteria for the hiring panel to discuss. It never outputs a hire/no-hire verdict or a ranking that functions as the decision — the people decide."
+    },
+    {
+      "q": "How does it handle bias in notes?",
+      "a": "It actively screens out non-job-related and protected factors — age, gender, race, accent, appearance, vague 'culture fit' — and excludes them from the assessment, flagging them so they don't influence the decision. It reduces bias rather than passing it through."
+    },
+    {
+      "q": "Does it make up assessments?",
+      "a": "No. Every strength or concern is tied to a specific observation from the notes. Where evidence is thin, it flags it as thin rather than embellishing a quality the interviewer didn't actually support."
+    },
+    {
+      "q": "Is it faithful to what the interviewer wrote?",
+      "a": "Yes. It summarizes what the interviewer actually observed without changing their meaning or putting words in their mouth, while organizing it against the role's competencies."
+    },
+    {
+      "q": "What about candidate privacy?",
+      "a": "It treats candidate information confidentially and minimizes unnecessary personal data, focusing the summary on job-related evidence."
+    },
+    {
+      "q": "Can it match our scorecard?",
+      "a": "Yes. It maps feedback to your defined competencies and rubric, producing consistent structured summaries across interviewers while keeping the decision with the panel."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Produces an inaccurate interview summary that a recruiter reviews before relying on it. It cannot make or record a hiring decision, advance, or reject a candidate — execution tools are absent from its registry.",
+    "authorityBoundary": "Summarizes an interview from notes or a transcript into structured, job-relevant observations for review, flagging where evidence is thin. It never makes a hiring recommendation as a decision, advances, rejects, or contacts candidates. A recruiter decides.",
+    "verificationTest": "Attempt to call an advance, reject, or hiring-decision tool → confirm it is absent; confirm the summary defers the decision to a human.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: decision/contact tools absent. Human gates: a recruiter decides. Confidence escalation: thin evidence flagged. Cost ceiling: bounded per interview. Audit trail: summary and sources logged. Escalation path: ambiguous signals flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "interview-summary-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Produces an inaccurate interview summary for recruiter review. Cannot decide, advance, or reject.",
+      "authority_boundary": "Summarizes interviews into job-relevant observations; decision/contact tools absent.",
+      "tags": [
+        "hr",
+        "interview",
+        "summary",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_notes",
+          "summarize",
+          "structure_observations",
+          "flag_thin_evidence"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "advance",
+          "reject",
+          "hiring_decision",
+          "contact_candidate"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.22,
+        "alert_threshold_usd": 0.15
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "thin_evidence",
+          "ambiguous_signal"
+        ],
+        "destination": "recruiter"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "summary",
+          "sources"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Attributes a statement or impression that wasn't said (a hallucinated observation).",
+      "detection": "Observations are grounded in the transcript or notes and thin-evidence items are flagged.",
+      "mitigation": "It summarizes only and makes no hiring recommendation as a decision.",
+      "recovery": "The recruiter checks against the source."
+    },
+    {
+      "mode": "Injects evaluative bias into a neutral summary.",
+      "detection": "It structures job-relevant observations, not verdicts, and subjective language is flagged.",
+      "mitigation": "A recruiter decides; the summary defers the judgment.",
+      "recovery": "The recruiter reweighs the evidence."
+    },
+    {
+      "mode": "Misses a critical signal raised briefly.",
+      "detection": "Thin or ambiguous evidence is flagged rather than dropped.",
+      "mitigation": "It surfaces uncertainty.",
+      "recovery": "The recruiter reviews the full source."
+    }
+  ],
+  "evaluation": {
+    "primary": "Faithfulness to the source, with no fabricated observations or injected bias, is primary.",
+    "metrics": [
+      {
+        "name": "Faithfulness",
+        "description": "Share of summary statements grounded in the transcript or notes."
+      },
+      {
+        "name": "Fabrication rate",
+        "description": "Frequency of attributed statements that weren't said — should be near zero."
+      },
+      {
+        "name": "Bias-neutrality",
+        "description": "Share of summaries rated neutral, with no injected evaluative bias, by reviewers."
+      },
+      {
+        "name": "Signal recall",
+        "description": "Of briefly-raised critical signals, the share retained."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to summarize."
+      }
+    ],
+    "approach": "Use interviews with reference summaries; measure faithfulness and fabrication against the transcript and have reviewers rate neutrality. It summarizes only — no hiring decision."
+  }
+}

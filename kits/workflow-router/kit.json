@@ -1,0 +1,352 @@
+{
+  "slug": "workflow-router",
+  "title": "Workflow Routing Agent",
+  "category": "task-orchestration",
+  "shortDescription": "A routing agent that classifies incoming requests and sends them to the right workflow with a confidence and reason, escalating ambiguous or high-risk ones to humans.",
+  "description": "An agent that sits at the front of a system and routes incoming requests to the right workflow, agent, queue, or team — classifying intent, attaching a confidence and a reason, and escalating anything it shouldn't route blindly. It routes; it doesn't execute the work itself. It is built defensively: it routes only when confident, sends ambiguous or unknown requests to a human instead of forcing a guess, never invents a destination that doesn't exist, requires approval for high-risk actions, and keeps an audit trail of every routing decision.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "orchestration",
+    "routing",
+    "triage",
+    "workflow",
+    "dispatcher",
+    "autonomous-agent",
+    "multi-agent",
+    "intent",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Classifies incoming requests and routes them to the right workflow, agent, queue, or team.",
+    "Attaches a confidence and a reason to each routing decision.",
+    "Escalates ambiguous, unknown, or high-risk requests to a human instead of guessing.",
+    "Defensive: routes (doesn't execute), never invents a destination, and keeps an audit trail."
+  ],
+  "whenToUse": [
+    "You have multiple workflows/agents/queues and need requests dispatched to the right one.",
+    "You want confidence-based routing with ambiguous cases escalated.",
+    "You want high-risk actions gated behind approval rather than auto-routed.",
+    "You want an auditable front door to an automated system."
+  ],
+  "whenNotToUse": [
+    "You want one agent to do the work end to end rather than dispatch it.",
+    "You want it to execute high-risk actions itself — it routes and gates instead.",
+    "You have no defined destinations to route to.",
+    "You can't provide a human path for ambiguous or unknown requests."
+  ],
+  "systemPrompt": "You are a Workflow Routing Agent. You classify each incoming request and route it to the correct destination (workflow, agent, queue, or team). You route; you do not execute the work. You are judged on accurate routing and on never forcing a low-confidence route, inventing a destination, or auto-executing a high-risk action.\n\n== CORE PRINCIPLES ==\n1. Route, don't do. Your job is to dispatch to the right handler, not to perform the task. Especially for actions, hand off to the proper workflow rather than executing.\n2. Confidence-gated. Route automatically only when confident the destination is correct. If confidence is low or the request is ambiguous, ask for clarification or send to a human triage queue — don't force a guess.\n3. Known destinations only. Route only to destinations that actually exist in your routing map. Never invent or assume a route.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FORCED LOW-CONFIDENCE ROUTES: Below the confidence threshold or ambiguous -> clarify or escalate to human triage. Don't pick the closest guess.\n- NO INVENTED DESTINATIONS: Route only to known, configured handlers. If nothing fits, escalate as 'unknown', don't fabricate a route.\n- HIGH-RISK NEEDS APPROVAL: Requests implying high-risk/irreversible actions (deletion, payments, access changes, external comms) route to a privileged handler WITH human approval — never fast-pathed or auto-executed.\n- DON'T EXECUTE: You don't perform the action; you dispatch it. No side effects beyond routing + logging.\n- AUDIT: Log every routing decision with intent, destination, confidence, and reason. Respect access/permissions.\n\n== METHOD ==\n- Classify the request's intent. Match to a known destination with a confidence. Check risk. Route if confident and not high-risk; otherwise gate (approval), clarify, or escalate. Log the decision.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"request_summary\": \"<short>\",\n  \"intent\": \"<classified intent>\",\n  \"candidate_destination\": \"<known route, or 'none'>\",\n  \"confidence\": \"high|medium|low\",\n  \"risk\": \"normal|high\",\n  \"decision\": \"ROUTE|REQUIRE_APPROVAL|REQUEST_CLARIFICATION|ESCALATE_HUMAN\",\n  \"destination\": \"<final route, or human queue>\",\n  \"reason\": \"<why this routing>\",\n  \"note\": \"Routing decision only — the agent dispatches, it does not execute the task.\"\n}\nNever force a low-confidence route. Never invent a destination. Gate high-risk actions for approval.",
+  "architecture": [
+    {
+      "label": "Request intake",
+      "detail": "Receives the incoming request to classify and route."
+    },
+    {
+      "label": "Intent classifier",
+      "detail": "Determines what the request is asking for as the basis for routing."
+    },
+    {
+      "label": "Route matcher",
+      "detail": "Matches the intent to a known, configured destination with a confidence."
+    },
+    {
+      "label": "Confidence gate",
+      "detail": "Routes automatically only when confident; low-confidence or ambiguous requests are clarified or escalated."
+    },
+    {
+      "label": "Risk gate",
+      "detail": "Detects high-risk or irreversible actions and routes them to a privileged handler with human approval."
+    },
+    {
+      "label": "Dispatcher",
+      "detail": "Dispatches to the chosen destination without executing the work itself."
+    },
+    {
+      "label": "Audit log",
+      "detail": "Logs every routing decision with intent, destination, confidence, and reason for traceability."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_request",
+      "purpose": "Retrieve the incoming request to route."
+    },
+    {
+      "name": "classify_intent",
+      "purpose": "Determine what the request is asking for."
+    },
+    {
+      "name": "match_route",
+      "purpose": "Match the intent to a known, configured destination."
+    },
+    {
+      "name": "confidence_score",
+      "purpose": "Score routing confidence; low confidence is gated, not forced."
+    },
+    {
+      "name": "check_risk",
+      "purpose": "Detect high-risk or irreversible actions needing approval."
+    },
+    {
+      "name": "route_or_escalate",
+      "purpose": "Dispatch to the destination, or escalate/clarify when uncertain."
+    },
+    {
+      "name": "request_clarification",
+      "purpose": "Ask for more detail when the request is ambiguous."
+    },
+    {
+      "name": "log_routing",
+      "purpose": "Record the routing decision with confidence and reason for audit."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the request",
+      "body": "Receive the incoming request to classify and route."
+    },
+    {
+      "title": "2. Classify intent",
+      "body": "Determine what the request is asking for."
+    },
+    {
+      "title": "3. Match a destination",
+      "body": "Match the intent to a known, configured route with a confidence."
+    },
+    {
+      "title": "4. Gate on confidence",
+      "body": "Route automatically only when confident; otherwise clarify or escalate."
+    },
+    {
+      "title": "5. Gate on risk",
+      "body": "Send high-risk or irreversible actions to a privileged handler with approval."
+    },
+    {
+      "title": "6. Dispatch",
+      "body": "Route to the destination without executing the work itself."
+    },
+    {
+      "title": "7. Log it",
+      "body": "Record the routing decision with intent, destination, confidence, and reason."
+    }
+  ],
+  "implementationNotes": [
+    "Keep the router a dispatcher, not an executor; the moment it performs actions itself, a misclassification becomes a real-world side effect instead of a misroute.",
+    "Gate on confidence: below threshold or ambiguous, clarify or escalate to human triage rather than forcing the closest guess, which silently misroutes work.",
+    "Route only to known, configured destinations; if nothing fits, escalate as 'unknown' instead of inventing a route.",
+    "Require human approval for high-risk or irreversible intents (deletion, payments, access changes, external comms), regardless of how confident the intent classification is.",
+    "Log every routing decision with intent, destination, confidence, and reason so misroutes are diagnosable and the system is auditable.",
+    "Respect access and permissions so routing can't be used to reach handlers a requester shouldn't.",
+    "A cheaper model is usually enough to classify clear, common requests, so keep the strong model for ambiguous intent and risk detection."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Intent router",
+      "desc": "Classifies requests and routes them to known destinations with a confidence and reason. Dispatch only."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Gated routing",
+      "desc": "Adds confidence gating, ambiguous/unknown escalation, high-risk approval gating, and full routing audit logs."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Orchestration front door",
+      "desc": "Adds multi-handler registries, dynamic routing rules, permission-aware dispatch, approval workflows, and analytics across the request stream."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect handlers",
+      "body": "Install the agent and register your destinations.",
+      "code": "pipx install workflow-router-agent\nworkflow-router-agent connect --handlers ./routes.yml\nworkflow-router-agent doctor"
+    },
+    {
+      "title": "Configure routing guardrails",
+      "body": "Confidence gating and high-risk approval are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nROUTE_BELOW_CONFIDENCE=escalate\nHIGH_RISK_REQUIRES_APPROVAL=true\nEXECUTE_ACTIONS=false       # routes, never executes"
+    },
+    {
+      "title": "Define the routing map",
+      "body": "List the known destinations and high-risk intents.",
+      "code": "# routes.yml\ndestinations: { billing: queue:billing, bug: agent:triage, howto: agent:kb, sales: team:sales }\nhigh_risk: [account_deletion, payment, access_change, external_email]\nunknown: queue:human_triage"
+    },
+    {
+      "title": "Test routing",
+      "body": "Run sample requests and review confidence and decisions.",
+      "code": "workflow-router-agent run --request './sample.json' --explain\n# prints intent + destination + confidence + decision (route/approve/clarify/escalate)"
+    },
+    {
+      "title": "Wire as the front door",
+      "body": "Route all incoming requests; gate and escalate per policy.",
+      "code": "# incoming request -> router -> known handler / approval / clarify / human triage"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Clear request matching a known route → routed with reason",
+      "scenario": "A request clearly maps to a configured destination. The agent routes it confidently.",
+      "input": "Request: 'My invoice shows the wrong amount, can someone fix the billing?'",
+      "output": "{\n  \"request_summary\": \"User reports an incorrect invoice amount and wants billing corrected.\",\n  \"intent\": \"billing_issue\",\n  \"candidate_destination\": \"queue:billing\",\n  \"confidence\": \"high\",\n  \"risk\": \"normal\",\n  \"decision\": \"ROUTE\",\n  \"destination\": \"queue:billing\",\n  \"reason\": \"Clear billing-issue intent matching the configured billing queue with high confidence.\",\n  \"note\": \"Routing decision only — the agent dispatches, it does not execute the task.\"\n}",
+      "notes": "An unambiguous request mapped to a known destination at high confidence — routed cleanly with a reason and logged. The routine dispatching the agent should handle automatically."
+    },
+    {
+      "title": "Ambiguous request → don't force a route, clarify or escalate",
+      "scenario": "The request is too vague to route confidently. The agent asks for clarification instead of guessing.",
+      "input": "Request: 'It's broken, please help.' (No detail about what 'it' is.)",
+      "output": "{\n  \"request_summary\": \"User says something is 'broken' with no detail about what or where.\",\n  \"intent\": \"unclear\",\n  \"candidate_destination\": \"none\",\n  \"confidence\": \"low\",\n  \"risk\": \"normal\",\n  \"decision\": \"REQUEST_CLARIFICATION\",\n  \"destination\": \"queue:human_triage\",\n  \"reason\": \"Intent is too ambiguous to route confidently — 'it's broken' could be billing, a bug, login, or hardware. Rather than guess a destination, request clarification; if unanswered, send to human triage.\",\n  \"note\": \"Routing decision only — the agent dispatches, it does not execute the task.\"\n}",
+      "notes": "Instead of forcing a guess (say, routing to engineering and being wrong), the agent recognizes low confidence, asks what's broken, and falls back to human triage. A wrong confident route wastes a team's time and delays the user — clarifying is better."
+    },
+    {
+      "title": "High-risk action → require approval, never auto-execute or fast-path",
+      "scenario": "A request implies a destructive, irreversible action. The agent gates it behind approval and refuses to execute.",
+      "input": "Request: 'Delete this customer's account and refund everything immediately.'",
+      "output": "{\n  \"request_summary\": \"Request to delete a customer account and issue full refunds immediately.\",\n  \"intent\": \"account_deletion + payment\",\n  \"candidate_destination\": \"handler:privileged_ops\",\n  \"confidence\": \"high\",\n  \"risk\": \"high\",\n  \"decision\": \"REQUIRE_APPROVAL\",\n  \"destination\": \"handler:privileged_ops (with human approval)\",\n  \"reason\": \"Account deletion and refunds are high-risk, irreversible actions. Routed to the privileged-ops handler WITH required human approval — not auto-executed and not fast-pathed. The router itself performs no deletion or payment.\",\n  \"note\": \"Routing decision only — the agent dispatches, it does not execute the task.\"\n}",
+      "notes": "The defining defensive case: a destructive, irreversible, money-moving request. Even though the intent is clear and confidence is high, the agent does NOT execute or fast-path it — it routes to a privileged handler behind human approval. High confidence in intent is not authority to perform a high-risk action; the gate stays."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Does it do the work or just route it?",
+      "a": "It routes. Its job is to classify a request and dispatch it to the right workflow, agent, queue, or team — not to perform the task. Keeping it a dispatcher means a misclassification is a misroute, not a real-world side effect."
+    },
+    {
+      "q": "What happens with an ambiguous request?",
+      "a": "It won't force a guess. If confidence is low or the request is unclear, it asks for clarification or escalates to a human triage queue, because a confident wrong route wastes a team's time and delays the user."
+    },
+    {
+      "q": "Can it route to a destination that doesn't exist?",
+      "a": "No. It routes only to known, configured destinations. If nothing fits, it escalates the request as 'unknown' rather than inventing or assuming a route."
+    },
+    {
+      "q": "How does it handle dangerous actions?",
+      "a": "High-risk or irreversible intents — deletions, payments, access changes, external messages — are routed to a privileged handler with required human approval, never auto-executed or fast-pathed, even when the intent is clear."
+    },
+    {
+      "q": "Is routing auditable?",
+      "a": "Yes. Every decision is logged with the intent, destination, confidence, and reason, so misroutes are diagnosable and the system is fully traceable."
+    },
+    {
+      "q": "Can it respect who's allowed to do what?",
+      "a": "Yes. It's permission-aware, so routing can't be used to reach a handler or action a requester isn't allowed to access."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Planning (Research → Plan)",
+    "worstCaseAction": "Routes a request to the wrong handler, caught before anything runs. It only routes and does not execute the work itself — execution tools are absent from its registry.",
+    "authorityBoundary": "Reads an incoming request, classifies it, and routes it to the appropriate handler or queue with a confidence score. It never performs the downstream work and never executes actions. The receiving handler does the work.",
+    "verificationTest": "Confirm the agent emits a routing decision only and does not execute the routed task; confirm no execution tool exists.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: execution tools absent. Human gates: handlers do the work. Confidence escalation: low-confidence routes sent to a default/human queue. Cost ceiling: bounded per request. Audit trail: routing decisions logged. Escalation path: unclassifiable requests routed to triage.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "workflow-router-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Planning",
+      "worst_case_action": "Routes a request to the wrong handler, caught before run. Does not execute the work.",
+      "authority_boundary": "Classifies and routes requests; does not perform downstream work; execution tools absent.",
+      "tags": [
+        "task-orchestration",
+        "routing",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_request",
+          "classify",
+          "score_confidence",
+          "route"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "execute_task",
+          "downstream_action"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.18,
+        "alert_threshold_usd": 0.12
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 6
+      },
+      "human_handoff": {
+        "triggers": [
+          "unclassifiable",
+          "low_confidence"
+        ],
+        "destination": "triage_queue"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "routing_decisions"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Routes a request to the wrong handler.",
+      "detection": "Each routing decision carries a confidence score; low confidence goes to a default queue.",
+      "mitigation": "The router never does the work itself, so a misroute is reversible.",
+      "recovery": "The handler bounces it back and it is re-routed, with the correction logged."
+    },
+    {
+      "mode": "An unclassifiable request is silently dropped.",
+      "detection": "A no-match condition is explicitly handled rather than ignored.",
+      "mitigation": "Unmatched requests fall back to a human triage queue — never a silent drop.",
+      "recovery": "The request surfaces in triage and the classification rule is updated."
+    },
+    {
+      "mode": "A routing loop forms (A → B → A).",
+      "detection": "A hop counter and visited-set detect cycles.",
+      "mitigation": "A maximum hop count is enforced.",
+      "recovery": "Routing halts and the request is sent to human triage."
+    }
+  ],
+  "evaluation": {
+    "primary": "Routing accuracy is primary — the share of requests sent to the correct handler — because a misroute delays everything downstream.",
+    "metrics": [
+      {
+        "name": "Routing accuracy",
+        "description": "Share of requests routed to the correct handler or queue versus ground truth."
+      },
+      {
+        "name": "Per-class precision",
+        "description": "For each destination, the share of routed items that genuinely belonged there."
+      },
+      {
+        "name": "Fallback rate",
+        "description": "How often low-confidence items go to the default or human queue, and whether that was warranted."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to produce a routing decision."
+      },
+      {
+        "name": "Loop / drop rate",
+        "description": "Frequency of routing loops or unclassifiable requests being dropped."
+      }
+    ],
+    "approach": "Label a representative sample of requests with their correct destination and compute a confusion matrix across handlers. Watch the low-confidence fallback queue for systematic gaps in coverage."
+  }
+}

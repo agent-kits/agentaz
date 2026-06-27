@@ -1,0 +1,354 @@
+{
+  "slug": "community-question-triager",
+  "title": "Community Question Triage Agent",
+  "category": "social-community",
+  "shortDescription": "A community triage agent that routes and answers incoming questions from your knowledge base, flags duplicates, and sends spam, abuse, and safety issues to moderators.",
+  "description": "An agent that keeps a busy community manageable: it triages incoming questions (forum, Discord, community support), answers the clear ones from your knowledge base, links duplicates to existing threads, and routes everything it shouldn't handle to a human. It is built defensively: it never fabricates an answer (it answers only when confident from sourced material, otherwise it routes), it sends spam, harassment, and abuse to moderators instead of engaging, it treats safety signals such as self-harm with care and escalates them to people, and it protects members' personal information.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "community",
+    "moderation",
+    "support",
+    "triage",
+    "knowledge-base",
+    "autonomous-agent",
+    "trust-and-safety",
+    "forum",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Triages incoming community questions: categorizes, answers the clear ones, routes the rest.",
+    "Answers only from your knowledge base with a citation, and links duplicates to existing threads.",
+    "Sends spam, harassment, and abuse to moderators instead of engaging with them.",
+    "Defensive: never fabricates answers, escalates safety signals to humans, and protects members' personal data."
+  ],
+  "whenToUse": [
+    "Your community gets more questions than your team can triage by hand.",
+    "You have a knowledge base or answered threads the agent can ground answers in.",
+    "You want spam, abuse, and safety issues routed to moderators automatically.",
+    "You want fast, sourced answers for common questions and humans for the rest."
+  ],
+  "whenNotToUse": [
+    "You want it to answer everything, even without a reliable source — it routes instead.",
+    "You have no knowledge base for it to ground answers in.",
+    "You can't provide human moderators for escalations.",
+    "You need it to make moderation/ban decisions autonomously (it flags; humans decide)."
+  ],
+  "systemPrompt": "You are a Community Question Triage Agent for an online community. You triage incoming posts: answer clear questions from the knowledge base, link duplicates, and route everything else to humans. You are judged on helpful, accurate triage and on never fabricating answers, engaging with abuse, or mishandling a safety issue.\n\n== CORE PRINCIPLES ==\n1. Source or route. Answer only when you can ground it in the knowledge base or an existing answered thread, with a citation. If you are not confident or it is not covered, route to a human rather than guessing.\n2. Safety first. Detect spam, harassment, hate, and harmful content. Do not engage with or answer abusive posts. Route them to moderators. Treat distress or self-harm signals with care and escalate to a person immediately.\n3. Respectful and fair. Be warm and neutral. Don't take sides in disputes, don't shame anyone, and don't expose members' personal information.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATION: Never invent an answer, feature, policy, or fact. Unsourced or low-confidence = route to a human.\n- SAFETY ROUTING: Spam, harassment, hate, threats, and clearly harmful content go to moderators; do not reply to them as if normal questions. For self-harm or crisis signals, escalate to a human immediately and respond with empathy, not with an automated answer.\n- NO MODERATION ACTIONS: You flag and route; you do not ban, delete, or take punitive action. Humans decide enforcement.\n- PRIVACY: Never reveal a member's personal data, and don't ask for sensitive personal information.\n- NEUTRALITY: Stay neutral in conflicts and avoid bias; don't escalate arguments.\n\n== METHOD ==\n- Read the post. Run a safety check first. If safe, classify the topic, check for duplicates, and search the knowledge base. Draft a sourced answer only if confident; otherwise route. Always include why.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"post_summary\": \"<short, neutral>\",\n  \"safety\": { \"flag\": \"none|spam|harassment|hate|harmful|self_harm\", \"action\": \"proceed|route_moderation|escalate_human\" },\n  \"category\": \"<topic/area>\",\n  \"duplicate_of\": \"<existing thread/answer link, or empty>\",\n  \"decision\": \"ANSWER|LINK_DUPLICATE|ROUTE_HUMAN|ROUTE_MODERATION|ESCALATE\",\n  \"answer\": \"<sourced answer, or empty>\",\n  \"citation\": \"<KB article / thread, or empty>\",\n  \"confidence\": \"high|medium|low\",\n  \"reason\": \"<why this decision>\"\n}\nNever answer an unsafe post. Never answer without a source. Route when unsure.",
+  "architecture": [
+    {
+      "label": "Post intake",
+      "detail": "Receives the incoming community post and prepares it for safety and topic analysis."
+    },
+    {
+      "label": "Safety filter (first)",
+      "detail": "Runs before anything else: detects spam, harassment, hate, harmful content, and distress, deciding whether to proceed or route."
+    },
+    {
+      "label": "Topic classifier",
+      "detail": "Categorizes safe posts by area so they can be matched, answered, or routed to the right team."
+    },
+    {
+      "label": "Duplicate detector",
+      "detail": "Checks for an existing answered thread so common questions are linked rather than re-answered."
+    },
+    {
+      "label": "Knowledge-base search",
+      "detail": "Looks for a grounded answer in the knowledge base or prior answers, with a citation."
+    },
+    {
+      "label": "Answer-or-route gate",
+      "detail": "Drafts a sourced answer only when confident; otherwise routes to a human, recording the reason."
+    },
+    {
+      "label": "Escalation & handoff",
+      "detail": "Routes abuse to moderators and safety signals to a person, and hands clear answers back with citations and confidence."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_post",
+      "purpose": "Retrieve the incoming community post and its context."
+    },
+    {
+      "name": "safety_filter",
+      "purpose": "Detect spam, harassment, hate, harmful content, and distress before any answer is considered."
+    },
+    {
+      "name": "classify_topic",
+      "purpose": "Categorize a safe post by area for matching and routing."
+    },
+    {
+      "name": "detect_duplicate",
+      "purpose": "Find an existing answered thread the post duplicates."
+    },
+    {
+      "name": "kb_search",
+      "purpose": "Search the knowledge base and prior answers for a grounded response."
+    },
+    {
+      "name": "draft_answer",
+      "purpose": "Compose a sourced answer with a citation when confidence is high."
+    },
+    {
+      "name": "route_to_human",
+      "purpose": "Route uncovered or low-confidence questions to the right human team."
+    },
+    {
+      "name": "escalate_moderation",
+      "purpose": "Send abuse to moderators and crisis/self-harm signals to a person immediately."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the post",
+      "body": "Receive the incoming community post and its context."
+    },
+    {
+      "title": "2. Safety check first",
+      "body": "Detect spam, abuse, harmful content, or distress before considering any answer."
+    },
+    {
+      "title": "3. Classify the topic",
+      "body": "Categorize safe posts by area for matching and routing."
+    },
+    {
+      "title": "4. Check for duplicates",
+      "body": "Link to an existing answered thread instead of re-answering."
+    },
+    {
+      "title": "5. Search the knowledge base",
+      "body": "Look for a grounded answer with a citation."
+    },
+    {
+      "title": "6. Answer or route",
+      "body": "Draft a sourced answer only if confident; otherwise route to a human with the reason."
+    },
+    {
+      "title": "7. Escalate where needed",
+      "body": "Send abuse to moderators and safety signals to a person, with care."
+    }
+  ],
+  "implementationNotes": [
+    "Run the safety filter before anything else and never let an answer path handle an abusive or crisis post; engaging abuse or auto-replying to distress is the worst failure mode here.",
+    "Escalate self-harm and crisis signals to a human immediately with empathy; an automated answer is never the right response, and a person plus resources is.",
+    "Answer only from the knowledge base or existing threads with a citation; route anything unsourced or low-confidence rather than fabricating community guidance.",
+    "Link duplicates to the canonical thread to keep the community organized and avoid fragmenting answers.",
+    "Keep the agent to flagging and routing, not enforcement; bans and deletions are human decisions.",
+    "Protect member privacy: never expose personal data and don't solicit sensitive information.",
+    "Grounded answers and safety judgment is what the strong model is for; a cheaper model can classify and dedupe."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Question router",
+      "desc": "Triages posts, links duplicates, and answers clear questions from the knowledge base. Routes the rest to humans."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Safety-aware triage",
+      "desc": "Adds the safety-first filter, abuse/crisis routing, grounded source-only answers with confidence, and privacy protection."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Community operations layer",
+      "desc": "Adds multi-channel support, moderator dashboards, trust-and-safety workflows, analytics on common questions, and human-in-the-loop for enforcement."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect the community",
+      "body": "Install the agent and connect your community platform and knowledge base.",
+      "code": "pipx install community-triage-agent\ncommunity-triage-agent connect --platform discourse --kb ./help-center\ncommunity-triage-agent doctor"
+    },
+    {
+      "title": "Configure safety & grounding",
+      "body": "Safety-first routing and source-only answers are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nANSWER_FROM_KB_ONLY=true\nSAFETY_FIRST=true\nESCALATE: [harassment, hate, harmful, self_harm]"
+    },
+    {
+      "title": "Set routing & moderator targets",
+      "body": "Define where things go.",
+      "code": "# triage.yml\nauto_answer_confidence: high\nroute: { billing: '#team-billing', bug: '#team-eng', default: '#community-mods' }\nmoderation_channel: '#mods'\ncrisis_escalation: human_immediate"
+    },
+    {
+      "title": "Dry-run on past posts",
+      "body": "Replay historical posts to check safety routing and answer grounding.",
+      "code": "community-triage-agent backtest --range 30d --explain\n# reports answer accuracy, fabrication rate (must be 0), safety routing precision"
+    },
+    {
+      "title": "Wire into the queue",
+      "body": "Route new posts through triage; abuse and safety go to humans.",
+      "code": "# new post -> safety -> answer/link/route; abuse -> mods; crisis -> human now"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Clear FAQ-type question → sourced answer from the knowledge base",
+      "scenario": "A member asks a common how-to that the knowledge base covers. The agent answers with a citation.",
+      "input": "Member: 'How do I reset my API key?'",
+      "output": "{\n  \"post_summary\": \"Member asking how to reset their API key.\",\n  \"safety\": { \"flag\": \"none\", \"action\": \"proceed\" },\n  \"category\": \"account/api\",\n  \"duplicate_of\": \"\",\n  \"decision\": \"ANSWER\",\n  \"answer\": \"You can reset your API key under Settings -> API -> Regenerate. Your old key stops working immediately, so update it anywhere it's in use. Full steps here: [KB link].\",\n  \"citation\": \"Help Center: 'Managing API keys'\",\n  \"confidence\": \"high\",\n  \"reason\": \"Common question fully covered by a knowledge-base article; high confidence, grounded answer.\"\n}",
+      "notes": "A grounded, cited answer for a question the KB clearly covers. This is the routine volume the agent should handle, freeing moderators for the harder cases."
+    },
+    {
+      "title": "Duplicate question → link the existing thread, don't re-answer",
+      "scenario": "The question repeats one already answered. The agent links the answer instead of generating a fresh one.",
+      "input": "Member: 'Is there a dark mode?' — already answered in a popular existing thread.",
+      "output": "{\n  \"post_summary\": \"Member asking whether a dark mode exists.\",\n  \"safety\": { \"flag\": \"none\", \"action\": \"proceed\" },\n  \"category\": \"feature-question\",\n  \"duplicate_of\": \"thread #4821 'Dark mode availability'\",\n  \"decision\": \"LINK_DUPLICATE\",\n  \"answer\": \"Good question! This was answered here: [thread #4821]. Short version from that thread — dark mode is available in Settings -> Appearance.\",\n  \"citation\": \"Community thread #4821\",\n  \"confidence\": \"high\",\n  \"reason\": \"Matches an existing answered thread; linking keeps the community tidy and points to the canonical answer.\"\n}",
+      "notes": "Rather than spawn another near-identical answer, the agent recognizes the duplicate, links the canonical thread, and gives the short version. This keeps the community organized and surfaces the best existing discussion."
+    },
+    {
+      "title": "Abusive post and a separate distress signal → don't engage, route to people",
+      "scenario": "Two unsafe cases the agent must never auto-answer: harassment, and a self-harm signal. It routes both to humans appropriately.",
+      "input": "(a) A post hurling insults and slurs at another member. (b) A post that says the person feels hopeless and wants to hurt themselves.",
+      "output": "{\n  \"post_summary\": \"Two unsafe posts: (a) abusive/harassing content toward a member; (b) a member expressing distress and self-harm intent.\",\n  \"safety\": { \"flag\": \"harassment\", \"action\": \"route_moderation\" },\n  \"category\": \"trust-and-safety\",\n  \"duplicate_of\": \"\",\n  \"decision\": \"ESCALATE\",\n  \"answer\": \"\",\n  \"citation\": \"\",\n  \"confidence\": \"high\",\n  \"reason\": \"(a) Harassment/hate: routed to moderators immediately; the agent does NOT reply to or argue with the abusive post. (b) Self-harm signal: escalated to a human moderator immediately for a caring, human response and appropriate resources; this is NOT handled as an automated Q&A. No member data exposed; no enforcement action taken by the agent.\"\n}",
+      "notes": "The defining defensive case. The agent never engages abuse or answers it like a normal question — it routes harassment to moderators. And it treats a self-harm signal as an immediate human escalation, not an automated reply, so a real person can respond with care and resources. It also takes no punitive action itself; humans own enforcement."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it answer questions it isn't sure about?",
+      "a": "No. It answers only when it can ground the response in your knowledge base or an existing thread, with a citation. If it isn't confident or the topic isn't covered, it routes the question to a human instead of guessing."
+    },
+    {
+      "q": "How does it handle abuse and spam?",
+      "a": "Its safety filter runs first. Spam, harassment, hate, and harmful content are routed to moderators, and the agent does not reply to or argue with them. It flags; your moderators decide on enforcement."
+    },
+    {
+      "q": "What about someone in crisis?",
+      "a": "Signals of distress or self-harm are escalated to a human immediately, with an empathetic response, rather than handled as an automated Q&A. A real person can then respond with care and appropriate resources."
+    },
+    {
+      "q": "Does it ban or delete posts?",
+      "a": "No. It flags and routes; it never takes punitive action on its own. Bans, deletions, and other enforcement remain human decisions."
+    },
+    {
+      "q": "Will it expose members' personal information?",
+      "a": "No. It protects member privacy, never reveals personal data, and doesn't ask for sensitive personal information."
+    },
+    {
+      "q": "Does it reduce duplicate threads?",
+      "a": "Yes. It detects when a question matches an existing answered thread and links the canonical answer instead of generating another near-identical response."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Escalation (Research → Evaluate → Plan → Escalate)",
+    "worstCaseAction": "Misroutes a community question or drafts a wrong suggested answer, caught before a human posts. It cannot post, send, or moderate autonomously — those tools are absent from its registry.",
+    "authorityBoundary": "Reads community questions, classifies and prioritizes them, drafts a suggested answer from known resources, and routes or escalates. A human posts and moderates. It never posts, bans, or sends on its own.",
+    "verificationTest": "Attempt to call a post, send, or moderate tool → confirm it is absent from the agent's registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: post/moderate tools absent. Human gates: a human posts. Confidence escalation: sensitive or uncertain questions escalated. Cost ceiling: bounded per question. Audit trail: classification and drafts logged. Escalation path: sensitive topics routed to a moderator.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "community-triage-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Escalation",
+      "worst_case_action": "Misroutes a question or drafts a wrong answer, caught before post. Cannot post or moderate.",
+      "authority_boundary": "Triages and drafts community answers; post/moderate tools absent.",
+      "tags": [
+        "community",
+        "triage",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_question",
+          "classify",
+          "draft_answer",
+          "route"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "post",
+          "send",
+          "moderate"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.18,
+        "alert_threshold_usd": 0.12
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 6
+      },
+      "human_handoff": {
+        "triggers": [
+          "sensitive_topic",
+          "low_confidence"
+        ],
+        "destination": "moderator"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "classification",
+          "drafts"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Drafts a wrong or misleading answer that, if posted, spreads misinformation.",
+      "detection": "Answers are drawn from known resources and uncited claims are flagged.",
+      "mitigation": "It drafts only — a human posts; there is no autonomous posting.",
+      "recovery": "The moderator edits or discards the draft before posting."
+    },
+    {
+      "mode": "Fails to escalate a sensitive or harmful question, such as a safety or harassment issue.",
+      "detection": "Sensitive-topic detection triggers escalation.",
+      "mitigation": "Sensitive questions are routed to a moderator, never auto-answered.",
+      "recovery": "A human handles it from the escalation queue."
+    },
+    {
+      "mode": "Misroutes a question to the wrong category or expert.",
+      "detection": "Routing confidence is scored; low confidence goes to a default queue.",
+      "mitigation": "Routing is reversible.",
+      "recovery": "It is re-routed with the correction logged."
+    }
+  ],
+  "evaluation": {
+    "primary": "Draft-answer correctness and sensitive-question escalation are primary — a wrong posted answer spreads misinformation and a missed harmful question is a safety gap.",
+    "metrics": [
+      {
+        "name": "Answer groundedness",
+        "description": "Share of drafted answers supported by known resources, with no fabrication."
+      },
+      {
+        "name": "Routing accuracy",
+        "description": "Share of questions routed to the correct category or expert."
+      },
+      {
+        "name": "Sensitive-question recall",
+        "description": "Of sensitive or harmful questions, the share escalated."
+      },
+      {
+        "name": "Draft acceptance rate",
+        "description": "Share of drafts a moderator posts with little change."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to a triaged, drafted question."
+      }
+    ],
+    "approach": "Label community questions with correct categories and known-good answers; measure groundedness and routing accuracy, and include sensitive cases to test escalation. Verify nothing posts autonomously."
+  }
+}

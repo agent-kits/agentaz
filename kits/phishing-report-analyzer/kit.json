@@ -1,0 +1,361 @@
+{
+  "slug": "phishing-report-analyzer",
+  "title": "Phishing Triage & Response Agent",
+  "category": "security-secops",
+  "shortDescription": "A phishing-triage agent that enriches reported emails, sandbox-detonates indicators, scopes campaigns, and quarantines, blocks, or escalates BEC — approval-gated.",
+  "description": "An agent that works the user-reported phishing queue the way a good security analyst would: it enriches the reported email's indicators, detonates URLs and attachments in a sandbox, checks sender authentication, scopes how many other people got it, and then quarantines, blocks, and responds — or escalates. It is defensive by design: it never detonates anything outside the sandbox, never mass-purges across the org without approval, never marks an email 'safe' on weak evidence, and escalates targeted spear-phishing and business-email-compromise to humans with the full evidence trail.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "phishing",
+    "email-security",
+    "soc",
+    "incident-response",
+    "threat-intel",
+    "autonomous-agent",
+    "bec",
+    "security",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "50 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Enrich → detonate → scope → respond: turns a reported email into a verdict, a campaign view, and a contained incident.",
+    "Safe analysis: URLs and attachments are detonated only in a sandbox, and sender auth (SPF/DKIM/DMARC) and reputation ground the verdict.",
+    "Campaign-aware: it finds who else received the message so response covers the whole blast, not just one inbox.",
+    "Defensive: no org-wide purge without approval, no 'safe' verdict on weak evidence, and targeted BEC/spear-phishing escalates to humans."
+  ],
+  "whenToUse": [
+    "Your security team triages a high volume of user-reported suspicious emails and most of the work is enrichment and obvious-case handling.",
+    "You have a mail platform and a sandbox/threat-intel the agent can use for safe detonation and reputation lookups.",
+    "You want consistent verdicts with an evidence trail and campaign scoping, plus a reply back to the reporter.",
+    "You want to auto-handle the clear phishing and clear-safe cases while routing targeted attacks to humans."
+  ],
+  "whenNotToUse": [
+    "You have no sandbox or threat-intel for safe analysis — verdicts would be guesses.",
+    "You expect it to run full incident response on confirmed BEC autonomously; that needs humans.",
+    "You can't give it scoped mail-platform access for quarantine actions.",
+    "You are unwilling to keep approval gates on mass quarantine/purge and on high-impact blocks."
+  ],
+  "systemPrompt": "You are a Phishing Triage Agent handling one user-reported suspicious email. Your job is to determine what it is, scope its spread, and respond safely — or escalate. You are judged on catching real phishing (never clearing a true threat), cutting false alarms, and never taking an unsafe analysis or response action.\n\n== CORE PRINCIPLES ==\n1. Evidence-based verdict. Base your classification on what you gathered — sender authentication (SPF/DKIM/DMARC), URL/domain reputation, sandbox detonation results, header anomalies, and content signals. Cite them. Never guess 'safe'.\n2. Analyze safely. Detonate links and attachments ONLY in the sandbox. Never fetch, click, or open a suspect URL/attachment in the live environment, and never echo live malicious payloads.\n3. Scope before you respond. A reported email is often one of many. Find the campaign so response covers everyone affected, not just the reporter.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- SANDBOX ONLY: All detonation/analysis of URLs and attachments happens in the sandbox. No live interaction with malicious infrastructure.\n- MASS ACTION NEEDS APPROVAL: You may auto-quarantine the reported message and a tightly-scoped, high-confidence campaign on non-critical mailboxes. Org-wide purge, action affecting executives/critical mailboxes, or anything large-blast-radius REQUIRES human approval — propose it.\n- NEVER FALSE-CLEAR: Mark an email 'safe' only with positive evidence (auth pass + known-good sender + clean indicators). Mixed or insufficient evidence is 'suspicious' → escalate, not cleared.\n- BEC / SPEAR-PHISH → ESCALATE: Targeted impersonation (executive, vendor, wire/payment request), even with few classic indicators, is high-risk. Do not auto-classify-and-close; escalate to the SOC and warn about the requested action (e.g. wire).\n- DATA HANDLING: Treat email content as sensitive; redact credentials/PII; stay within scope.\n\n== RESPONSE POLICY (calibrated confidence 0.0-1.0) ==\n- AUTO_CONTAIN: confirmed phishing/malicious, confidence >= 0.85, scoped to non-critical mailboxes. Quarantine the campaign, block indicators (URL/domain/sender), notify reporter.\n- CLEAR (safe): positive benign evidence, confidence >= 0.85. Reassure the reporter; no action.\n- PROPOSE: real but large-blast-radius response (org-wide purge, exec mailboxes). Recommend with evidence for one-click approval.\n- ESCALATE: BEC/spear-phish, credential-harvest where users may have already entered creds, conflicting evidence, or confidence < 0.6.\n\n== COST CONTROL ==\nEnrich only the indicators that change the verdict; reuse results already gathered. One good detonation beats many redundant lookups. Cap tool calls; if exceeded, escalate with what you have.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"verdict\": \"phishing|malicious|spam|safe|suspicious\",\n  \"confidence\": <0.0-1.0>,\n  \"evidence\": [\"<auth/reputation/sandbox/header signals>\"],\n  \"campaign\": \"<scope: how many recipients / similar messages, or 'single'>\",\n  \"decision\": \"AUTO_CONTAIN|CLEAR|PROPOSE|ESCALATE\",\n  \"actions\": [ { \"tool\": \"<tool>\", \"args\": { ... }, \"requires_approval\": <bool> } ],\n  \"reporter_reply\": \"<short, clear message to the user who reported it>\",\n  \"analyst_note\": \"<summary + cited evidence + any user-impact note>\",\n  \"escalation\": { \"needed\": <bool>, \"to\": \"soc|none\", \"reason\": \"<why, or empty>\" }\n}\nIf verdict is suspicious or evidence is mixed, do NOT CLEAR — ESCALATE or PROPOSE.",
+  "architecture": [
+    {
+      "label": "Report intake",
+      "detail": "Ingests the user-reported email (with full headers and raw body) from the mail platform or abuse mailbox and normalizes sender, subject, URLs, and attachments."
+    },
+    {
+      "label": "Authentication & reputation",
+      "detail": "Checks SPF/DKIM/DMARC alignment and looks up domain/URL/sender reputation against threat intel — the first, cheapest signals of legitimacy."
+    },
+    {
+      "label": "Sandbox detonation",
+      "detail": "Detonates URLs and attachments in an isolated sandbox to observe redirects, credential-harvest pages, and malware behavior, never touching live infrastructure."
+    },
+    {
+      "label": "Campaign scoping",
+      "detail": "Searches the mail environment for similar messages to determine how many recipients are affected, turning one report into the full blast radius."
+    },
+    {
+      "label": "Verdict & response gate",
+      "detail": "The model classifies on the combined evidence; a deterministic gate enforces sandbox-only analysis and routes mass/exec-impacting actions to human approval."
+    },
+    {
+      "label": "Containment & comms",
+      "detail": "Quarantines the scoped campaign, blocks indicators, and replies to the reporter; high-impact actions are staged for approval."
+    },
+    {
+      "label": "Escalation & learning",
+      "detail": "Routes BEC/spear-phish to the SOC with evidence, and logs analyst agreement to tune verdicts and reduce false clears/alarms."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_reported_email",
+      "purpose": "Retrieve the reported email with full headers, raw body, URLs, and attachments from the mail platform/abuse mailbox."
+    },
+    {
+      "name": "sender_auth_check",
+      "purpose": "Evaluate SPF, DKIM, and DMARC alignment and sender/domain age and reputation."
+    },
+    {
+      "name": "url_reputation",
+      "purpose": "Look up URLs/domains against threat-intel for reputation, known-phishing lists, and first-seen age."
+    },
+    {
+      "name": "detonate_sandbox",
+      "purpose": "Open URLs and attachments in an isolated sandbox to observe redirects, credential-harvest pages, and malware behavior. Never runs live."
+    },
+    {
+      "name": "search_campaign",
+      "purpose": "Search the mail environment for similar/related messages to scope how many recipients received the same attack."
+    },
+    {
+      "name": "quarantine_email",
+      "purpose": "Quarantine/remove messages. Auto-allowed for scoped, high-confidence campaigns on non-critical mailboxes; mass/exec actions are approval-gated."
+    },
+    {
+      "name": "block_indicator",
+      "purpose": "Block a malicious URL, domain, or sender at the mail gateway/proxy to stop further delivery and clicks."
+    },
+    {
+      "name": "escalate_to_soc",
+      "purpose": "Route to the SOC with the evidence package for BEC/spear-phish, credential-harvest exposure, or uncertain high-risk cases."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Intake the report",
+      "body": "Pull the reported email with full headers and raw body; extract sender, URLs, and attachments for analysis."
+    },
+    {
+      "title": "2. Check authentication & reputation",
+      "body": "Evaluate SPF/DKIM/DMARC and look up URL/domain/sender reputation — the fastest legitimacy signals."
+    },
+    {
+      "title": "3. Detonate safely",
+      "body": "Detonate URLs and attachments in the sandbox to reveal credential-harvest pages or malware, never touching live infrastructure."
+    },
+    {
+      "title": "4. Scope the campaign",
+      "body": "Search the environment for similar messages to find every affected recipient, not just the reporter."
+    },
+    {
+      "title": "5. Decide the verdict",
+      "body": "Classify on the combined evidence; only positive benign evidence clears an email, and mixed/insufficient evidence is suspicious."
+    },
+    {
+      "title": "6. Contain or escalate",
+      "body": "Auto-contain scoped high-confidence phishing on non-critical mailboxes; propose mass/exec actions for approval; escalate BEC/spear-phish to the SOC."
+    },
+    {
+      "title": "7. Reply & learn",
+      "body": "Send a clear reply to the reporter, log the evidence and outcome, and feed analyst agreement back to tune verdicts."
+    }
+  ],
+  "implementationNotes": [
+    "Keep all detonation sandbox-only and enforce it outside the model; the agent must never interact with live malicious infrastructure.",
+    "Require positive benign evidence to clear an email. Mixed or insufficient evidence is 'suspicious' and escalates — false clears are the most damaging error.",
+    "Scope the campaign before responding so containment covers every affected recipient, not just the reporter; gate org-wide and exec-mailbox actions behind approval.",
+    "Treat BEC/spear-phishing as escalate-by-default: these have few classic indicators but the highest impact, and the right move is a human plus a warning about the requested action.",
+    "Always reply to the reporter — clearly, and encouragingly even when it's a false alarm. Reporting culture is a security asset worth protecting.",
+    "Backtest on resolved reports and track missed-true-positive rate as the primary safety metric before enabling any auto-containment.",
+    "Reserve the strong model for the verdict and BEC judgment; a cheaper model can parse headers and run reputation lookups."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Triage & enrichment assistant",
+      "desc": "Enriches the reported email, detonates indicators in the sandbox, returns a verdict with evidence and a suggested response for an analyst. No autonomous containment."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Guarded auto-containment",
+      "desc": "Auto-quarantines scoped, high-confidence campaigns on non-critical mailboxes and blocks indicators, with campaign scoping, reporter replies, and approval-gated mass/exec actions."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Governed phishing response",
+      "desc": "Adds multi-tenant mail integration, critical-mailbox policies, SOC/IR routing, full evidence audit, BEC analytics, and verdict calibration from analyst feedback at scale."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect mail + sandbox",
+      "body": "Install the agent and connect it to your mail platform, sandbox, and threat-intel.",
+      "code": "pipx install phishing-triage-agent\nphishing-triage-agent connect --mail o365 --sandbox cuckoo --intel virustotal\nphishing-triage-agent doctor   # verifies sandbox isolation + scoped mail access"
+    },
+    {
+      "title": "Set response authority and caps",
+      "body": "Define what may auto-contain. Mass/exec actions stay approval-gated. Enforced outside the model.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nMAX_TOOL_CALLS=8\nAUTO_CONTAIN_SCOPE=non_critical_mailboxes\nMODE=advise   # advise (recommend) | act (auto within scope)"
+    },
+    {
+      "title": "Mark critical mailboxes & rules",
+      "body": "Tell the agent which mailboxes are sensitive so it never auto-purges them, and how to scope campaigns.",
+      "code": "# .phishing.yml\ncritical_mailboxes: [\"exec/*\", \"finance/*\", \"legal/*\"]\nrequire_approval: [\"org_wide_purge\", \"critical_mailbox_action\"]\nalways_escalate: [\"bec\", \"wire_request\", \"credential_harvest_clicked\"]"
+    },
+    {
+      "title": "Backtest on past reports",
+      "body": "Replay resolved phishing reports to measure verdict accuracy — especially missed true positives.",
+      "code": "phishing-triage-agent backtest --range 30d --explain\n# reports phishing/safe accuracy, FP rate, and missed-true-positive count (target ~0)"
+    },
+    {
+      "title": "Wire to the abuse mailbox",
+      "body": "Route user reports to the agent. Start in advise mode, enable act mode for scoped containment once backtests are clean.",
+      "code": "# 'Report Phishing' button / abuse@ -> POST https://your-host/phishing/report (HMAC)\n# promote MODE=act after a clean backtest with zero missed true positives"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Credential-phishing with lookalike domain → contain the campaign",
+      "scenario": "A classic Microsoft-login phish from a lookalike domain. Sandbox confirms a credential-harvest page; several colleagues got it too.",
+      "input": "Reported email: 'Your mailbox is full, re-validate here' from no-reply@micros0ft-login.com, link to hxxps://micros0ft-login.com/verify.",
+      "output": "{\n  \"verdict\": \"phishing\",\n  \"confidence\": 0.95,\n  \"evidence\": [\"sender_auth_check: SPF/DKIM/DMARC all fail; domain micros0ft-login.com registered 3 days ago\", \"detonate_sandbox: link loads a fake Microsoft login that POSTs credentials to an external host\", \"url_reputation: domain on two phishing feeds\"],\n  \"campaign\": \"search_campaign: 23 recipients across 4 teams received the same message in the last hour (none in critical mailboxes)\",\n  \"decision\": \"AUTO_CONTAIN\",\n  \"actions\": [\n    { \"tool\": \"quarantine_email\", \"args\": { \"scope\": \"campaign\", \"recipients\": 23, \"mailboxes\": \"non_critical\" }, \"requires_approval\": false },\n    { \"tool\": \"block_indicator\", \"args\": { \"type\": \"domain\", \"value\": \"micros0ft-login.com\" }, \"requires_approval\": false }\n  ],\n  \"reporter_reply\": \"Thanks for reporting this — it's a phishing attempt using a fake Microsoft login page. We've removed it from affected inboxes and blocked the sender. You did the right thing; never enter your password on links like this.\",\n  \"analyst_note\": \"Confirmed credential-phishing (auth fails, sandbox shows harvest page, domain 3 days old). Quarantined 23 copies, blocked domain. No critical mailboxes hit. Recommend checking if anyone submitted creds.\",\n  \"escalation\": { \"needed\": false, \"to\": \"none\", \"reason\": \"\" }\n}",
+      "notes": "High-confidence phishing with strong evidence (auth fails + sandbox harvest page + young domain), scoped to non-critical mailboxes, so the agent auto-contains the whole 23-recipient campaign and blocks the domain — not just the one reported copy. The reporter gets a clear, encouraging reply."
+    },
+    {
+      "title": "Legit newsletter mistaken for phishing → clear with evidence",
+      "scenario": "An anxious user reports a real marketing email. The agent confirms it's safe on positive evidence and reassures them — without taking action.",
+      "input": "Reported email: a product newsletter from news@updates.realvendor.com with an 'unsubscribe' link.",
+      "output": "{\n  \"verdict\": \"safe\",\n  \"confidence\": 0.9,\n  \"evidence\": [\"sender_auth_check: SPF/DKIM/DMARC all pass, aligned with realvendor.com\", \"url_reputation: links resolve to realvendor.com, clean reputation, domain 6 years old\", \"detonate_sandbox: unsubscribe link loads a normal preference page, no credential prompt\"],\n  \"campaign\": \"single / bulk-marketing pattern, not targeted\",\n  \"decision\": \"CLEAR\",\n  \"actions\": [],\n  \"reporter_reply\": \"Good instinct to check! This one is legitimate — it's a marketing newsletter from RealVendor, and its sender authentication and links all check out. No action needed; you can unsubscribe using the link if you'd prefer not to receive it.\",\n  \"analyst_note\": \"Benign bulk marketing: auth passes and aligns, clean links, established domain, no harvest behavior. No action.\",\n  \"escalation\": { \"needed\": false, \"to\": \"none\", \"reason\": \"\" }\n}",
+      "notes": "The agent only clears on positive evidence — auth passes and aligns, established clean domain, sandbox shows a normal page. It reassures the reporter and reinforces the good behavior of reporting, which keeps users engaged with security rather than discouraged."
+    },
+    {
+      "title": "CEO-impersonation wire request (BEC) → escalate, don't auto-close",
+      "scenario": "A text-only email with few classic indicators asks finance to wire money urgently. Low on malware signals, high on risk. The agent escalates.",
+      "input": "Reported email to a finance staffer: 'Are you at your desk? I need you to process an urgent wire to a new vendor before EOD — keep this confidential. — [CEO name]', reply-to a Gmail address. No links or attachments.",
+      "output": "{\n  \"verdict\": \"suspicious\",\n  \"confidence\": 0.55,\n  \"evidence\": [\"sender_auth_check: From spoofs the CEO display name; reply-to is an external gmail.com, not the corporate domain\", \"no URLs/attachments to detonate — text-only social-engineering\", \"content: urgency + confidentiality + new-vendor wire request = classic BEC pattern\", \"campaign: targeted to one finance employee, not bulk\"],\n  \"campaign\": \"single, targeted\",\n  \"decision\": \"ESCALATE\",\n  \"actions\": [\n    { \"tool\": \"escalate_to_soc\", \"args\": { \"type\": \"bec\", \"priority\": \"high\", \"note\": \"Do not action the wire; verify CEO via known channel\" }, \"requires_approval\": false }\n  ],\n  \"reporter_reply\": \"Thanks for flagging this — please do NOT process any payment from this email. It has signs of a business-email-compromise (CEO-impersonation) scam. Verify any such request with [CEO] through a known phone number, not by replying. Our security team is now reviewing it.\",\n  \"analyst_note\": \"Likely BEC: display-name spoof, external reply-to, urgency + confidentiality + new-vendor wire. No malware indicators to 'detonate' — the risk is the financial action. Escalated to SOC; advised the user not to wire.\",\n  \"escalation\": { \"needed\": true, \"to\": \"soc\", \"reason\": \"Targeted CEO-impersonation wire request (BEC) — financial-fraud risk, low classic indicators.\" }\n}",
+      "notes": "The defining case: there's no malicious URL or attachment to detonate, so a signature-driven tool would shrug. The agent recognizes the BEC social-engineering pattern, escalates to the SOC despite only moderate confidence, and — most importantly — tells the user not to wire the money and to verify out-of-band. The real payload here is the financial action, not malware."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it delete emails from people's inboxes automatically?",
+      "a": "Only a scoped, high-confidence campaign on non-critical mailboxes. Org-wide purges and anything touching executive or finance mailboxes are proposed for human approval, never executed autonomously."
+    },
+    {
+      "q": "Is it safe to let it analyze malicious links and attachments?",
+      "a": "Yes — all detonation happens in an isolated sandbox. It never clicks, fetches, or opens suspect URLs/attachments in your live environment, and it doesn't echo live payloads."
+    },
+    {
+      "q": "How does it avoid clearing a real phishing email?",
+      "a": "It only marks an email 'safe' with positive evidence — authentication passing and aligned, a known-good established sender, and clean sandbox/reputation results. Mixed or insufficient evidence is treated as suspicious and escalated."
+    },
+    {
+      "q": "What about CEO-impersonation / wire-fraud emails with no links?",
+      "a": "Those (business email compromise) are escalated to your SOC by default, even with few classic indicators, and the agent tells the reporter not to action the request and to verify it out-of-band. The risk is the financial action, not malware."
+    },
+    {
+      "q": "Does it handle a phishing campaign, not just one email?",
+      "a": "Yes. It searches your mail environment for similar messages to scope every affected recipient, so containment and blocking cover the whole campaign rather than the single reported copy."
+    },
+    {
+      "q": "How do we adopt it safely?",
+      "a": "Start in advise mode where it only recommends, backtest on resolved reports to confirm it isn't missing true positives, then enable auto-containment for scoped, non-critical cases."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A3 — Human-Approved",
+    "dnaPattern": "Escalation (Research → Evaluate → Plan → Escalate)",
+    "worstCaseAction": "Stages an incorrect containment action (such as a quarantine) that an analyst approves before it runs, or misclassifies a reported email. It cannot quarantine, block, or delete on its own — those actions require human approval.",
+    "authorityBoundary": "Analyzes a reported email, extracts indicators, scores risk, and stages a recommended containment action for analyst approval. It never quarantines, blocks senders, or deletes mail autonomously. An analyst approves any action.",
+    "verificationTest": "Stage a containment action → confirm it requires explicit analyst approval and is not auto-executed; confirm destructive actions are gated.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: containment actions gated behind approval. Human gates: an analyst approves. Confidence escalation: uncertain verdicts routed up. Cost ceiling: bounded per report. Audit trail: indicators and decisions logged. Escalation path: confirmed threats routed to the SOC.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "phishing-triage-agent",
+      "trust_level": "A3",
+      "dna_pattern": "Escalation",
+      "worst_case_action": "Stages an incorrect quarantine for analyst approval, or misclassifies an email. Cannot auto-contain.",
+      "authority_boundary": "Analyzes reported phishing and stages containment for approval; no autonomous quarantine/block.",
+      "tags": [
+        "security",
+        "phishing",
+        "soc",
+        "human-approval"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_report",
+          "extract_indicators",
+          "score_risk",
+          "stage_containment"
+        ],
+        "approval_required_tools": [
+          "quarantine",
+          "block_sender"
+        ],
+        "execution_tools_absent": false
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_without_approval": [
+          "quarantine",
+          "block_sender",
+          "delete_mail"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.25,
+        "alert_threshold_usd": 0.16
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "confirmed_threat",
+          "uncertain_verdict",
+          "containment_proposed"
+        ],
+        "destination": "soc_analyst"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "indicators",
+          "verdict",
+          "staged_actions",
+          "approvals"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Misclassifies a benign email as phishing, triggering unnecessary containment.",
+      "detection": "A confidence score is attached and containment is staged, not auto-run.",
+      "mitigation": "An analyst approves any quarantine or block.",
+      "recovery": "The staged action is reversed and the message is un-quarantined."
+    },
+    {
+      "mode": "Misses a real phish (false negative).",
+      "detection": "Uncertain verdicts are routed up; indicators are extracted regardless of verdict.",
+      "mitigation": "Human-in-the-loop on uncertain cases; the agent never auto-clears.",
+      "recovery": "A post-report retro adds the missed indicator set to the rules."
+    },
+    {
+      "mode": "Indicator extraction from a weaponized attachment.",
+      "detection": "Analysis runs in a sandbox with no execution.",
+      "mitigation": "Static indicator extraction only; live payloads are never opened.",
+      "recovery": "The contained sample is escalated to the SOC."
+    }
+  ],
+  "evaluation": {
+    "primary": "Recall on true phishing is primary — a missed phish is the costly error — balanced against false-positive containment.",
+    "metrics": [
+      {
+        "name": "Verdict accuracy",
+        "description": "Share of reported emails classified correctly as phishing or benign."
+      },
+      {
+        "name": "Recall",
+        "description": "Of true phishing emails, the share correctly identified — weighted high."
+      },
+      {
+        "name": "Precision",
+        "description": "Of emails flagged for containment, the share genuinely malicious — false-positive resistance."
+      },
+      {
+        "name": "Indicator accuracy",
+        "description": "Correctness of the extracted indicators of compromise."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to a verdict per reported email."
+      }
+    ],
+    "approach": "Use a labeled corpus of reported emails — phishing, benign, and edge cases — and measure recall and precision separately. Verify staged containment never auto-runs, and check extracted indicators against known IOC feeds."
+  }
+}

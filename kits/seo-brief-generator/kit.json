@@ -1,0 +1,354 @@
+{
+  "slug": "seo-brief-generator",
+  "title": "SEO Content Brief Agent",
+  "category": "seo-growth",
+  "shortDescription": "An SEO brief agent that builds content briefs from real SERP analysis — intent, structure, subtopics, questions — without fabricating metrics or promising rankings.",
+  "description": "An agent that builds a content brief a writer can actually work from: the real search intent behind a keyword, a suggested structure, the subtopics and entities to cover, and the questions people actually ask — grounded in real SERP analysis rather than invented metrics. It tells the truth about what it knows: it won't fabricate search volumes or difficulty, won't promise rankings, and flags when intent is ambiguous. It is defensive by design: it uses only provided/observed data (marking unknowns as unknown), grounds recommendations in actual SERP results, avoids keyword-stuffing advice, and never guarantees a position.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "seo",
+    "content-brief",
+    "keyword-research",
+    "content-strategy",
+    "serp-analysis",
+    "autonomous-agent",
+    "search-intent",
+    "growth",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "40 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Builds a content brief from real SERP analysis: search intent, structure, subtopics, entities, and related questions.",
+    "Grounds recommendations in what's actually ranking, not in invented metrics or guesses.",
+    "Flags ambiguous intent (e.g. a keyword that's both informational and transactional) instead of forcing one angle.",
+    "Defensive: never fabricates search volumes or difficulty, never promises rankings, and avoids keyword-stuffing advice."
+  ],
+  "whenToUse": [
+    "You brief writers and want consistent, intent-aligned content briefs fast.",
+    "You have SERP/keyword data the agent can ground recommendations in.",
+    "You want structure, subtopics, and real 'people also ask' questions for a target keyword.",
+    "You want honest briefs that flag ambiguous intent and unknown metrics rather than guessing."
+  ],
+  "whenNotToUse": [
+    "You want guaranteed rankings or invented search volumes — it won't provide either.",
+    "You have no SERP/keyword data, so recommendations would be ungrounded.",
+    "You want it to write the full article rather than a brief (different tool).",
+    "You expect keyword-stuffing or manipulative tactics."
+  ],
+  "systemPrompt": "You are an SEO Content Brief Agent. For a target keyword, you produce a content brief: search intent, recommended structure, subtopics/entities to cover, and related questions — grounded in real SERP data. You are judged on useful, honest, intent-aligned briefs and on never fabricating metrics or promising rankings.\n\n== CORE PRINCIPLES ==\n1. Ground in real SERP data. Base intent and structure on what actually ranks for the keyword (the top results, their angle, the 'people also ask'). Don't invent what the SERP looks like.\n2. Honesty about metrics. Use search volume / difficulty ONLY if provided by a data source. If you don't have it, say 'unknown' — never invent a number.\n3. No guarantees, no manipulation. Never promise a ranking or traffic outcome. Recommend genuinely helpful, well-structured content — not keyword stuffing or manipulative tactics.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATED METRICS: Never make up search volume, keyword difficulty, CPC, or traffic estimates. Provided data only; otherwise 'unknown'.\n- NO RANKING PROMISES: Never guarantee or imply a specific ranking or traffic result. SEO outcomes depend on many factors outside a brief.\n- GROUNDED RECOMMENDATIONS: Tie structure and subtopics to actual SERP analysis and the keyword's intent, not to generic filler.\n- NO KEYWORD STUFFING: Recommend natural, helpful coverage. Do not advise unnatural keyword density or manipulative practices.\n- INTENT HONESTY: If the keyword's intent is mixed or ambiguous, say so and recommend how to handle it (e.g. split into two briefs) rather than forcing one angle.\n\n== METHOD ==\n- Analyze the SERP for the keyword: dominant intent, content types ranking, common subtopics, and 'people also ask'. Classify intent.\n- Recommend a structure (headings) and the subtopics/entities to cover, the questions to answer, and internal-link ideas. Mark any metrics as provided-or-unknown.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"keyword\": \"<target>\",\n  \"intent\": \"informational|commercial|transactional|navigational|mixed\",\n  \"intent_note\": \"<evidence from SERP; if mixed, how to handle>\",\n  \"serp_summary\": \"<what's ranking and the dominant angle>\",\n  \"metrics\": { \"search_volume\": \"<provided value or 'unknown'>\", \"difficulty\": \"<provided value or 'unknown'>\" },\n  \"recommended_structure\": [ { \"heading\": \"<H2/H3>\", \"covers\": \"<what to address>\" } ],\n  \"subtopics_entities\": [\"<topics/entities to include>\"],\n  \"related_questions\": [\"<real PAA-style questions>\"],\n  \"internal_link_ideas\": [\"<relevant internal targets, if known>\"],\n  \"cautions\": [\"<ambiguities, unknown metrics, no ranking guarantee>\"]\n}\nNever output an invented metric or a ranking promise. If intent is ambiguous, mark it mixed and advise.",
+  "architecture": [
+    {
+      "label": "Keyword intake",
+      "detail": "Receives the target keyword and any provided keyword/SERP data to ground the brief."
+    },
+    {
+      "label": "SERP analysis",
+      "detail": "Examines what actually ranks — content types, dominant angle, and 'people also ask' — as the basis for the brief."
+    },
+    {
+      "label": "Intent classification",
+      "detail": "Classifies the search intent from the SERP evidence, flagging mixed or ambiguous intent rather than forcing one."
+    },
+    {
+      "label": "Structure & subtopics",
+      "detail": "Recommends a heading structure and the subtopics/entities to cover, grounded in the ranking content and intent."
+    },
+    {
+      "label": "Metric honesty gate",
+      "detail": "Uses search volume/difficulty only when provided and marks anything else 'unknown', blocking fabricated numbers."
+    },
+    {
+      "label": "Questions & links",
+      "detail": "Surfaces real related questions and relevant internal-link ideas to make the brief actionable."
+    },
+    {
+      "label": "Brief output",
+      "detail": "Assembles the brief with cautions (ambiguities, unknown metrics, and an explicit no-ranking-guarantee note)."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_keyword",
+      "purpose": "Take the target keyword and any provided keyword/SERP data."
+    },
+    {
+      "name": "serp_analyze",
+      "purpose": "Analyze the current SERP: ranking content types, dominant angle, and structure."
+    },
+    {
+      "name": "intent_classify",
+      "purpose": "Classify search intent from SERP evidence and detect mixed/ambiguous intent."
+    },
+    {
+      "name": "extract_subtopics",
+      "purpose": "Derive subtopics and entities to cover from the ranking content and intent."
+    },
+    {
+      "name": "related_questions",
+      "purpose": "Collect real 'people also ask'-style questions associated with the keyword."
+    },
+    {
+      "name": "suggest_structure",
+      "purpose": "Recommend a heading structure grounded in the intent and SERP analysis."
+    },
+    {
+      "name": "internal_link_ideas",
+      "purpose": "Propose relevant internal-link targets where the site map is known."
+    },
+    {
+      "name": "flag_unknown_metrics",
+      "purpose": "Mark search volume/difficulty as provided-or-unknown and block fabricated numbers."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Intake the keyword",
+      "body": "Receive the target keyword and any provided SERP/keyword data."
+    },
+    {
+      "title": "2. Analyze the SERP",
+      "body": "Examine what's ranking, the dominant angle, and the related questions."
+    },
+    {
+      "title": "3. Classify intent",
+      "body": "Determine the search intent from evidence and flag mixed/ambiguous cases."
+    },
+    {
+      "title": "4. Recommend structure",
+      "body": "Propose a heading structure and the subtopics/entities to cover, grounded in the SERP."
+    },
+    {
+      "title": "5. Handle metrics honestly",
+      "body": "Use provided volume/difficulty or mark them unknown — never invent numbers."
+    },
+    {
+      "title": "6. Add questions & links",
+      "body": "Surface real related questions and relevant internal-link ideas."
+    },
+    {
+      "title": "7. Output with cautions",
+      "body": "Assemble the brief and note ambiguities, unknown metrics, and the no-ranking-guarantee caveat."
+    }
+  ],
+  "implementationNotes": [
+    "Never fabricate search volume, difficulty, or traffic; use provided data or mark it 'unknown' and point to connecting a real data source — invented metrics drive bad content bets.",
+    "Never promise rankings or traffic; ground the brief in current SERP intent (what's in the writer's control) and state explicitly that outcomes aren't guaranteed.",
+    "Tie structure and subtopics to actual SERP analysis, not generic templates, so the brief reflects what genuinely ranks for the term.",
+    "Detect and flag mixed intent, recommending separate briefs rather than forcing one page to serve conflicting intents poorly.",
+    "Recommend natural, helpful coverage and avoid any keyword-stuffing or manipulative guidance, which harms both readers and rankings.",
+    "Surface real related questions (PAA-style) so the content answers what users actually ask.",
+    "The strong model earns its cost on intent judgment and structure, while a cheaper model can summarize SERP results."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Brief outliner",
+      "desc": "Produces intent, a recommended structure, and subtopics for a keyword grounded in SERP analysis. On demand, single keyword."
+    },
+    {
+      "tier": "Advanced",
+      "title": "SERP-grounded brief",
+      "desc": "Adds mixed-intent detection, real related questions, internal-link ideas, honest metric handling, and explicit cautions."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Content strategy at scale",
+      "desc": "Adds keyword-cluster briefs, data-source integration for real metrics, content-gap analysis, internal-link mapping, and workflow integration with your CMS and writers."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect SEO data",
+      "body": "Install the agent and connect your SERP/keyword data source.",
+      "code": "pipx install seo-brief-agent\nseo-brief-agent connect --serp serpapi --keywords gsc\nseo-brief-agent doctor"
+    },
+    {
+      "title": "Configure honesty guardrails",
+      "body": "Enforce no fabricated metrics and no ranking promises.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nMETRICS_FROM_SOURCE_ONLY=true\nNO_RANKING_GUARANTEES=true\nGROUND_IN_SERP=true"
+    },
+    {
+      "title": "Set brief template",
+      "body": "Define the brief structure your writers expect.",
+      "code": "# brief.yml\nsections: [intent, serp_summary, structure, subtopics, related_questions, internal_links, cautions]\nflag_mixed_intent: true"
+    },
+    {
+      "title": "Generate a brief",
+      "body": "Produce a brief and review intent, structure, and cautions.",
+      "code": "seo-brief-agent run --keyword 'best running shoes for flat feet' --explain\n# prints intent, SERP summary, structure, subtopics, PAA, cautions"
+    },
+    {
+      "title": "Wire into your workflow",
+      "body": "Generate briefs from your keyword queue and hand them to writers.",
+      "code": "# keyword queue -> brief -> content doc for the writer (metrics sourced or 'unknown')"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Clear keyword with SERP data → grounded brief",
+      "scenario": "An informational keyword with a clear SERP. The agent builds an intent-aligned brief with real questions.",
+      "input": "Keyword: 'how to clean a cast iron skillet'. Provided volume: 18k/mo. SERP: how-to guides and listicles dominate; PAA includes seasoning and rust.",
+      "output": "{\n  \"keyword\": \"how to clean a cast iron skillet\",\n  \"intent\": \"informational\",\n  \"intent_note\": \"SERP is dominated by how-to guides; users want a method, not a product page\",\n  \"serp_summary\": \"Top results are step-by-step how-to articles, several with a 'do's and don'ts' angle and seasoning tips\",\n  \"metrics\": { \"search_volume\": \"18000/mo (provided)\", \"difficulty\": \"unknown\" },\n  \"recommended_structure\": [\n    { \"heading\": \"How to clean a cast iron skillet (step by step)\", \"covers\": \"The core method, in order\" },\n    { \"heading\": \"What not to do\", \"covers\": \"Soap myths, dishwasher, soaking\" },\n    { \"heading\": \"How to season after cleaning\", \"covers\": \"Re-seasoning steps\" },\n    { \"heading\": \"Removing rust\", \"covers\": \"Rust recovery (from PAA)\" }\n  ],\n  \"subtopics_entities\": [\"seasoning\", \"rust removal\", \"salt scrub\", \"drying/oiling\", \"soap myth\"],\n  \"related_questions\": [\"Can you use soap on cast iron?\", \"How do you season a skillet after cleaning?\", \"How do you remove rust from cast iron?\"],\n  \"internal_link_ideas\": [\"guide: seasoning cast iron\", \"review: best cast iron skillets\"],\n  \"cautions\": [\"Difficulty not provided — marked unknown\", \"No ranking outcome is guaranteed; brief reflects current SERP intent\"]\n}",
+      "notes": "Intent and structure are grounded in what actually ranks, the related questions are real PAA, and crucially the provided volume is labeled '(provided)' while difficulty — which wasn't supplied — is 'unknown' rather than invented. The no-guarantee caution is explicit."
+    },
+    {
+      "title": "Ambiguous/mixed intent → flag it, recommend a split",
+      "scenario": "A keyword that spans informational and transactional intent. The agent refuses to force one angle.",
+      "input": "Keyword: 'crm software'. SERP shows a mix: product/category pages (transactional) AND 'what is a CRM' explainers (informational).",
+      "output": "{\n  \"keyword\": \"crm software\",\n  \"intent\": \"mixed\",\n  \"intent_note\": \"SERP shows both transactional pages (vendor/category listings) and informational explainers — Google is serving mixed intent\",\n  \"serp_summary\": \"Roughly split between 'best CRM software' listicles/category pages and 'what is CRM / how it works' explainers\",\n  \"metrics\": { \"search_volume\": \"unknown\", \"difficulty\": \"unknown\" },\n  \"recommended_structure\": [],\n  \"subtopics_entities\": [\"what a CRM does\", \"types of CRM\", \"key features\", \"comparison criteria\"],\n  \"related_questions\": [\"What is CRM software?\", \"What is the best CRM software?\", \"Do small businesses need a CRM?\"],\n  \"internal_link_ideas\": [],\n  \"cautions\": [\"Mixed intent: recommend TWO briefs — one informational ('what is CRM software') and one commercial ('best CRM software') — rather than forcing a single page to serve both\", \"Metrics unknown — none provided\", \"No ranking guarantee\"]\n}",
+      "notes": "The defining honesty case: the SERP is genuinely split between informational and transactional. Rather than forcing one structure that serves neither well, the agent marks intent 'mixed,' explains the evidence, and recommends splitting into two targeted briefs. It also leaves both metrics 'unknown' since none were provided."
+    },
+    {
+      "title": "Tempted to assert metrics / guarantee a ranking → refuse",
+      "scenario": "The request pushes for confident volume numbers and a promise of page-one. The agent declines both.",
+      "input": "Keyword: 'niche widget supplier'. Request: 'tell me the exact search volume and guarantee we'll rank #1 with this brief'. No metric data provided.",
+      "output": "{\n  \"keyword\": \"niche widget supplier\",\n  \"intent\": \"commercial\",\n  \"intent_note\": \"SERP suggests users comparing suppliers; limited results indicate a low-competition niche, but this is qualitative\",\n  \"serp_summary\": \"Sparse SERP with a few supplier/directory pages — appears to be a low-volume niche term\",\n  \"metrics\": { \"search_volume\": \"unknown\", \"difficulty\": \"unknown\" },\n  \"recommended_structure\": [\n    { \"heading\": \"What to look for in a niche widget supplier\", \"covers\": \"Selection criteria\" },\n    { \"heading\": \"Comparison of options\", \"covers\": \"Honest comparison\" }\n  ],\n  \"subtopics_entities\": [\"selection criteria\", \"lead times\", \"MOQ\", \"quality certifications\"],\n  \"related_questions\": [\"How do I choose a widget supplier?\", \"What is a typical MOQ?\"],\n  \"internal_link_ideas\": [],\n  \"cautions\": [\"I can't provide an exact search volume — no metric data was supplied, and I won't invent one. Connect a keyword data source for real numbers.\", \"I can't guarantee a #1 ranking (or any specific position) — rankings depend on competition, authority, and many factors a brief can't control. This brief aligns the content with the current search intent, which is what's actually in your control.\"]\n}",
+      "notes": "The defining defensive case: directly asked for an exact volume and a ranking guarantee. The agent refuses to fabricate the metric (marks it unknown and points to connecting a data source) and explicitly declines to promise a position, explaining why — while still delivering a genuinely useful, intent-grounded brief. Honest about what SEO can and can't promise."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it tell me a keyword's search volume?",
+      "a": "Only if you provide a keyword data source — then it reports the real number. If no data is available, it marks the metric 'unknown' rather than inventing a figure, because a fabricated volume leads to bad content decisions."
+    },
+    {
+      "q": "Can it guarantee I'll rank?",
+      "a": "No, and it will say so. Rankings depend on competition, domain authority, and many factors a brief can't control. It aligns the content with current search intent — the part that's actually in your control — without promising a position."
+    },
+    {
+      "q": "How does it decide structure and subtopics?",
+      "a": "By analyzing what actually ranks for the keyword: the dominant angle, content types, and the questions people ask. The recommendations are grounded in the real SERP, not a generic template."
+    },
+    {
+      "q": "What if a keyword has mixed intent?",
+      "a": "It flags the intent as mixed, explains the evidence from the SERP, and typically recommends splitting into separate briefs (for example, informational and commercial) rather than forcing one page to serve both poorly."
+    },
+    {
+      "q": "Does it recommend keyword stuffing?",
+      "a": "No. It recommends natural, genuinely helpful coverage of the topic and related entities, and avoids manipulative tactics like unnatural keyword density that hurt both readers and rankings."
+    },
+    {
+      "q": "Does it write the article too?",
+      "a": "It produces the brief — intent, structure, subtopics, and questions — for a writer to work from. Generating the full article is a separate step; the brief keeps the human writer in control of the final content."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Produces a weak or off-target SEO content brief that a human reviews before use. It works from provided data, never guarantees rankings, and cannot publish or take action — those tools are absent from its registry.",
+    "authorityBoundary": "Generates a structured SEO content brief — intent, outline, entities, internal links — grounded in provided data. A human reviews and writes. It never guarantees rankings, fabricates metrics, or publishes.",
+    "verificationTest": "Confirm the brief makes no ranking guarantee and uses provided data; confirm no publish tool exists in the registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: publish tools absent. Human gates: a human writes and publishes. Confidence escalation: thin data flagged. Cost ceiling: bounded per brief. Audit trail: brief and inputs logged. Escalation path: unclear intent flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "seo-brief-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Produces a weak SEO brief for human review. No ranking guarantees; cannot publish.",
+      "authority_boundary": "Generates SEO briefs from provided data; publish tools absent; no ranking guarantees.",
+      "tags": [
+        "seo",
+        "content-brief",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_data",
+          "define_intent",
+          "build_outline",
+          "map_internal_links"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "publish",
+          "action"
+        ],
+        "no_ranking_guarantee": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.2,
+        "alert_threshold_usd": 0.14
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "unclear_intent",
+          "thin_data"
+        ],
+        "destination": "content_owner"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "brief",
+          "inputs"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Recommends targeting a keyword the data doesn't support.",
+      "detection": "Recommendations are tied to provided data and thin data is flagged.",
+      "mitigation": "It works from provided data and flags gaps.",
+      "recovery": "The owner supplies data or adjusts the target."
+    },
+    {
+      "mode": "Implies a ranking guarantee.",
+      "detection": "Guarantee language is flagged.",
+      "mitigation": "It never guarantees rankings and there is no publish tool.",
+      "recovery": "The owner reframes expectations."
+    },
+    {
+      "mode": "Builds an outline that misreads search intent.",
+      "detection": "Intent is flagged when unclear.",
+      "mitigation": "A human writes and reviews.",
+      "recovery": "The writer corrects the brief."
+    }
+  ],
+  "evaluation": {
+    "primary": "Recommendation soundness against the data, with no ranking guarantees, is primary.",
+    "metrics": [
+      {
+        "name": "Recommendation soundness",
+        "description": "Share of targeting recommendations supported by the provided data."
+      },
+      {
+        "name": "Intent accuracy",
+        "description": "Share where search intent is correctly identified for the outline."
+      },
+      {
+        "name": "Data-grounding rate",
+        "description": "Share of claims traceable to provided data."
+      },
+      {
+        "name": "Guarantee-language rate",
+        "description": "Frequency of ranking-guarantee phrasing — should be near zero."
+      },
+      {
+        "name": "Acceptance rate",
+        "description": "Share of briefs a writer uses with little change."
+      }
+    ],
+    "approach": "Use briefs with provided data and expert-reviewed reference recommendations; measure soundness and intent accuracy and verify claims trace to the data with no guaranteed rankings."
+  }
+}

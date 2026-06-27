@@ -1,0 +1,356 @@
+{
+  "slug": "contract-clause-reviewer",
+  "title": "AI Contract Review Agent",
+  "category": "legal-contracts",
+  "shortDescription": "A contract-review agent: reads clause by clause against your playbook, flags risky and missing terms with severity, and proposes fallback language. Not legal advice.",
+  "description": "An agent that reviews a contract the way a careful commercial lawyer would on a first pass: clause by clause against your playbook, flagging risky terms and — just as importantly — missing ones, classifying severity, proposing fallback language, and producing a redline summary for counsel. It is built defensively: it grounds every finding in the actual contract text, never invents clauses, never signs or approves anything, escalates high-risk deviations to a human, and is explicit that it provides review assistance, not legal advice.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "legal",
+    "contracts",
+    "clm",
+    "review",
+    "playbook",
+    "risk",
+    "autonomous-agent",
+    "redlining",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Clause-by-clause review against your playbook: flags risky terms, missing clauses, and deviations, each with a severity and a citation to the contract text.",
+    "Proposes concrete fallback language from your standards instead of vague 'this is risky' comments.",
+    "Catches omissions, not just bad clauses — a missing liability cap or DPA is often the real risk.",
+    "Defensive: grounded in the document, never invents terms, never approves or signs, and escalates high-risk deviations to counsel. Review assistance, not legal advice."
+  ],
+  "whenToUse": [
+    "Your legal/ops team reviews a high volume of similar third-party contracts (NDAs, MSAs, DPAs, vendor agreements) and wants a fast, consistent first pass.",
+    "You have a playbook or set of standard positions and fallbacks the agent can review against.",
+    "You want flagged risks with proposed redlines and a counsel-ready summary, not a black-box 'risk score.'",
+    "You want to triage which contracts are clean enough to fast-track and which need a lawyer's attention."
+  ],
+  "whenNotToUse": [
+    "You expect it to give legal advice, make the final call, or sign — those are human (and counsel) responsibilities.",
+    "The agreement is bespoke, high-stakes, or litigation-related and needs a lawyer from the start.",
+    "You have no playbook or standards for it to review against, so 'deviation' has no meaning.",
+    "You can't keep counsel in the loop on high-risk findings."
+  ],
+  "systemPrompt": "You are a Contract Review Agent assisting a legal team. You review ONE contract against the company's playbook and surface what a careful lawyer would want to see first. You are review assistance, NOT a lawyer, and you do not give legal advice or make final decisions. You are judged on catching real risks and omissions, precision, and never overstepping into advice or approval.\n\n== CORE PRINCIPLES ==\n1. Grounded in the document. Quote or cite the exact clause (section/heading) for every finding. Never invent a clause, obligation, or number that is not in the contract. If something is ambiguous, say so.\n2. Risks AND gaps. Review what is present (bad terms) and what is missing (absent protections the playbook requires). A missing liability cap or data-processing clause is often the biggest risk.\n3. Playbook-relative. Judge terms against the company's standard positions and fallbacks, not your own opinion. 'Deviation from playbook' is the unit of analysis.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NOT LEGAL ADVICE: You provide review assistance. State this. You do not advise, opine on enforceability, or make the call to accept/reject. You surface issues and proposed language for a human.\n- DO NOT APPROVE OR SIGN: You never mark a contract approved, executed, or safe to sign. Your output is findings + recommendations for counsel.\n- NO FABRICATION: Every flagged term must be quoted/cited from the contract. Do not assume standard terms are present; if you can't find a required clause, flag it as MISSING, not present.\n- ESCALATE HIGH RISK: Any high-severity deviation (e.g. uncapped liability, broad indemnity, IP assignment, problematic governing law, missing data-protection terms) must be flagged for counsel review, not just noted.\n- CONFIDENTIALITY: Treat the contract as confidential. Do not leak terms outside the review output.\n\n== REVIEW METHOD (priority areas) ==\nLiability & limitation; indemnification; termination & renewal (incl. auto-renewal traps); IP & ownership; confidentiality; data protection/privacy (DPA, security, breach notice); payment & pricing; warranties; governing law & dispute resolution; assignment & change of control; and any clause that deviates from the playbook. For each: quote it, compare to the standard position, rate severity, and propose fallback language.\n\n== SEVERITY ==\n- HIGH: materially shifts risk/liability, gives away IP, removes a required protection, or a missing clause the playbook mandates. Counsel review required.\n- MEDIUM: a real deviation worth negotiating.\n- LOW: minor/stylistic or acceptable-with-note.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"summary\": \"<2-4 sentences: contract type, overall risk posture, headline issues>\",\n  \"disposition\": \"fast_track|negotiate|counsel_review\",\n  \"not_legal_advice\": true,\n  \"findings\": [\n    {\n      \"clause\": \"<section/heading or 'MISSING: <required clause>'>\",\n      \"quote\": \"<short quote from the contract, or empty if missing>\",\n      \"issue\": \"<how it deviates from the playbook and why it matters>\",\n      \"severity\": \"HIGH|MEDIUM|LOW\",\n      \"fallback\": \"<proposed standard/fallback language>\"\n    }\n  ],\n  \"missing_clauses\": [\"<required clauses not found>\"],\n  \"escalate_to_counsel\": { \"needed\": <bool>, \"reason\": \"<which high-severity items>\" }\n}\nSet disposition to counsel_review whenever any HIGH finding or required missing clause exists. Keep quotes short; do not reproduce large passages.",
+  "architecture": [
+    {
+      "label": "Document intake & parsing",
+      "detail": "Ingests the contract (PDF/DOCX/text), splits it into clauses/sections with their headings, and identifies the contract type to select the right playbook."
+    },
+    {
+      "label": "Playbook grounding",
+      "detail": "Loads the company's standard positions, required clauses, and fallback language for that contract type — the benchmark every clause is measured against."
+    },
+    {
+      "label": "Clause-by-clause analysis",
+      "detail": "The model compares each clause to the playbook, quoting the text, explaining the deviation, and rating severity — and separately checks for required clauses that are absent."
+    },
+    {
+      "label": "Fallback & redline generation",
+      "detail": "For each material finding, proposes concrete fallback language from the playbook so counsel gets a starting redline, not just a flag."
+    },
+    {
+      "label": "Severity & escalation gate",
+      "detail": "A deterministic step routes any high-severity deviation or missing mandatory clause to counsel review and sets the contract's disposition accordingly."
+    },
+    {
+      "label": "Counsel summary",
+      "detail": "Produces a structured, citation-backed summary a lawyer can act on quickly, with the disposition (fast-track / negotiate / counsel review)."
+    },
+    {
+      "label": "Audit & playbook feedback",
+      "detail": "Logs findings and the human's accept/override decisions; disagreement patterns refine the playbook and the prompt over time."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_contract",
+      "purpose": "Retrieve and load the contract document (PDF/DOCX/text) for review."
+    },
+    {
+      "name": "parse_clauses",
+      "purpose": "Split the contract into clauses/sections with headings and numbering for structured, citable analysis."
+    },
+    {
+      "name": "playbook_lookup",
+      "purpose": "Return the company's standard position, required clauses, and fallback language for the relevant contract type."
+    },
+    {
+      "name": "risk_classify",
+      "purpose": "Assign a severity (HIGH/MEDIUM/LOW) to a clause deviation based on the playbook and risk rubric."
+    },
+    {
+      "name": "precedent_search",
+      "purpose": "Find how similar clauses were handled in past reviewed contracts for consistency."
+    },
+    {
+      "name": "redline_suggest",
+      "purpose": "Generate proposed fallback/redline language for a flagged clause from the playbook standards."
+    },
+    {
+      "name": "summarize_for_counsel",
+      "purpose": "Assemble the citation-backed findings, missing clauses, and disposition into a counsel-ready summary."
+    },
+    {
+      "name": "escalate_to_legal",
+      "purpose": "Route the contract to a named attorney/queue for high-severity deviations or required missing clauses."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Intake and identify",
+      "body": "Load the contract, parse it into clauses, and identify the contract type to select the right playbook."
+    },
+    {
+      "title": "2. Ground in the playbook",
+      "body": "Load the company's standard positions, required clauses, and fallbacks for that contract type."
+    },
+    {
+      "title": "3. Review clause by clause",
+      "body": "Compare each clause to the playbook, quoting the text, explaining any deviation, and rating severity. Don't opine on enforceability."
+    },
+    {
+      "title": "4. Check for omissions",
+      "body": "Separately verify that every playbook-required clause is present; flag any that are missing as findings in their own right."
+    },
+    {
+      "title": "5. Propose fallbacks",
+      "body": "For each material finding, generate concrete fallback/redline language from the playbook so counsel has a starting point."
+    },
+    {
+      "title": "6. Set disposition & escalate",
+      "body": "Any high-severity deviation or missing mandatory clause sets disposition to counsel review and routes to a named attorney."
+    },
+    {
+      "title": "7. Summarize & learn",
+      "body": "Produce the counsel-ready summary, then log accept/override outcomes to refine the playbook and prompt."
+    }
+  ],
+  "implementationNotes": [
+    "Keep it review-only in config: it must never mark a contract approved, executed, or safe to sign, and every output should carry the 'not legal advice' framing.",
+    "Make missing-clause detection a first-class check driven by a per-contract-type required list — omissions are often the biggest risk and are exactly what clause-by-clause reading misses.",
+    "Require a quote/citation for every present-clause finding; if a required clause can't be found, flag MISSING rather than assuming it's there.",
+    "Route every HIGH finding or missing mandatory clause to counsel automatically; the agent triages, lawyers decide.",
+    "Ground fallbacks in your actual playbook so redlines are consistent with positions your team already approved.",
+    "Treat contracts as confidential, keep documents in your environment, and log human accept/override to refine the playbook.",
+    "Spend the strong model on the deviation analysis and fallback drafting — a cheaper model can parse and segment clauses."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "First-pass risk flagger",
+      "desc": "Reviews a contract clause by clause against your playbook and returns flagged risks, missing clauses, and severities with citations for a human to action."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Redlining reviewer",
+      "desc": "Adds playbook-grounded fallback language for each finding, missing-clause detection, and automatic counsel-review routing for high-severity deviations."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Governed CLM reviewer",
+      "desc": "Integrates with your CLM and intake, supports multiple contract types and jurisdictions, enforces confidentiality controls, and tunes the playbook from reviewer feedback at scale."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and load your playbook",
+      "body": "Install the agent and point it at your playbook of standard positions and fallbacks.",
+      "code": "pipx install contract-review-agent\ncontract-review-agent playbook import ./playbook/\n# -> 'Loaded 6 contract types, 84 standard positions, 84 fallbacks'"
+    },
+    {
+      "title": "Configure model and confidentiality",
+      "body": "Set the model and keep documents in your environment. The agent is review-only by config.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nREVIEW_ONLY=true        # never marks approved/executed\nESCALATE_ON: [\"HIGH\", \"missing_mandatory\"]\nCOUNSEL_QUEUE=legal-review"
+    },
+    {
+      "title": "Define required clauses per type",
+      "body": "Tell it which clauses are mandatory so omissions are caught, not assumed present.",
+      "code": "# .contracts.yml\nmsa:\n  required: [\"limitation_of_liability\", \"indemnity\", \"termination\", \"confidentiality\", \"governing_law\"]\ndpa:\n  required: [\"processing_scope\", \"security_measures\", \"breach_notification\", \"subprocessors\"]"
+    },
+    {
+      "title": "Review a contract from the CLI",
+      "body": "Run a review and inspect the findings, missing clauses, and disposition before wiring it into your CLM.",
+      "code": "contract-review-agent review ./vendor-msa.pdf --explain\n# prints summary, findings (quote+severity+fallback), missing_clauses, disposition"
+    },
+    {
+      "title": "Integrate with your CLM/intake",
+      "body": "Route incoming third-party paper to the agent for a first pass; high-severity items go to counsel automatically.",
+      "code": "# intake webhook -> POST https://your-host/contracts/review\n# disposition=counsel_review auto-assigns to the legal queue"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Overbroad non-compete in an NDA → flag with fallback",
+      "scenario": "A mutual NDA is mostly standard but slips in a broad non-compete. The agent flags it and proposes playbook fallback language.",
+      "input": "NDA §7: 'For 3 years after disclosure, Recipient shall not engage in any business that competes, directly or indirectly, with Discloser anywhere in the world.'",
+      "output": "{\n  \"summary\": \"Mutual NDA, largely standard, but §7 embeds a broad worldwide 3-year non-compete that exceeds an NDA's purpose and the playbook. One MEDIUM-HIGH issue; otherwise fast-trackable.\",\n  \"disposition\": \"negotiate\",\n  \"not_legal_advice\": true,\n  \"findings\": [\n    {\n      \"clause\": \"§7 Non-compete\",\n      \"quote\": \"shall not engage in any business that competes... anywhere in the world\",\n      \"issue\": \"An NDA should protect confidential information, not impose a non-compete. A worldwide, 3-year, 'directly or indirectly' restriction is far outside the playbook and likely unreasonable in scope.\",\n      \"severity\": \"HIGH\",\n      \"fallback\": \"Delete §7. If a restriction is required, limit to non-use/non-disclosure of Confidential Information (the playbook's standard NDA position), with no separate non-compete.\"\n    }\n  ],\n  \"missing_clauses\": [],\n  \"escalate_to_counsel\": { \"needed\": true, \"reason\": \"HIGH-severity non-compete embedded in an NDA — counsel should confirm removal.\" }\n}",
+      "notes": "The agent doesn't just say 'this looks risky' — it quotes the exact clause, explains why a non-compete doesn't belong in an NDA, and proposes the playbook fallback (delete it). High severity sets a counsel-review escalation while keeping the rest fast-trackable."
+    },
+    {
+      "title": "MSA with uncapped liability + auto-renewal trap → two HIGH flags",
+      "scenario": "A vendor MSA looks tidy but caps the vendor's liability while leaving the customer exposed and buries an auto-renewal. Both are material.",
+      "input": "MSA §11: 'Vendor's total liability shall not exceed fees paid in the prior 3 months. Customer shall indemnify Vendor for all claims arising from use.' §3: 'This Agreement renews automatically for successive 1-year terms unless canceled 90 days before renewal.'",
+      "output": "{\n  \"summary\": \"Vendor MSA with an asymmetric, very low liability cap plus a broad one-way customer indemnity (§11) and a 90-day auto-renewal trap (§3). Two HIGH issues — counsel review required.\",\n  \"disposition\": \"counsel_review\",\n  \"not_legal_advice\": true,\n  \"findings\": [\n    {\n      \"clause\": \"§11 Liability & indemnity\",\n      \"quote\": \"Vendor's total liability shall not exceed fees paid in the prior 3 months... Customer shall indemnify Vendor for all claims\",\n      \"issue\": \"Caps Vendor's liability at ~3 months of fees while making Customer's indemnity unlimited and one-way — a significant, asymmetric risk shift versus the playbook (mutual indemnity, 12-month cap, carve-outs for breach/IP/confidentiality).\",\n      \"severity\": \"HIGH\",\n      \"fallback\": \"Make liability mutual with a cap of 12 months' fees; add standard carve-outs (confidentiality, IP infringement, gross negligence). Make indemnity mutual and scope it to third-party claims.\"\n    },\n    {\n      \"clause\": \"§3 Term & renewal\",\n      \"quote\": \"renews automatically... unless canceled 90 days before renewal\",\n      \"issue\": \"Auto-renewal with a 90-day notice window is a lock-in trap and exceeds the playbook's 30-day standard.\",\n      \"severity\": \"MEDIUM\",\n      \"fallback\": \"Reduce the non-renewal notice period to 30 days, or require affirmative renewal.\"\n    }\n  ],\n  \"missing_clauses\": [],\n  \"escalate_to_counsel\": { \"needed\": true, \"reason\": \"Asymmetric uncapped customer indemnity and low vendor cap (§11).\" }\n}",
+      "notes": "It catches two different problems in a 'clean-looking' MSA — an asymmetric liability/indemnity split and an auto-renewal trap — quotes each, explains the risk against the playbook, and proposes specific fallbacks. The HIGH finding forces counsel review."
+    },
+    {
+      "title": "Looks fine, but a required DPA clause is MISSING → flag the gap",
+      "scenario": "A SaaS agreement that processes personal data reads cleanly, but it lacks a data-processing clause the playbook requires. The agent flags the omission a clause-reader would miss.",
+      "input": "SaaS agreement covering a product that ingests customer personal data. Clauses present: subscription, fees, support, IP, termination, governing law. No data-processing/DPA or breach-notification terms anywhere in the document.",
+      "output": "{\n  \"summary\": \"SaaS agreement for a product that processes personal data, but it contains NO data-processing/DPA or breach-notification terms — a required-clause omission under the playbook. Present clauses are otherwise standard.\",\n  \"disposition\": \"counsel_review\",\n  \"not_legal_advice\": true,\n  \"findings\": [\n    {\n      \"clause\": \"MISSING: Data Processing Addendum / privacy terms\",\n      \"quote\": \"\",\n      \"issue\": \"The product ingests personal data, but the agreement has no DPA, no security obligations, no subprocessor terms, and no breach-notification clause. The playbook requires these whenever personal data is processed; their absence is a HIGH risk, not a neutral silence.\",\n      \"severity\": \"HIGH\",\n      \"fallback\": \"Attach the company standard DPA: processing scope/purpose limitation, security measures, subprocessor controls, breach notification within 72 hours, and audit rights.\"\n    }\n  ],\n  \"missing_clauses\": [\"data_processing_addendum\", \"breach_notification\", \"security_measures\", \"subprocessors\"],\n  \"escalate_to_counsel\": { \"needed\": true, \"reason\": \"Required data-protection clauses are entirely absent for a product that processes personal data.\" }\n}",
+      "notes": "The most valuable example: nothing in the contract is 'wrong,' so a naive clause-reader approves it. The agent instead notices what's absent — a mandatory DPA and breach-notification terms for a product handling personal data — and flags the omission as HIGH with the standard clauses to add. Catching gaps is where contract review really pays off."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Does it give legal advice?",
+      "a": "No. It provides review assistance — flagging deviations from your playbook, missing clauses, and proposed fallback language — and every output says so. It does not advise on enforceability or make the decision; a lawyer does."
+    },
+    {
+      "q": "Can it approve or sign a contract?",
+      "a": "Never. It is review-only by configuration and never marks a contract approved, executed, or safe to sign. Its job is to surface issues and route high-risk ones to counsel."
+    },
+    {
+      "q": "How does it avoid inventing clauses?",
+      "a": "Every finding about a present clause must quote/cite the contract text. If a required clause isn't found, it flags it as MISSING rather than assuming standard terms are there — which is how it catches omissions."
+    },
+    {
+      "q": "What makes it more than a keyword scanner?",
+      "a": "It compares each clause to your standard positions, explains why a deviation matters, rates severity, and proposes concrete fallback language — and it checks for required clauses that are absent, not just bad ones present."
+    },
+    {
+      "q": "How does it handle high-risk terms?",
+      "a": "Any high-severity deviation (uncapped liability, broad indemnity, IP assignment, missing data-protection terms, etc.) is flagged for counsel and sets the contract's disposition to counsel review."
+    },
+    {
+      "q": "Is our contract data kept confidential?",
+      "a": "Yes. It treats contracts as confidential, runs in your environment, keeps findings within the review output, and is intended to be used with documents that never leave your control."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Evaluation (Research → Evaluate)",
+    "worstCaseAction": "Surfaces an incorrect risk assessment or misses a risky clause, flagged for a lawyer to review. It cannot sign, send, approve, or alter a contract — execution tools are absent from its registry.",
+    "authorityBoundary": "Reads a contract, flags risky or non-standard clauses, and suggests redlines for human review. It never signs, sends, approves, or commits to a contract. A lawyer makes every decision.",
+    "verificationTest": "Attempt to call a sign, send, or contract-write tool → confirm it is absent from the agent's registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: signing/sending tools absent. Human gates: a lawyer decides. Confidence escalation: low-confidence clauses flagged. Cost ceiling: bounded per review. Audit trail: flags and rationale logged. Escalation path: ambiguous clauses routed to counsel.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "contract-clause-review-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Evaluation",
+      "worst_case_action": "Surfaces an incorrect clause risk assessment for human review. Cannot sign or alter contracts.",
+      "authority_boundary": "Reads and evaluates contract clauses; flags risks for review. No signing/sending tools present.",
+      "tags": [
+        "legal",
+        "contract-review",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_contract",
+          "identify_clauses",
+          "assess_risk",
+          "suggest_redline"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "contract_sign",
+          "contract_send",
+          "approval"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.3,
+        "alert_threshold_usd": 0.2
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 10
+      },
+      "human_handoff": {
+        "triggers": [
+          "high_risk_clause",
+          "non_standard_term",
+          "low_confidence"
+        ],
+        "destination": "legal_review_queue"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "flags",
+          "risk_scores",
+          "rationale"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Misreads a clause or misses a deviation from the standard position.",
+      "detection": "Clauses are compared against documented standard positions; deviations and confidence are flagged.",
+      "mitigation": "A first pass only — a lawyer reviews every flagged item.",
+      "recovery": "Human review catches it and the standard library is updated."
+    },
+    {
+      "mode": "Hallucinates a clause that isn't in the contract.",
+      "detection": "Every finding cites its clause location; uncited findings are withheld.",
+      "mitigation": "Uncited terms are never asserted.",
+      "recovery": "The lawyer verifies against the source document."
+    },
+    {
+      "mode": "Reviews the wrong contract version.",
+      "detection": "A document hash or version is checked before review.",
+      "mitigation": "The review aborts on a version mismatch.",
+      "recovery": "The correct version is loaded and re-reviewed."
+    }
+  ],
+  "evaluation": {
+    "primary": "Deviation recall is primary — catching clauses that diverge from your standard positions — because a missed deviation is the expensive one.",
+    "metrics": [
+      {
+        "name": "Deviation recall",
+        "description": "Of clauses that deviate from the standard position, the share it flags."
+      },
+      {
+        "name": "Precision",
+        "description": "Of flags raised, the share that are real deviations — noise resistance."
+      },
+      {
+        "name": "Citation accuracy",
+        "description": "Whether each finding points to the actual clause, with no hallucinated clauses."
+      },
+      {
+        "name": "Coverage",
+        "description": "Share of the contract's clauses actually reviewed."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to review per contract."
+      }
+    ],
+    "approach": "Build a set of contracts annotated by lawyers against your standard positions; measure deviation recall and precision, and verify every finding cites a real clause. Include a few absent-clause traps to catch hallucination."
+  }
+}

@@ -1,0 +1,355 @@
+{
+  "slug": "alert-noise-reducer",
+  "title": "Alert Noise Reduction Agent",
+  "category": "devops-sre",
+  "shortDescription": "An alert-tuning agent that scores alerts by actionability, dedupes, and time-box-suppresses proven noise — never silencing an alert tied to a real incident.",
+  "description": "An agent that fights on-call alert fatigue without going deaf to real problems. It analyzes your alert stream, scores each alert by actual actionability (how often it's acted on or tied to a real incident), correlates and deduplicates related alerts, recommends concrete tuning, and time-box-suppresses proven noise within strict guardrails. It is built defensively: it will not suppress any alert that has ever correlated with a real incident, never touches critical-service or SEV1 alerts autonomously, makes every suppression reversible and audited, and escalates anything uncertain to on-call.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "alerting",
+    "on-call",
+    "sre",
+    "devops",
+    "observability",
+    "alert-fatigue",
+    "autonomous-agent",
+    "monitoring",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Score → correlate → tune → suppress (carefully): turns a noisy alert stream into a quieter, still-trustworthy one.",
+    "Actionability-based: it ranks alerts by how often they're actually acted on or tied to incidents, not by volume alone.",
+    "Recommends concrete tuning (thresholds, grouping, dedup) and only time-box-suppresses alerts proven to be noise.",
+    "Defensive: never suppresses an alert ever linked to a real incident, never auto-touches critical/SEV1 alerts, and keeps every action reversible and audited."
+  ],
+  "whenToUse": [
+    "On-call is drowning in alerts and real signals are getting lost in the noise.",
+    "You have alert history (fire/ack/incident-correlation) the agent can score actionability from.",
+    "You want data-backed tuning recommendations and safe, reversible suppression of proven noise.",
+    "You want to cut fatigue while keeping a hard guarantee that incident-linked and critical alerts are never silenced."
+  ],
+  "whenNotToUse": [
+    "You lack alert/incident history, so actionability can't be measured — suppression would be blind.",
+    "You expect it to autonomously silence critical-service alerts; those are recommendation-only.",
+    "Your 'noisy' alerts are actually under-investigated real signals.",
+    "You can't keep suppression reversible, time-boxed, and audited."
+  ],
+  "systemPrompt": "You are an Alert Noise Reduction Agent helping an on-call/SRE team cut alert fatigue. You analyze alerts, recommend tuning, and suppress proven noise — WITHOUT ever silencing a real signal. You are judged on reducing non-actionable noise AND on never suppressing an alert that matters.\n\n== CORE PRINCIPLES ==\n1. Actionability, not volume. Judge an alert by evidence of whether it leads to action: ack rate, time-to-ack, and — most importantly — whether it has ever correlated with a real incident. A high-volume alert that's always acted on is signal, not noise.\n2. Suppress nothing you can't prove is noise. Only recommend/auto-suppress alerts with a strong, evidence-backed non-actionability record. When in doubt, recommend tuning, not silence.\n3. Reversible and time-boxed. Suppression is always temporary, scoped, auditable, and easy to undo. You never permanently delete an alert rule.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- INCIDENT-LINKED = NEVER SUPPRESS: If an alert has EVER correlated with a real incident (even once), you must not suppress it. At most, recommend tuning (threshold/grouping). This rule is absolute.\n- CRITICAL SERVICES ESCALATE: For alerts on critical/customer-facing services or SEV1-capable signals, you never auto-suppress — you recommend tuning and escalate the decision to a human.\n- EVIDENCE REQUIRED: Auto-suppress only with a clear record (e.g. fired many times over a meaningful window with ~0 acks and 0 incident correlations) on a non-critical signal. State the numbers.\n- BOUNDED SUPPRESSION: Every suppression is time-boxed (auto-expires), scoped to the specific alert, reversible, and logged. Never an open-ended silence.\n- NO BLIND DEDUP: When grouping/deduping, preserve the ability to see the underlying alerts; never collapse distinct real signals into one that hides a problem.\n\n== METHOD ==\n- Pull each alert's history: fire count, ack rate, time-to-ack, and incident correlations over a window.\n- Score actionability. Correlate/dedupe related alerts into groups. Identify chronically non-actionable, never-incident-linked, non-critical alerts as noise candidates.\n- For noise candidates: recommend tuning and, if enabled and within guardrails, time-box suppress. For everything else: recommend tuning only or leave as-is.\n\n== DECISION POLICY (calibrated confidence 0.0-1.0) ==\n- AUTO_SUPPRESS: non-critical, zero incident correlation, strong non-actionable record, confidence >= 0.85. Time-boxed + tracked.\n- RECOMMEND_TUNING: noisy but incident-linked at least once, or critical service, or moderate evidence. Propose thresholds/grouping; do not suppress.\n- ESCALATE: critical-service/SEV1 alerts, conflicting evidence, or anything you're unsure about.\n\n== COST CONTROL ==\nPull the history you need to score; reuse it across related alerts. Cap tool calls; if exceeded, recommend based on what you have.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"alert\": \"<alert name/id or group>\",\n  \"actionability\": \"<score + the numbers: fires, ack rate, incident correlations over window>\",\n  \"incident_linked\": <bool>,\n  \"critical_service\": <bool>,\n  \"decision\": \"AUTO_SUPPRESS|RECOMMEND_TUNING|ESCALATE\",\n  \"suppression\": { \"applied\": <bool>, \"duration\": \"<time-box, or empty>\", \"scope\": \"<specific alert/condition>\", \"reversible\": true },\n  \"tuning\": [\"<concrete recommendation: threshold/grouping/dedup>\"],\n  \"rationale\": \"<evidence-grounded reason>\",\n  \"escalation\": { \"needed\": <bool>, \"reason\": \"<critical/uncertain, or empty>\" }\n}\nIf incident_linked is true or critical_service is true, decision must NOT be AUTO_SUPPRESS.",
+  "architecture": [
+    {
+      "label": "Alert-stream intake",
+      "detail": "Ingests the alert stream/inventory with metadata (service, severity, owner) for analysis over a configurable window."
+    },
+    {
+      "label": "History & incident correlation",
+      "detail": "Pulls each alert's fire/ack history and — critically — whether it has ever correlated with a real incident, the hard gate on suppression."
+    },
+    {
+      "label": "Actionability scoring",
+      "detail": "Scores each alert by how often it's actually acted on (ack rate, time-to-ack) versus pure firing volume, surfacing chronically non-actionable ones."
+    },
+    {
+      "label": "Correlation & dedup",
+      "detail": "Groups related/duplicate alerts so a single root cause doesn't page ten times, while preserving visibility into the underlying alerts."
+    },
+    {
+      "label": "Tuning & suppression gate",
+      "detail": "A deterministic gate forbids suppressing incident-linked or critical-service alerts; only proven, non-critical, never-incident-linked noise can be time-box suppressed."
+    },
+    {
+      "label": "Recommendation & PR",
+      "detail": "Produces concrete tuning (thresholds, grouping rules) — often as a config PR — and applies bounded, reversible suppression where allowed."
+    },
+    {
+      "label": "Audit & review",
+      "detail": "Logs every suppression with its evidence, expiry, and scope, and surfaces a review so humans can see exactly what was quieted and why."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_alert_stream",
+      "purpose": "Retrieve the alert inventory/stream with service, severity, and owner metadata over the analysis window."
+    },
+    {
+      "name": "alert_history",
+      "purpose": "Return an alert's fire count, ack rate, time-to-ack, and — key — its correlation with past real incidents."
+    },
+    {
+      "name": "actionability_score",
+      "purpose": "Score how actionable an alert is from its history, separating signal from chronic noise."
+    },
+    {
+      "name": "correlate_dedupe",
+      "purpose": "Group related/duplicate alerts into a single logical signal while preserving the underlying ones."
+    },
+    {
+      "name": "recommend_tuning",
+      "purpose": "Generate concrete tuning (threshold changes, grouping, dedup windows) for noisy alerts."
+    },
+    {
+      "name": "suppress_alert",
+      "purpose": "Apply a time-boxed, reversible, scoped suppression. Gated: rejects incident-linked or critical-service alerts."
+    },
+    {
+      "name": "create_tuning_pr",
+      "purpose": "Open a config/monitoring-as-code PR with the recommended tuning for human review."
+    },
+    {
+      "name": "escalate_to_oncall",
+      "purpose": "Escalate critical-service alerts and uncertain cases to on-call with the evidence and recommendation."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Ingest the stream",
+      "body": "Pull the alert inventory and metadata over the analysis window."
+    },
+    {
+      "title": "2. Score actionability",
+      "body": "For each alert, compute ack rate, time-to-ack, and fire volume, and pull incident correlations."
+    },
+    {
+      "title": "3. Correlate & dedupe",
+      "body": "Group related/duplicate alerts so one root cause isn't ten pages, keeping the underlying alerts visible."
+    },
+    {
+      "title": "4. Identify noise candidates",
+      "body": "Flag chronically non-actionable, never-incident-linked, non-critical alerts — and nothing else."
+    },
+    {
+      "title": "5. Apply the gate",
+      "body": "Forbid suppressing any incident-linked or critical-service alert; those get tuning recommendations or escalation instead."
+    },
+    {
+      "title": "6. Tune or suppress",
+      "body": "Open tuning PRs and apply bounded, reversible, time-boxed suppression only where the evidence and guardrails allow."
+    },
+    {
+      "title": "7. Audit & review",
+      "body": "Log every action with evidence and expiry, and surface a review so on-call sees exactly what was quieted."
+    }
+  ],
+  "implementationNotes": [
+    "Make 'never suppress an incident-linked alert' an absolute, deterministic gate — a single past incident correlation permanently disqualifies an alert from suppression, no matter how noisy.",
+    "Score by actionability (acks, time-to-ack, incident correlation), not raw volume; a frequent-but-always-acted-on alert is signal.",
+    "Keep critical-service and SEV1-capable alerts recommendation-only and escalate decisions to humans.",
+    "Make every suppression time-boxed, scoped, reversible, and audited — never an open-ended silence — and pair it with a tuning PR so the root cause gets fixed.",
+    "Preserve visibility when deduping; collapsing distinct signals into one can hide a real problem.",
+    "Backtest with 'suppressed-incident-linked alerts' as a hard zero metric before enabling any auto-suppression.",
+    "The strong model earns its cost on the suppress-vs-tune judgment, while a cheaper model can pull and aggregate history."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Noise analyzer",
+      "desc": "Scores alerts by actionability, correlates duplicates, and recommends tuning with the supporting numbers for an SRE. No suppression."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Guarded auto-suppression",
+      "desc": "Adds time-boxed, reversible suppression of proven non-critical noise and tuning PRs, with the absolute incident-linked and critical-service guardrails enforced."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Org-wide alert hygiene",
+      "desc": "Adds multi-team alert inventories, monitoring-as-code PR workflows, suppression audit and auto-expiry, on-call load analytics, and tuning from outcomes — incident-linked alerts always protected."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect alerting",
+      "body": "Install the agent and connect it (read) to your alerting and incident systems.",
+      "code": "pipx install alert-noise-agent\nalert-noise-agent connect --alerts prometheus,pagerduty --incidents pagerduty\nalert-noise-agent doctor"
+    },
+    {
+      "title": "Configure guardrails",
+      "body": "The incident-linked and critical-service protections are enforced here, not by the model.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nNEVER_SUPPRESS_IF_INCIDENT_LINKED=true\nMAX_SUPPRESSION=24h     # time-box; auto-expires\nMODE=advise   # advise (recommend) | act (auto-suppress proven noise)"
+    },
+    {
+      "title": "Mark critical services",
+      "body": "Alerts on these are recommendation-only — never auto-suppressed.",
+      "code": "# .alerts.yml\ncritical_services: [\"checkout\", \"auth\", \"payments\", \"db-primary\"]\nnoise_threshold: { window: 30d, min_fires: 50, max_ack_rate: 0.02, incident_correlations: 0 }\nsuppression: { reversible: true, max_duration: 24h }"
+    },
+    {
+      "title": "Backtest on alert history",
+      "body": "Replay history to confirm it would never have suppressed an incident-linked alert.",
+      "code": "alert-noise-agent backtest --range 90d --explain\n# reports noise found + a hard check: suppressed-incident-linked count (must be 0)"
+    },
+    {
+      "title": "Wire in (advise first)",
+      "body": "Run scheduled analysis and post recommendations; enable auto-suppression for proven non-critical noise once backtests are clean.",
+      "code": "# scheduled job -> recommendations to #sre; tuning PRs to the monitoring repo\n# promote MODE=act after a clean backtest"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Chronic non-actionable alert → time-boxed auto-suppress + tuning PR",
+      "scenario": "An alert fires constantly, is never acked, and has never been tied to an incident, on a non-critical service. Safe, bounded noise to quiet.",
+      "input": "Alert: 'batch-worker-cpu-high' fired 312 times in 30d, ack rate 0.6%, 0 incident correlations, service=batch-worker (non-critical).",
+      "output": "{\n  \"alert\": \"batch-worker-cpu-high\",\n  \"actionability\": \"Very low: 312 fires/30d, 0.6% ack rate, 0 incident correlations\",\n  \"incident_linked\": false,\n  \"critical_service\": false,\n  \"decision\": \"AUTO_SUPPRESS\",\n  \"suppression\": { \"applied\": true, \"duration\": \"24h\", \"scope\": \"batch-worker-cpu-high only\", \"reversible\": true },\n  \"tuning\": [\"Raise CPU threshold from 80% to 92% for batch-worker, or add a 15m sustained-duration condition\", \"Group with batch-worker-memory into one 'batch-worker saturation' alert\"],\n  \"rationale\": \"Fires constantly, almost never acked, and has never correlated with an incident on a non-critical service — textbook noise. Suppressing for 24h while a tuning PR adjusts the threshold; suppression auto-expires and is reversible.\",\n  \"escalation\": { \"needed\": false, \"reason\": \"\" }\n}",
+      "notes": "Clear, quantified non-actionability (312 fires, 0.6% acks, 0 incidents) on a non-critical service. It applies a bounded 24h suppression (auto-expiring, reversible) and — crucially — also opens a tuning PR so the real fix lands, rather than just muting forever."
+    },
+    {
+      "title": "Noisy but incident-linked once → recommend tuning, do NOT suppress",
+      "scenario": "An alert is genuinely noisy, but it correlated with a real outage once. The absolute rule blocks suppression; it recommends tuning instead.",
+      "input": "Alert: 'api-latency-p99-high' fired 140 times in 30d, ack rate 8%, but correlated with 1 real SEV2 incident last month. Service=api (customer-facing).",
+      "output": "{\n  \"alert\": \"api-latency-p99-high\",\n  \"actionability\": \"Mixed: 140 fires/30d, 8% ack rate, but 1 real SEV2 incident correlation\",\n  \"incident_linked\": true,\n  \"critical_service\": true,\n  \"decision\": \"RECOMMEND_TUNING\",\n  \"suppression\": { \"applied\": false, \"duration\": \"\", \"scope\": \"api-latency-p99-high\", \"reversible\": true },\n  \"tuning\": [\"Add a sustained-duration condition (p99 high for >5m) to cut transient spikes\", \"Raise the page threshold but keep a ticket-level alert\", \"Group flapping instances to reduce repeat pages\"],\n  \"rationale\": \"It is noisy, but it correlated with a real SEV2 once and sits on a customer-facing service — so it must not be suppressed. Instead, recommend tuning to cut transient noise while preserving the signal that caught the incident.\",\n  \"escalation\": { \"needed\": false, \"reason\": \"\" }\n}",
+      "notes": "The defining rule in action: the alert is noisy enough that muting it would be tempting — but it caught a real SEV2 once, so the incident-linked rule forbids suppression entirely. The agent instead recommends duration/threshold tuning that reduces noise while keeping the signal that matters. Noise reduction never trumps catching incidents."
+    },
+    {
+      "title": "Critical-service alert, noisy → escalate, never auto-act",
+      "scenario": "A flapping alert on the payments service. Even with no incident link yet, the critical-service rule means a human decides.",
+      "input": "Alert: 'payments-error-rate' flapping, 90 fires in 30d, ack rate 30%, 0 incident correlations so far. Service=payments (critical).",
+      "output": "{\n  \"alert\": \"payments-error-rate\",\n  \"actionability\": \"Moderate: 90 fires/30d, 30% ack rate, 0 incident correlations so far\",\n  \"incident_linked\": false,\n  \"critical_service\": true,\n  \"decision\": \"ESCALATE\",\n  \"suppression\": { \"applied\": false, \"duration\": \"\", \"scope\": \"payments-error-rate\", \"reversible\": true },\n  \"tuning\": [\"Consider grouping by error type\", \"Possibly raise threshold — but only with payments-team sign-off given the criticality\"],\n  \"rationale\": \"Even though it hasn't correlated with an incident yet and is somewhat acked, this is the payments service. I won't auto-suppress or auto-tune a critical-service alert; the cost of missing a payments issue is too high. Escalating to on-call with tuning options.\",\n  \"escalation\": { \"needed\": true, \"reason\": \"Critical-service (payments) alert — tuning/suppression decisions require human sign-off regardless of current noise level.\" }\n}",
+      "notes": "Critical-service guardrail: payments alerts are recommendation-only, so even a plausibly-noisy one is escalated rather than touched. The agent offers tuning options but explicitly defers the decision to the payments team, because the downside of muting a real payments alert dwarfs the annoyance of noise."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Could it silence an alert that matters?",
+      "a": "No — that's the hard guarantee. Any alert that has ever correlated with a real incident is permanently ineligible for suppression, and critical-service alerts are recommendation-only. It can only auto-suppress proven, never-incident-linked, non-critical noise."
+    },
+    {
+      "q": "How does it decide what's noise?",
+      "a": "By actionability, not volume: fire count, ack rate, time-to-ack, and incident correlation over a window. A high-volume alert that's consistently acted on is treated as signal, not noise."
+    },
+    {
+      "q": "Is suppression permanent?",
+      "a": "No. Every suppression is time-boxed (auto-expires), scoped to the specific alert, reversible, and logged — and it's paired with a tuning recommendation/PR so the underlying noise actually gets fixed."
+    },
+    {
+      "q": "What does it do with critical-service alerts?",
+      "a": "It never auto-suppresses or auto-tunes them. It surfaces recommendations and escalates the decision to on-call, because missing a real issue on a critical service is far costlier than the noise."
+    },
+    {
+      "q": "Will deduping hide separate problems?",
+      "a": "It groups related/duplicate alerts while preserving visibility into the underlying ones, so a single root cause stops paging ten times without collapsing genuinely distinct signals."
+    },
+    {
+      "q": "How do we trust it before going live?",
+      "a": "Backtest it on your alert history; the key check is that it would have suppressed zero incident-linked alerts. Start in advise mode (recommendations + tuning PRs) and enable auto-suppression for non-critical proven noise only once that holds."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Evaluation (Research → Evaluate)",
+    "worstCaseAction": "Recommends suppressing or grouping an alert that actually mattered, surfaced for review. It cannot silence, suppress, or close alerts on its own — execution tools are absent and critical alerts are never auto-suppressed.",
+    "authorityBoundary": "Clusters and deduplicates alerts and recommends suppression or grouping rules for human approval. It never silences, suppresses, or closes alerts autonomously, and it never proposes suppressing a critical-severity alert. An engineer approves any rule.",
+    "verificationTest": "Attempt to auto-suppress an alert → confirm suppression requires human approval and critical alerts are excluded; confirm no silence tool runs autonomously.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: suppression requires approval. Human gates: an engineer approves rules. Confidence escalation: uncertain groupings flagged. Cost ceiling: bounded per batch. Audit trail: groupings and recommendations logged. Escalation path: critical alerts always surfaced.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "alert-noise-reducer-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Evaluation",
+      "worst_case_action": "Recommends suppressing a meaningful alert for review. Cannot auto-suppress; criticals never suppressed.",
+      "authority_boundary": "Clusters alerts and recommends suppression rules for approval; autonomous suppression absent.",
+      "tags": [
+        "devops-sre",
+        "alerting",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_alerts",
+          "cluster",
+          "dedupe",
+          "recommend_rule"
+        ],
+        "execution_tools_absent": true,
+        "never_suppress_critical": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "silence_alert",
+          "auto_suppress",
+          "close_alert"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.2,
+        "alert_threshold_usd": 0.14
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "uncertain_grouping",
+          "critical_severity"
+        ],
+        "destination": "oncall_engineer"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "groupings",
+          "recommendations"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Recommends suppressing an alert that actually mattered.",
+      "detection": "Critical severity is excluded from suppression and grouping confidence is scored.",
+      "mitigation": "Suppression is a recommendation requiring approval; criticals are never suppressed.",
+      "recovery": "An engineer rejects the rule and the alert remains."
+    },
+    {
+      "mode": "Over-groups distinct alerts, masking a second incident.",
+      "detection": "A grouping similarity threshold runs and divergent signals are flagged.",
+      "mitigation": "Uncertain groupings are flagged, not merged silently.",
+      "recovery": "The engineer splits the group."
+    },
+    {
+      "mode": "A suppression rule persists after the underlying issue changes.",
+      "detection": "Rules are time-bounded and reviewed.",
+      "mitigation": "Rules expire and require re-approval.",
+      "recovery": "Stale rules lapse and the alert resurfaces."
+    }
+  ],
+  "evaluation": {
+    "primary": "Suppression precision with critical-alert safety is primary — suppressing an alert that mattered is the failure.",
+    "metrics": [
+      {
+        "name": "Suppression precision",
+        "description": "Of alerts recommended for suppression, the share that were genuinely noise."
+      },
+      {
+        "name": "Critical-miss rate",
+        "description": "Frequency of critical alerts caught in a suppression recommendation — must be zero."
+      },
+      {
+        "name": "Grouping accuracy",
+        "description": "Share of alert groupings that are correct, with no masked second incident."
+      },
+      {
+        "name": "Rule-decay handling",
+        "description": "Share of stale suppression rules correctly expired."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to a grouping or recommendation."
+      }
+    ],
+    "approach": "Use a labeled alert stream with known noise versus actionable alerts; measure suppression precision and treat any suppressed critical as a hard failure. Verify groupings don't merge distinct incidents and rules expire."
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "onboarding-concierge-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Synthesis",
+  "worst_case_action": "Gives a wrong answer the new hire can verify against the citation. Routes sensitive/unknown to a human; no actions.",
+  "authority_boundary": "Answers from onboarding docs with citations; escalates HR-sensitive; action tools absent.",
+  "tags": [
+    "onboarding",
+    "concierge",
+    "cited",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "search_onboarding_docs",
+      "answer_from_docs",
+      "cite_source",
+      "track_checklist",
+      "route_to_human"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "commitment",
+      "action"
+    ],
+    "never_fabricates": true
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.2,
+    "alert_threshold_usd": 0.14
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "hr_sensitive",
+      "not_in_docs",
+      "personal_matter"
+    ],
+    "destination": "hr_or_manager"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "answers",
+      "citations"
+    ]
+  }
+}

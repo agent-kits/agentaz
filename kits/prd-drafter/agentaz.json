@@ -1,0 +1,55 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "prd-drafting-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Synthesis",
+  "worst_case_action": "Produces a weak PRD draft for human revision. Cannot publish, assign, or commit.",
+  "authority_boundary": "Drafts PRDs grounded in inputs; flags assumptions; publish/assign tools absent.",
+  "tags": [
+    "product-management",
+    "prd",
+    "drafting",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_inputs",
+      "structure_prd",
+      "flag_assumptions",
+      "list_open_questions"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "publish",
+      "assign_work"
+    ],
+    "never_fabricates": true
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.25,
+    "alert_threshold_usd": 0.16
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "missing_input",
+      "open_question"
+    ],
+    "destination": "product_manager"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "draft",
+      "assumptions"
+    ]
+  }
+}

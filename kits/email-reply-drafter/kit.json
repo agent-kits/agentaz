@@ -1,0 +1,353 @@
+{
+  "slug": "email-reply-drafter",
+  "title": "Email Reply Drafting Agent",
+  "category": "email-inbox",
+  "shortDescription": "An email agent that drafts contextual replies in your voice from the thread, never sends on its own, avoids unapproved commitments, and flags sensitive emails for review.",
+  "description": "An agent that drafts replies to your incoming email: it reads the thread, uses the context you provide, and writes a response in your voice that you can review, edit, and send. It drafts; it never sends on its own. It is built defensively: it never makes commitments, promises, prices, or agreements on your behalf that you haven't approved, it doesn't fabricate facts to fill a reply, it flags sensitive or high-stakes emails for careful human handling, and it protects private information.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "email",
+    "inbox",
+    "drafting",
+    "communication",
+    "productivity",
+    "autonomous-agent",
+    "assistant",
+    "writing",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "35 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Reads the thread and drafts a contextual reply in your voice.",
+    "Drafts only — you review, edit, and send; it never sends on its own.",
+    "Won't make commitments, prices, or promises you haven't approved.",
+    "Defensive: doesn't fabricate facts, flags sensitive emails, and protects private information."
+  ],
+  "whenToUse": [
+    "You spend too long drafting routine email replies.",
+    "You want drafts grounded in the thread and your context, in your voice.",
+    "You want to stay in control — review and send yourself.",
+    "You want sensitive or high-stakes emails flagged rather than auto-answered."
+  ],
+  "whenNotToUse": [
+    "You want it to send email automatically without your review — it won't.",
+    "You want it to negotiate terms or make commitments on your behalf.",
+    "You can't give it thread/context to ground replies in.",
+    "Your replies require facts only you hold and can't provide."
+  ],
+  "systemPrompt": "You are an Email Reply Drafting Agent. You draft replies to incoming email for one person to review and send. You PROPOSE drafts; you never send. You are judged on helpful, on-voice drafts and on never sending, fabricating, or committing the person to something they didn't approve.\n\n== CORE PRINCIPLES ==\n1. Draft, don't send. You produce a draft reply. The person reviews, edits, and sends. You never send, schedule-send, or act on the email yourself.\n2. No unapproved commitments. Don't promise prices, discounts, deadlines, deliverables, meetings, or agreements the person hasn't approved. Where a commitment is implied, leave it for the person to decide and flag it.\n3. Grounded and on-voice. Base the reply on the thread and provided context, in the person's voice. Don't invent facts, numbers, or details to fill gaps.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NEVER SEND: Output is always a draft. No sending, auto-replying, or other actions.\n- NO FABRICATION: Don't invent facts, figures, availability, or claims. If something is unknown, leave a placeholder for the person or ask them.\n- NO COMMITMENTS FOR THE PERSON: Don't bind them to prices, dates, scope, or promises without explicit approval. Flag where a decision is theirs.\n- FLAG SENSITIVE: Legal threats, complaints, HR/personnel matters, financial commitments, layoffs, emotionally charged messages -> flag for careful human handling; offer at most a measured, neutral draft and note it must be reviewed.\n- PRIVACY: Don't expose private or third-party information that doesn't belong in the reply.\n\n== METHOD ==\n- Read the thread + context. Classify intent and sensitivity. Draft a reply in the person's voice grounded in what's known. Flag commitments and sensitive items, and note anything the person must decide or fill in.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"thread_summary\": \"<short, neutral>\",\n  \"intent\": \"<what the sender wants>\",\n  \"sensitivity\": { \"flag\": \"none|sensitive|high_stakes\", \"note\": \"<why, or empty>\" },\n  \"draft_reply\": \"<the draft, in the person's voice>\",\n  \"placeholders\": [\"<facts/decisions the person must fill or approve>\"],\n  \"commitments_flagged\": [\"<implied commitments left for the person to decide>\"],\n  \"send_note\": \"Draft only — review and send yourself. The agent does not send.\"\n}\nNever send. Never invent facts or commit the person to anything unapproved.",
+  "architecture": [
+    {
+      "label": "Thread intake",
+      "detail": "Reads the email thread and any context the person provides to ground the reply."
+    },
+    {
+      "label": "Intent & sensitivity classifier",
+      "detail": "Determines what the sender wants and whether the email is sensitive or high-stakes."
+    },
+    {
+      "label": "Draft generator",
+      "detail": "Writes a reply in the person's voice, grounded in the thread and provided facts."
+    },
+    {
+      "label": "Commitment guard",
+      "detail": "Detects implied promises (prices, dates, scope) and leaves them for the person rather than committing."
+    },
+    {
+      "label": "Fabrication guard",
+      "detail": "Prevents invented facts or figures, using placeholders for anything unknown."
+    },
+    {
+      "label": "Sensitivity flagging",
+      "detail": "Flags legal, HR, financial, or emotionally charged emails for careful human handling."
+    },
+    {
+      "label": "Review handoff",
+      "detail": "Delivers the draft with placeholders and flags; the person edits and sends — the agent never sends."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_thread",
+      "purpose": "Retrieve the email thread to reply to."
+    },
+    {
+      "name": "get_context",
+      "purpose": "Pull any context the person provides to ground the reply."
+    },
+    {
+      "name": "classify_intent",
+      "purpose": "Identify what the sender is asking for."
+    },
+    {
+      "name": "draft_reply",
+      "purpose": "Write a reply in the person's voice grounded in known facts."
+    },
+    {
+      "name": "match_voice",
+      "purpose": "Apply the person's tone and style to the draft."
+    },
+    {
+      "name": "flag_sensitive",
+      "purpose": "Flag legal, HR, financial, or charged emails for careful handling."
+    },
+    {
+      "name": "check_commitments",
+      "purpose": "Detect implied commitments and leave them for the person to approve."
+    },
+    {
+      "name": "suggest_actions",
+      "purpose": "Note follow-ups or decisions the person should make (without taking them)."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Read the thread",
+      "body": "Take the email thread and any context the person provides."
+    },
+    {
+      "title": "2. Classify intent & sensitivity",
+      "body": "Determine what the sender wants and whether it's sensitive."
+    },
+    {
+      "title": "3. Draft in their voice",
+      "body": "Write a reply grounded in the thread and known facts."
+    },
+    {
+      "title": "4. Guard commitments",
+      "body": "Leave prices, dates, and promises for the person to approve."
+    },
+    {
+      "title": "5. Guard facts",
+      "body": "Use placeholders for anything unknown instead of inventing it."
+    },
+    {
+      "title": "6. Flag sensitive emails",
+      "body": "Mark legal, HR, financial, or charged emails for careful human handling."
+    },
+    {
+      "title": "7. Hand off the draft",
+      "body": "Deliver the draft with placeholders and flags; the person edits and sends."
+    }
+  ],
+  "implementationNotes": [
+    "Enforce draft-only in a hard rule and keep inbox access read scope; an agent that sends email on its own can cause real damage with one bad reply.",
+    "Never let the agent commit the person to prices, dates, scope, or agreements; flag implied commitments as decisions for the person.",
+    "Use placeholders for unknowns instead of fabricating facts, figures, or availability to complete a reply.",
+    "Flag legal, HR, financial, and emotionally charged emails as high-stakes and offer only measured, review-required drafts.",
+    "Match the person's voice from samples, but don't overstep into making claims or promises in their name.",
+    "Protect privacy: don't surface third-party or private information that doesn't belong in the reply.",
+    "The strong model earns its cost on sensitivity detection and commitment handling, while a cheaper model can draft routine replies."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Reply drafter",
+      "desc": "Drafts a contextual reply in your voice from the thread for you to review and send. Draft-only."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Guarded drafting",
+      "desc": "Adds commitment guards, fabrication prevention with placeholders, sensitivity flagging, and voice matching from samples."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Inbox assistant",
+      "desc": "Adds inbox integration (read), team voice profiles, approval workflows, sensitive-email routing, and analytics — always draft-only."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect (read-only)",
+      "body": "Install the agent and connect your inbox with read scope — it drafts, never sends.",
+      "code": "pipx install email-reply-agent\nemail-reply-agent connect --inbox gmail:readonly\nemail-reply-agent doctor"
+    },
+    {
+      "title": "Configure draft-only & guardrails",
+      "body": "Never-send and commitment guards are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nSEND_EMAIL=false           # always drafts only\nNO_UNAPPROVED_COMMITMENTS=true\nFLAG_SENSITIVE=true"
+    },
+    {
+      "title": "Set your voice",
+      "body": "Provide a few sample emails so drafts match your tone.",
+      "code": "# voice.yml\ntone: warm_professional\nsignoff: 'Best,\\n[Your name]'\nsamples: ./my-sent-emails/"
+    },
+    {
+      "title": "Try it on a thread",
+      "body": "Generate a draft and review placeholders and flags.",
+      "code": "email-reply-agent draft --thread ./thread.eml --explain\n# prints draft + placeholders + flagged commitments (nothing is sent)"
+    },
+    {
+      "title": "Wire into your inbox",
+      "body": "Generate draft replies for review in your drafts folder.",
+      "code": "# new email -> draft reply saved to Drafts; you review, edit, and send"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Routine reply → drafted in your voice, grounded in the thread",
+      "scenario": "A simple scheduling email. The agent drafts a clean reply from the thread.",
+      "input": "Email: 'Can we move our Thursday call to Friday afternoon?' Your calendar context shows Friday 2–4pm is open.",
+      "output": "{\n  \"thread_summary\": \"Sender asks to move Thursday's call to Friday afternoon.\",\n  \"intent\": \"Reschedule the call\",\n  \"sensitivity\": { \"flag\": \"none\", \"note\": \"\" },\n  \"draft_reply\": \"Hi [name], Friday afternoon works for me — I have 2–4pm open. Want to grab 2:30? Happy to send an invite once you confirm. Best, [Your name]\",\n  \"placeholders\": [],\n  \"commitments_flagged\": [],\n  \"send_note\": \"Draft only — review and send yourself. The agent does not send.\"\n}",
+      "notes": "A grounded, on-voice draft using the real calendar context — and notice it offers to send the invite 'once you confirm' rather than auto-creating anything. You review and send."
+    },
+    {
+      "title": "Email asks for a commitment → draft without promising it, flag the decision",
+      "scenario": "The sender wants a discount the person hasn't approved. The agent drafts a reply that holds the line and flags the decision.",
+      "input": "Email: 'Can you do 30% off if we sign today?' You haven't approved any discount.",
+      "output": "{\n  \"thread_summary\": \"Sender requests a 30% discount to sign today.\",\n  \"intent\": \"Negotiate a discount\",\n  \"sensitivity\": { \"flag\": \"sensitive\", \"note\": \"Involves a pricing commitment you haven't approved\" },\n  \"draft_reply\": \"Hi [name], thanks for moving quickly on this. Let me confirm what we can offer and get back to you shortly — I want to make sure I give you the right number rather than a guess. Best, [Your name]\",\n  \"placeholders\": [\"The actual discount you're willing to offer (if any)\"],\n  \"commitments_flagged\": [\"A 30% discount was requested — I did NOT agree to it. Decide the real terms before replying; the draft buys time without committing.\"],\n  \"send_note\": \"Draft only — review and send yourself. The agent does not send.\"\n}",
+      "notes": "The agent will not promise the 30% the person never approved. It drafts a courteous holding reply, flags the discount as a decision for the person, and leaves the actual number as a placeholder. It never commits you to a price."
+    },
+    {
+      "title": "Legal threat / charged email → flag for careful handling, don't fire off a casual draft",
+      "scenario": "An angry email threatens legal action. The agent treats it as high-stakes and refuses to auto-draft a casual reply.",
+      "input": "Email: 'This is unacceptable. If you don't refund me in full today I'm contacting my lawyer and posting everywhere.'",
+      "output": "{\n  \"thread_summary\": \"Sender is angry, demands a full refund today, and threatens legal action and public posts.\",\n  \"intent\": \"Demand a refund under threat\",\n  \"sensitivity\": { \"flag\": \"high_stakes\", \"note\": \"Legal threat + emotionally charged + financial demand — needs careful human handling\" },\n  \"draft_reply\": \"Hi [name], I'm sorry you've had this experience and I want to get it resolved. I'm looking into your account now and will follow up shortly with next steps. — [Your name]\",\n  \"placeholders\": [\"Whether a refund is warranted and any internal/legal guidance before responding substantively\"],\n  \"commitments_flagged\": [\"Do NOT promise a refund or admit fault in writing without review. The draft is a measured acknowledgement only — review with the right person (and legal if needed) before sending.\"],\n  \"send_note\": \"Draft only — review and send yourself. The agent does not send.\"\n}",
+      "notes": "The defining defensive case: legal threat, money, and high emotion. The agent flags it high-stakes, offers only a measured, non-committal acknowledgement, and explicitly warns against promising a refund or admitting fault without review. It de-escalates without committing the person — and never sends."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it send emails for me?",
+      "a": "No. It always produces a draft for you to review, edit, and send. It never sends, auto-replies, or schedules a send on its own — you stay in control of what actually goes out."
+    },
+    {
+      "q": "Could it promise something I didn't approve?",
+      "a": "No. It won't commit you to prices, discounts, deadlines, scope, or agreements you haven't approved. Where a commitment is implied, it drafts around it and flags the decision as yours."
+    },
+    {
+      "q": "Does it make up facts to complete a reply?",
+      "a": "No. It grounds replies in the thread and the context you provide, and leaves placeholders for anything unknown rather than inventing facts, figures, or availability."
+    },
+    {
+      "q": "How does it handle an angry or legal email?",
+      "a": "It flags high-stakes emails — legal threats, complaints, HR or financial matters — and offers only a measured, non-committal draft, with a note to review it (and involve the right people) before sending."
+    },
+    {
+      "q": "Will it sound like me?",
+      "a": "Yes. Provide a few sample emails and it matches your tone and style, while staying within the guardrails so it doesn't overstep in your name."
+    },
+    {
+      "q": "Is my email data kept private?",
+      "a": "It reads the thread and context with read-only access to draft the reply and keeps that in scope. It doesn't expose private or third-party information that doesn't belong in the response."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Evaluation (Research → Evaluate)",
+    "worstCaseAction": "Drafts an incorrect or off-tone reply that a human reviews before sending. It cannot send email or take any inbox action — the send tool is absent from its registry.",
+    "authorityBoundary": "Reads an email and drafts a suggested reply grounded in the thread and provided context. A human reviews and sends. It never sends autonomously, never makes commitments on the user's behalf, and never fabricates facts.",
+    "verificationTest": "Attempt to call a send-email tool → confirm it is absent from the agent's registry; confirm output is a draft only.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: send tools absent. Human gates: a human sends. Confidence escalation: sensitive or uncertain threads flagged. Cost ceiling: bounded per email. Audit trail: drafts logged. Escalation path: commitments or sensitive topics flagged for the user.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "email-reply-drafter",
+      "trust_level": "A2",
+      "dna_pattern": "Evaluation",
+      "worst_case_action": "Drafts a wrong reply caught before send. Cannot send email.",
+      "authority_boundary": "Drafts replies grounded in the thread; send tools absent; no commitments.",
+      "tags": [
+        "email",
+        "drafting",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_thread",
+          "draft_reply",
+          "check_tone",
+          "ground_in_context"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "send_email",
+          "commitment"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.2,
+        "alert_threshold_usd": 0.14
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "sensitive_topic",
+          "commitment_implied",
+          "low_confidence"
+        ],
+        "destination": "user"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "drafts"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Drafts an off-tone or inappropriate reply that, if sent, damages a relationship.",
+      "detection": "Tone is checked against context and sensitive threads are flagged.",
+      "mitigation": "It drafts only — there is no send tool; a human reviews and sends.",
+      "recovery": "The human edits or discards the draft before sending."
+    },
+    {
+      "mode": "Includes a fact not in the thread (a hallucinated detail).",
+      "detection": "Claims are grounded in the thread and ungrounded statements are flagged.",
+      "mitigation": "It grounds replies in provided context and never fabricates.",
+      "recovery": "The human corrects it before sending."
+    },
+    {
+      "mode": "Implies a commitment on the user's behalf.",
+      "detection": "Commitment language is flagged.",
+      "mitigation": "Commitments and sensitive topics are flagged for the user.",
+      "recovery": "The user decides whether to make the commitment."
+    }
+  ],
+  "evaluation": {
+    "primary": "Groundedness and tone-appropriateness of drafts are what matter — since a human sends, the value is a draft that needs little correction and never fabricates.",
+    "metrics": [
+      {
+        "name": "Groundedness",
+        "description": "Share of drafts whose claims are supported by the thread, with no invented facts."
+      },
+      {
+        "name": "Edit distance",
+        "description": "How much a human edits the draft before sending — lower is better."
+      },
+      {
+        "name": "Tone appropriateness",
+        "description": "Share rated contextually appropriate by reviewers."
+      },
+      {
+        "name": "Commitment-flag rate",
+        "description": "Whether implied commitments are flagged rather than asserted."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to a draft."
+      }
+    ],
+    "approach": "Use real threads with human-sent replies as reference; measure groundedness and edit distance against the sent version, and have reviewers rate tone. Flag any draft that adds a fact not in the thread."
+  }
+}

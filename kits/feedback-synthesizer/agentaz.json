@@ -1,0 +1,55 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "feedback-synthesis-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Synthesis",
+  "worst_case_action": "Produces an inaccurate theme for PM review. Cannot create tickets or change a roadmap.",
+  "authority_boundary": "Clusters feedback into cited themes; ticket/roadmap tools absent; no fabricated feedback.",
+  "tags": [
+    "product-management",
+    "feedback",
+    "synthesis",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_feedback",
+      "cluster",
+      "extract_quotes",
+      "count_signal"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "create_ticket",
+      "roadmap_write"
+    ],
+    "never_fabricates": true
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.25,
+    "alert_threshold_usd": 0.16
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "thin_theme",
+      "conflicting_signal"
+    ],
+    "destination": "product_manager"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "themes",
+      "source_counts"
+    ]
+  }
+}

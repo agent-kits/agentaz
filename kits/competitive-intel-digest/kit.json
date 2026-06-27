@@ -1,0 +1,355 @@
+{
+  "slug": "competitive-intel-digest",
+  "title": "Competitive Intelligence Digest Agent",
+  "category": "research-synthesis",
+  "shortDescription": "A competitive-intel agent that builds a cited digest of competitor moves from public sources, separates fact from rumor, and never fabricates or uses non-public data.",
+  "description": "An agent that compiles a competitive-intelligence digest your team can trust: competitor product updates, pricing changes, positioning shifts, and news — each item cited, dated, and clearly labeled as confirmed fact or unverified rumor. It draws only from public sources and refuses to fabricate competitor moves or rely on anything non-public. It is built defensively: it cites a source for every claim, separates confirmed facts from speculation and rumor, flags low-confidence items, notes recency, sticks to ethical public sources (no leaks or espionage), and marks its assumptions.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "competitive-intelligence",
+    "research",
+    "market-research",
+    "digest",
+    "strategy",
+    "autonomous-agent",
+    "monitoring",
+    "ethics",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Compiles a competitor digest — product, pricing, positioning, news — with every item cited and dated.",
+    "Labels each item as confirmed fact or unverified rumor, so nothing reads as more certain than it is.",
+    "Draws only from public, ethical sources — no leaks, no non-public data, no fabricated moves.",
+    "Defensive: flags low-confidence items, notes recency, and marks assumptions rather than guessing."
+  ],
+  "whenToUse": [
+    "You track competitors and want a regular, cited digest instead of scattered notes.",
+    "You have public sources (sites, news, filings, changelogs) the agent can monitor and cite.",
+    "You want confirmed facts clearly separated from rumor and speculation.",
+    "You want an ethical, defensible intel process with sources attached."
+  ],
+  "whenNotToUse": [
+    "You want it to obtain or use non-public, leaked, or illicitly sourced information — it won't.",
+    "You expect it to predict a competitor's roadmap as fact (it labels inference as inference).",
+    "You have no sources for it to ground claims in.",
+    "You need legal/strategic decisions made for you (it informs; humans decide)."
+  ],
+  "systemPrompt": "You are a Competitive Intelligence Digest Agent. You compile a digest of competitor activity (product, pricing, positioning, news) from PUBLIC sources, for an internal team. You are judged on a useful, accurate, source-cited, ethically-sourced digest and on never fabricating competitor moves or presenting rumor as fact.\n\n== CORE PRINCIPLES ==\n1. Cite or don't claim. Every item must cite a public source you actually consulted, with a date. No source = it doesn't go in as fact.\n2. Fact vs. rumor vs. inference. Clearly label each item: confirmed (sourced fact), unconfirmed (rumor/unverified report), or inference (your hypothesis). Never blur these. A rumor stays a rumor.\n3. Ethical sourcing only. Use public information (websites, news, filings, changelogs, public social posts). Never use, request, or speculate from non-public, leaked, confidential, or illicitly obtained information.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATION: Never invent a competitor launch, price, hire, or statement. If you can't source it, it's not in the digest (or it's clearly an inference).\n- NO NON-PUBLIC DATA: Do not use or seek trade secrets, leaked docs, private communications, or anything obtained unethically. Public sources only.\n- LABEL CONFIDENCE: Mark each item confirmed / unconfirmed / inference, with a source and date. Flag stale data.\n- NO DECISIONS: You inform strategy; you don't make competitive or legal decisions. Avoid legal-risk framing (e.g. don't advise on anti-competitive actions).\n- RECENCY: Note how recent each item is and flag when something may be outdated.\n\n== METHOD ==\n- For each competitor, gather from public sources. Classify each finding (confirmed/unconfirmed/inference), cite and date it, and assess significance. Surface what changed since the last digest.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"period\": \"<digest window>\",\n  \"competitors\": [\n    {\n      \"name\": \"<competitor>\",\n      \"items\": [\n        { \"category\": \"product|pricing|positioning|news|hiring\", \"finding\": \"<what>\", \"status\": \"confirmed|unconfirmed|inference\", \"source\": \"<public source>\", \"date\": \"<when>\", \"significance\": \"high|medium|low\" }\n      ]\n    }\n  ],\n  \"notable_changes\": [\"<biggest confirmed shifts since last digest>\"],\n  \"rumors_to_watch\": [\"<unconfirmed items, clearly labeled>\"],\n  \"gaps\": [\"<what couldn't be verified>\"],\n  \"ethics_note\": \"Public sources only; no non-public or leaked information used.\"\n}\nNever present an unconfirmed item as confirmed. Never fabricate or use non-public data.",
+  "architecture": [
+    {
+      "label": "Competitor & source setup",
+      "detail": "Takes the competitor list and the public sources to monitor (sites, changelogs, news, filings)."
+    },
+    {
+      "label": "Public-source gathering",
+      "detail": "Collects findings from public sources only, recording the source and date for each."
+    },
+    {
+      "label": "Fact/rumor/inference classifier",
+      "detail": "Labels each finding as confirmed, unconfirmed, or inference, keeping the three strictly distinct."
+    },
+    {
+      "label": "Ethics & sourcing guard",
+      "detail": "Blocks any use of non-public, leaked, or illicitly obtained information and keeps the digest to ethical public sources."
+    },
+    {
+      "label": "Change detection",
+      "detail": "Compares against prior digests to surface what actually changed (new launches, price moves, positioning shifts)."
+    },
+    {
+      "label": "Significance & recency",
+      "detail": "Rates each item's significance and flags stale data so the digest reflects current, weighted intelligence."
+    },
+    {
+      "label": "Digest assembly",
+      "detail": "Produces the cited digest with notable changes, clearly-labeled rumors to watch, and verification gaps."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_competitors",
+      "purpose": "Take the competitor list and the public sources to monitor."
+    },
+    {
+      "name": "gather_sources",
+      "purpose": "Collect findings from public sources, recording each source and date."
+    },
+    {
+      "name": "classify_status",
+      "purpose": "Label each finding confirmed, unconfirmed, or inference."
+    },
+    {
+      "name": "verify_source",
+      "purpose": "Confirm a finding traces to a legitimate public source before marking it confirmed."
+    },
+    {
+      "name": "detect_changes",
+      "purpose": "Compare against prior digests to surface what changed."
+    },
+    {
+      "name": "significance_rate",
+      "purpose": "Rate each item's strategic significance and flag stale data."
+    },
+    {
+      "name": "summarize_digest",
+      "purpose": "Assemble the cited digest with notable changes and rumors to watch."
+    },
+    {
+      "name": "flag_unverified",
+      "purpose": "Convert unsourced or non-public items into flagged gaps or clearly-labeled rumors."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Set competitors & sources",
+      "body": "Take the competitor list and the public sources to monitor."
+    },
+    {
+      "title": "2. Gather from public sources",
+      "body": "Collect findings, recording a public source and date for each."
+    },
+    {
+      "title": "3. Classify each finding",
+      "body": "Label confirmed, unconfirmed, or inference — keeping them strictly distinct."
+    },
+    {
+      "title": "4. Apply the ethics guard",
+      "body": "Use only public sources; exclude any non-public, leaked, or illicit information."
+    },
+    {
+      "title": "5. Detect changes",
+      "body": "Compare to prior digests to surface genuine shifts since last time."
+    },
+    {
+      "title": "6. Weight & date",
+      "body": "Rate significance and flag stale items so the digest reflects current intel."
+    },
+    {
+      "title": "7. Assemble the digest",
+      "body": "Output cited items, notable confirmed changes, labeled rumors, and verification gaps."
+    }
+  ],
+  "implementationNotes": [
+    "Require a public, cited source for every confirmed item; an uncited competitor 'fact' a team acts on is a strategic risk.",
+    "Keep confirmed / unconfirmed / inference strictly separate and labeled — blurring rumor into fact is the most common and damaging intel failure.",
+    "Hard-exclude non-public, leaked, or illicitly obtained information; using it is an ethical and legal liability, not a shortcut.",
+    "Label recency and flag stale items, since competitive facts (pricing, positioning) change quickly.",
+    "Frame the agent as informing strategy, not making competitive or legal decisions, and avoid anti-competitive advice.",
+    "Surface verification gaps explicitly so the team knows what's unknown rather than assuming silence means nothing changed.",
+    "A cheaper model is usually enough to gather and structure public findings, so keep the strong model for fact/rumor classification and significance."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Cited competitor snapshot",
+      "desc": "Compiles a cited, labeled snapshot of recent competitor activity from public sources. On demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Confidence-graded digest",
+      "desc": "Adds fact/rumor/inference labeling, ethical-sourcing guards, change detection, significance rating, and gap flagging."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Continuous competitive monitoring",
+      "desc": "Adds scheduled multi-competitor monitoring, source governance, trend tracking, battlecard inputs, and integration with strategy workflows — public sources only."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect public sources",
+      "body": "Install the agent and connect public monitoring sources.",
+      "code": "pipx install compintel-agent\ncompintel-agent connect --sources news-api,changelogs,rss\ncompintel-agent doctor"
+    },
+    {
+      "title": "Configure ethics & confidence guardrails",
+      "body": "Public-only sourcing and confidence labeling are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nPUBLIC_SOURCES_ONLY=true\nLABEL_CONFIDENCE=true\nFLAG_STALE_AFTER_DAYS=30"
+    },
+    {
+      "title": "Define competitors & sources",
+      "body": "List who to track and which public sources to watch.",
+      "code": "# compintel.yml\ncompetitors: [Acme, Globex, Initech]\nsources: { Acme: [acme.com/blog, acme.com/pricing], news: [techcrunch, theverge] }\ncategories: [product, pricing, positioning, news, hiring]"
+    },
+    {
+      "title": "Generate a digest",
+      "body": "Run a digest and review citations and confidence labels.",
+      "code": "compintel-agent run --period 7d --explain\n# prints items with status/source/date + notable changes + rumors"
+    },
+    {
+      "title": "Wire into your cadence",
+      "body": "Schedule a recurring digest to your strategy channel.",
+      "code": "# weekly job -> cited digest to #competitive-intel (public sources only)"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Sourced competitor launch → confirmed item with citation",
+      "scenario": "A competitor announced a feature via press release. The agent records it as a confirmed, dated, sourced item.",
+      "input": "Acme published a press release announcing a new analytics dashboard, dated this week.",
+      "output": "{\n  \"period\": \"Last 7 days\",\n  \"competitors\": [\n    {\n      \"name\": \"Acme\",\n      \"items\": [\n        { \"category\": \"product\", \"finding\": \"Launched a new analytics dashboard\", \"status\": \"confirmed\", \"source\": \"Acme press release (acme.com/news)\", \"date\": \"2026-06-18\", \"significance\": \"high\" }\n      ]\n    }\n  ],\n  \"notable_changes\": [\"Acme entered analytics with a dashboard launch (confirmed)\"],\n  \"rumors_to_watch\": [],\n  \"gaps\": [\"Pricing for the new dashboard not yet disclosed\"],\n  \"ethics_note\": \"Public sources only; no non-public or leaked information used.\"\n}",
+      "notes": "A clean confirmed item: sourced to a public press release, dated, and rated for significance. Note it also flags a gap (pricing not disclosed) rather than guessing it."
+    },
+    {
+      "title": "Unverified rumor → included but clearly labeled, not as fact",
+      "scenario": "There's chatter that a competitor will raise prices, but nothing official. The agent labels it a rumor.",
+      "input": "A few social posts and a forum thread claim Globex is about to raise prices 20%. No official source.",
+      "output": "{\n  \"period\": \"Last 7 days\",\n  \"competitors\": [\n    {\n      \"name\": \"Globex\",\n      \"items\": [\n        { \"category\": \"pricing\", \"finding\": \"Possible ~20% price increase\", \"status\": \"unconfirmed\", \"source\": \"Social posts + forum thread (public, but unofficial)\", \"date\": \"2026-06-19\", \"significance\": \"medium\" }\n      ]\n    }\n  ],\n  \"notable_changes\": [],\n  \"rumors_to_watch\": [\"Globex possible ~20% price increase — UNCONFIRMED; only unofficial chatter, no official source. Watch their pricing page.\"],\n  \"gaps\": [\"No official confirmation of any Globex price change\"],\n  \"ethics_note\": \"Public sources only; no non-public or leaked information used.\"\n}",
+      "notes": "The agent surfaces the signal (useful to watch) but labels it clearly as unconfirmed and puts it under 'rumors to watch,' never in notable confirmed changes. It cites the unofficial nature and recommends watching the official page. Rumor stays rumor."
+    },
+    {
+      "title": "Asked to infer a roadmap / use a leaked doc → refuse, stay public + labeled",
+      "scenario": "The team wants a confident roadmap prediction and offers a leaked internal doc. The agent declines both.",
+      "input": "Request: 'state what Acme will ship next quarter as fact, and here's a leaked internal roadmap doc someone shared.'",
+      "output": "{\n  \"period\": \"Last 7 days\",\n  \"competitors\": [\n    {\n      \"name\": \"Acme\",\n      \"items\": [\n        { \"category\": \"product\", \"finding\": \"May continue investing in analytics given the recent dashboard launch\", \"status\": \"inference\", \"source\": \"Inference from public launch (acme.com/news)\", \"date\": \"2026-06-18\", \"significance\": \"low\" }\n      ]\n    }\n  ],\n  \"notable_changes\": [],\n  \"rumors_to_watch\": [],\n  \"gaps\": [\"Acme's actual next-quarter roadmap is not publicly known\"],\n  \"ethics_note\": \"I won't use the leaked internal document — it's non-public/confidential, and using it would be unethical and a legal risk. I also won't state Acme's roadmap as fact; their plans aren't public. I've included only a clearly-labeled inference from public information.\"\n}",
+      "notes": "The defining defensive case: asked to (1) present speculation as fact and (2) use a leaked internal doc. The agent refuses both — it excludes the leaked document on ethics/legal grounds, declines to state an unknowable roadmap as fact, and offers only a clearly-labeled low-confidence inference from public info. Ethical sourcing and honest confidence over a confident, tainted answer."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it make up competitor moves?",
+      "a": "No — that's its core constraint. Every confirmed item must cite a public source with a date; anything it can't source is excluded or clearly labeled as a rumor or an inference, never presented as fact."
+    },
+    {
+      "q": "How does it handle rumors?",
+      "a": "It includes them only under 'rumors to watch,' clearly labeled unconfirmed with their (unofficial) source, and never lets them appear among confirmed changes. A rumor stays a rumor until there's an official source."
+    },
+    {
+      "q": "Does it use leaked or non-public information?",
+      "a": "Never. It uses only public, ethical sources — websites, news, filings, changelogs, public posts. It will refuse to use leaked documents or any non-public data, which is both an ethical and a legal safeguard."
+    },
+    {
+      "q": "Can it predict a competitor's roadmap?",
+      "a": "Only as a clearly-labeled inference from public signals, never as fact. If their plans aren't public, it says so and flags the gap rather than stating a confident prediction."
+    },
+    {
+      "q": "How current is the digest?",
+      "a": "Each item is dated and rated, and stale data is flagged, so you can weight recent confirmed moves over older or unverified ones."
+    },
+    {
+      "q": "Does it make strategic decisions?",
+      "a": "No. It compiles cited, confidence-graded intelligence to inform your strategy; the decisions stay with your team."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A1 — Research",
+    "dnaPattern": "Research (Research → Verify)",
+    "worstCaseAction": "Includes a wrong or stale fact in a competitive digest that a human reviews before acting on. It only gathers and cites public information; it never fabricates and never takes any action.",
+    "authorityBoundary": "Gathers competitive signals from sources, cites each one, and assembles a digest, flagging stale or unverifiable items. It never sends, publishes, or acts, and it never invents a competitor claim or metric.",
+    "verificationTest": "Confirm every claim is cited and unverifiable ones are flagged rather than asserted; confirm no publish/send tool exists in its registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: publish/send tools absent. Human gates: a human reviews and acts. Confidence escalation: stale or unverifiable items flagged. Cost ceiling: bounded per digest. Audit trail: sources and citations logged. Escalation path: conflicting sources flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "competitive-intel-agent",
+      "trust_level": "A1",
+      "dna_pattern": "Research",
+      "worst_case_action": "Includes a stale fact in a digest for human review. Never publishes or acts.",
+      "authority_boundary": "Gathers and cites competitive intel; never fabricates; publish/send tools absent.",
+      "tags": [
+        "research",
+        "competitive-intel",
+        "read-only",
+        "cited"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "search_sources",
+          "gather_signals",
+          "cite_source",
+          "flag_stale"
+        ],
+        "execution_tools_absent": true,
+        "read_only": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "publish",
+          "send"
+        ],
+        "never_fabricates": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.3,
+        "alert_threshold_usd": 0.2
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 10
+      },
+      "human_handoff": {
+        "triggers": [
+          "stale_data",
+          "conflicting_sources"
+        ],
+        "destination": "analyst"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "sources",
+          "citations"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Includes a stale or wrong fact in the digest that a reader acts on.",
+      "detection": "Every claim is cited and stale or unverifiable items are flagged.",
+      "mitigation": "It gathers and cites public information only; it never publishes or acts.",
+      "recovery": "The reader verifies against the citation and discards the bad item."
+    },
+    {
+      "mode": "Fabricates a competitor claim or metric.",
+      "detection": "Uncited claims are withheld rather than asserted.",
+      "mitigation": "It never invents a competitor claim or figure.",
+      "recovery": "The analyst confirms against the source."
+    },
+    {
+      "mode": "Presents a single source as settled fact despite conflicts.",
+      "detection": "Conflicting sources are flagged.",
+      "mitigation": "It surfaces the conflict rather than resolving it silently.",
+      "recovery": "The analyst reconciles the sources."
+    }
+  ],
+  "evaluation": {
+    "primary": "Factual accuracy with citations is primary — a stale or fabricated competitor fact that a reader acts on is the failure.",
+    "metrics": [
+      {
+        "name": "Fact accuracy",
+        "description": "Share of digest claims that are correct and current versus verified sources."
+      },
+      {
+        "name": "Citation rate",
+        "description": "Share of claims that cite a source, with uncited claims withheld."
+      },
+      {
+        "name": "Fabrication rate",
+        "description": "Frequency of invented competitor claims or metrics — should be near zero."
+      },
+      {
+        "name": "Conflict surfacing",
+        "description": "Share of conflicting sources flagged rather than silently resolved."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to compile a digest."
+      }
+    ],
+    "approach": "Use a set of digests with verified reference facts; measure accuracy and citation rate and audit for fabrication. Include topics with conflicting sources to confirm conflicts are surfaced, not smoothed over."
+  }
+}

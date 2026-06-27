@@ -1,0 +1,363 @@
+{
+  "slug": "support-triage-router",
+  "title": "AI Customer Support Agent",
+  "category": "support-triage",
+  "shortDescription": "An AI support agent that grounds in your KB and CRM, then resolves, drafts, routes, or escalates — with confidence thresholds, refund caps, and human review.",
+  "description": "A production-grade customer support agent that does more than classify tickets. It interprets intent, sentiment, and urgency; retrieves grounded context from your knowledge base and CRM; and then makes an explicit, auditable decision — auto-resolve, draft for human approval, route to the right queue, or escalate — under strict confidence thresholds, financial limits, identity-verification rules, and cost controls. Built defensively so it fails safe: when it is unsure, it escalates with a clean summary instead of guessing.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "customer-support",
+    "ticket-triage",
+    "rag",
+    "autonomous-agent",
+    "escalation",
+    "human-in-the-loop",
+    "cx-automation",
+    "help-desk",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-20",
+  "overview": [
+    "Turns an inbound ticket into a grounded, auditable decision: AUTO_RESOLVE, DRAFT, ROUTE, or ESCALATE — never a silent guess.",
+    "Answers only from retrieved knowledge-base and CRM context, so it cannot invent policies, prices, dates, or account facts.",
+    "Enforces hard guardrails: identity verification before account actions, refund/credit caps, PII redaction, and explicit escalation triggers.",
+    "Cost-aware by design: a cheap model classifies and routes, the strong model only drafts customer-facing replies, and tool calls are capped per ticket."
+  ],
+  "whenToUse": [
+    "You have a high volume of repetitive tickets (password resets, how-tos, order status, billing questions) that drain agent time.",
+    "You have a real knowledge base and CRM/order system the agent can retrieve from for grounded answers.",
+    "You want automation that drafts or resolves the easy 60–70% while reliably escalating the rest with context.",
+    "You need an auditable decision trail for every ticket for QA, compliance, and trust.",
+    "You want to start in suggest-only mode and graduate specific intents to full auto-resolve as confidence is proven."
+  ],
+  "whenNotToUse": [
+    "You have no structured knowledge base — the agent will have nothing to ground answers in and should not be deployed in auto mode.",
+    "Your tickets are dominated by legal, medical, or regulated financial advice that requires a licensed human.",
+    "You need real-time voice/phone support — this kit targets text channels (email, chat, web forms, helpdesk).",
+    "You are unwilling to keep a human in the loop for refunds, account changes, or low-confidence cases."
+  ],
+  "systemPrompt": "You are an autonomous Customer Support Agent operating inside a regulated support workflow. Your job is to resolve, draft, route, or escalate a single support ticket safely and helpfully. You are measured on customer outcome AND on never causing harm, never inventing facts, and never exceeding your authority.\n\n== CORE PRINCIPLES ==\n1. Grounded or silent. State a fact, policy, price, date, or account detail ONLY if it appears in retrieved knowledge-base (KB) or CRM/order context provided to you this turn. If it is not in context, you do not know it. Say so or escalate. Never guess, never extrapolate, never \"fill in\" plausible policy.\n2. Fail safe, not confident. When unsure, escalate with a clean summary. A correct escalation is a success, not a failure.\n3. Help the human behind the ticket. Be warm, concise, and specific. Solve the real problem, not just the literal words.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- IDENTITY: Do not reveal account-specific data or take any account-changing action (refunds, plan changes, cancellations, address/email changes, password/security actions) unless the ticket includes a verified-identity signal from the CRM context. If identity is unverified, request verification or escalate. Never reset credentials yourself.\n- PII: Never echo full payment numbers, government IDs, or passwords. Redact to last 4 where needed. Do not include another customer's data, ever.\n- FINANCIAL LIMITS: You may issue a refund/credit ONLY when (a) the situation matches a documented refund policy in context AND (b) the amount is at or below the configured auto-refund cap. Anything above the cap, outside policy, or ambiguous -> ESCALATE. Never approve goodwill credits beyond the cap.\n- NO FABRICATED COMMITMENTS: Never promise timelines, features, compensation, or outcomes that are not in retrieved policy. Do not say \"an engineer will call you in 1 hour\" unless that SLA exists in context.\n- SCOPE/SAFETY: Do not provide legal, medical, tax, or regulated financial advice. For threats of self-harm, violence, or legal/regulatory matters, escalate immediately with the appropriate flag and a calm holding reply.\n\n== DECISION POLICY (use a calibrated confidence 0.0-1.0) ==\n- AUTO_RESOLVE: only if confidence >= 0.85 AND the answer is fully grounded AND the action is low-risk (informational, no money, no account change). Send the reply and close.\n- DRAFT: if 0.60 <= confidence < 0.85, OR the resolution involves a within-cap refund/within-policy account action. Produce a customer-ready draft for human approval; do not execute irreversible actions without approval unless auto-approve is explicitly enabled for that intent.\n- ROUTE: if the ticket is valid but belongs to a specialist queue (billing, abuse, security, sales). Set queue, priority, and a summary.\n- ESCALATE: if confidence < 0.60, OR any escalation trigger fires.\n\n== ESCALATION TRIGGERS (any one -> ESCALATE) ==\nHigh-value/enterprise account; explicit churn/cancellation threat; legal, security-breach, privacy (GDPR/CCPA), or compliance language; strong negative sentiment or repeated contact on the same issue; data-loss/outage claims; refund/credit above cap or outside policy; identity unverified for a sensitive request; conflicting or missing context; anything you cannot ground.\n\n== COST CONTROL ==\n- Prefer KB retrieval before any external tool call. Do not call a tool whose answer is already in context.\n- Cap yourself at the configured max tool calls per ticket; if you would exceed it, escalate instead.\n- Do not re-retrieve the same query. Keep replies tight; do not pad.\n\n== TONE ==\nEmpathetic and human, never robotic or groveling. Acknowledge the issue, give the answer or next step, and stop. Match energy to severity: brief and friendly for simple asks, calm and accountable for upset customers.\n\n== OUTPUT FORMAT (return ONE JSON object, nothing else) ==\n{\n  \"intent\": \"<short label>\",\n  \"sentiment\": \"positive|neutral|negative|critical\",\n  \"urgency\": \"low|medium|high\",\n  \"confidence\": <0.0-1.0>,\n  \"grounded\": <true|false>,\n  \"decision\": \"AUTO_RESOLVE|DRAFT|ROUTE|ESCALATE\",\n  \"reason\": \"<why this decision, referencing the triggers/thresholds>\",\n  \"actions\": [ { \"tool\": \"<tool name>\", \"args\": { ... } } ],\n  \"customer_reply\": \"<message to send or draft, or empty if pure route/escalate>\",\n  \"internal_note\": \"<summary + cited KB/CRM sources for the human>\",\n  \"tags\": [\"...\"],\n  \"escalation\": { \"needed\": <bool>, \"queue\": \"<queue or empty>\", \"priority\": \"low|medium|high\", \"trigger\": \"<which trigger or empty>\" }\n}\nCite the KB article IDs or CRM fields you relied on inside internal_note. If you cannot ground the answer, set grounded=false, decision=ESCALATE, and explain what is missing.",
+  "architecture": [
+    {
+      "label": "Ingestion & normalization",
+      "detail": "Webhook from the helpdesk (Zendesk/Intercom/Front/email) normalizes the ticket into a canonical schema: channel, customer ref, subject, body, attachments, and prior thread. Strips signatures and quoted history to reduce token cost."
+    },
+    {
+      "label": "Classification (cheap model)",
+      "detail": "A fast, low-cost model labels intent, sentiment, urgency, and language, and produces an initial confidence. This gates whether the expensive path runs at all and which retrieval queries to issue."
+    },
+    {
+      "label": "Grounded retrieval (RAG)",
+      "detail": "Hybrid search over the help center plus structured lookups in CRM/order systems. Only the top, relevance-filtered chunks and the specific account facts needed are passed forward — never the whole knowledge base."
+    },
+    {
+      "label": "Policy & decision engine",
+      "detail": "The strong model applies the system-prompt decision policy: confidence thresholds, escalation triggers, identity gate, and financial caps. It emits a single structured decision object."
+    },
+    {
+      "label": "Guarded action layer",
+      "detail": "A deterministic executor validates every proposed tool call against policy before running it: verifies identity for sensitive actions, enforces refund caps, redacts PII, and requires human approval where configured. Invalid actions are downgraded to ESCALATE."
+    },
+    {
+      "label": "Human-in-the-loop",
+      "detail": "Drafts and escalations land in an agent's queue with the full reasoning, cited sources, and suggested actions. Approvals (and edits) flow back as labeled training signal."
+    },
+    {
+      "label": "Observability & feedback",
+      "detail": "Every decision is logged with inputs, retrieved sources, confidence, action, and outcome. Knowledge gaps (low-confidence, no-source tickets) are logged to drive KB improvements and intent promotion to auto-resolve."
+    }
+  ],
+  "tools": [
+    {
+      "name": "kb_search",
+      "purpose": "Hybrid (semantic + keyword) search over the help center; returns ranked, citable chunks with article IDs for grounding answers."
+    },
+    {
+      "name": "crm_lookup",
+      "purpose": "Fetch the customer's account record: plan/tier, ARR/value, verification status, contact history, and entitlements. Read-only."
+    },
+    {
+      "name": "order_lookup",
+      "purpose": "Retrieve order/subscription/invoice details (status, amounts, dates) needed to answer billing and fulfillment questions accurately."
+    },
+    {
+      "name": "ticket_update",
+      "purpose": "Set tags, priority, status, and assignee/queue on the ticket. Used for ROUTE and for closing AUTO_RESOLVE tickets."
+    },
+    {
+      "name": "send_reply",
+      "purpose": "Send or save-as-draft a customer-facing message on the ticket. Honors the draft/approval mode for the ticket's intent."
+    },
+    {
+      "name": "refund_issue",
+      "purpose": "Issue a refund or credit. Hard-capped by policy: the executor rejects any amount above the configured cap or outside a matched refund policy."
+    },
+    {
+      "name": "verify_identity",
+      "purpose": "Trigger or check the account's identity-verification flow; returns a verified/unverified signal that gates all sensitive actions."
+    },
+    {
+      "name": "escalate_to_human",
+      "purpose": "Hand the ticket to a specialist queue with a structured summary, sentiment, risk flags, cited sources, and suggested next actions."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Normalize the ticket",
+      "body": "Receive the helpdesk webhook, strip quoted history and signatures, and build the canonical ticket object. Attach known customer reference if present."
+    },
+    {
+      "title": "2. Classify cheaply",
+      "body": "Run the low-cost model to label intent, sentiment, urgency, and language, and produce an initial confidence. Short-circuit obvious spam/auto-replies."
+    },
+    {
+      "title": "3. Ground with retrieval",
+      "body": "Issue targeted kb_search queries and the minimal crm_lookup/order_lookup calls the intent requires. Filter to high-relevance context; stop once you have enough."
+    },
+    {
+      "title": "4. Gate sensitive intents",
+      "body": "If the intent needs an account action, check verify_identity. If unverified, request verification or escalate before going further."
+    },
+    {
+      "title": "5. Decide under policy",
+      "body": "The strong model applies thresholds and escalation triggers and emits the structured decision object with confidence, grounded flag, actions, reply, and tags."
+    },
+    {
+      "title": "6. Execute through the guard",
+      "body": "The deterministic executor validates each action (identity, refund cap, PII redaction, approval mode) and runs only what passes; anything invalid is downgraded to ESCALATE."
+    },
+    {
+      "title": "7. Log & learn",
+      "body": "Persist the full decision trail and outcome. Route low-confidence, no-source tickets to a knowledge-gap log and feed approvals/edits back as evaluation data."
+    }
+  ],
+  "implementationNotes": [
+    "Keep the safety limits (refund cap, max tool calls, confidence threshold, mode) in config and enforce them in a deterministic executor — never rely on the model alone to honor a money limit.",
+    "Run in suggest-only mode first. Measure draft acceptance rate per intent, and only promote an intent to auto-resolve once it clears a quality bar (e.g. >95% approved-without-edit over a few hundred tickets).",
+    "Ground or escalate: if retrieval returns nothing relevant above a similarity threshold, force grounded=false and escalate. This single rule eliminates most hallucinated 'policy'.",
+    "Log every decision with its retrieved sources and confidence. Tickets that escalate for 'no source' are your KB backlog — closing those gaps is what raises automation rate over time.",
+    "Use model tiering aggressively: a small model for classification and routing, the strong model only for grounded, customer-facing drafting. This is where most of the cost savings come from.",
+    "Treat human edits as gold labels. Periodically review the diffs between drafted and sent replies to tune tone and retrieval."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Suggest-only triage",
+      "desc": "Classification + grounded retrieval that drafts replies and sets tags/priority for human approval. No autonomous sending, no money movement. The safest way to start and to measure quality."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Selective auto-resolve",
+      "desc": "Promote proven low-risk intents (password reset, how-tos, order status) to full auto-resolve with confidence gating, while everything involving money, accounts, or low confidence still drafts or escalates."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Governed multi-queue deployment",
+      "desc": "Adds per-segment policies (VIP/enterprise routing), incident-aware escalation, full audit logging and PII controls for compliance (GDPR/CCPA), SSO-gated approvals, and a feedback pipeline that retrains retrieval and promotes intents automatically."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Download the starter and create an environment",
+      "body": "Get this kit's bundle from its AgentKits page, then set up an isolated Python environment.",
+      "code": "# Download this kit's bundle from its AgentKits page, then:\nunzip support-triage-router.zip && cd support-triage-router\npython -m venv .venv && source .venv/bin/activate"
+    },
+    {
+      "title": "Install dependencies",
+      "body": "LangGraph for orchestration, model SDKs, and a vector store for the knowledge base.",
+      "code": "pip install langgraph langchain-anthropic langchain-openai chromadb pydantic httpx"
+    },
+    {
+      "title": "Configure secrets and limits",
+      "body": "Set model keys, helpdesk/CRM credentials, and the safety limits. The caps live in config, not in the prompt, so they cannot be argued away.",
+      "code": "cp .env.example .env\n# edit .env\nANTHROPIC_API_KEY=sk-ant-...\nOPENAI_API_KEY=sk-...\nHELPDESK_API_TOKEN=...\nCRM_API_TOKEN=...\nAUTO_REFUND_CAP_USD=50\nMAX_TOOL_CALLS=6\nAUTO_RESOLVE_CONFIDENCE=0.85\nMODE=suggest   # suggest | auto"
+    },
+    {
+      "title": "Ingest your knowledge base",
+      "body": "Index your help center into the vector store so answers are grounded and citable. Re-run whenever docs change (or schedule it).",
+      "code": "python ingest.py --source ./help-center --collection kb\n# -> 'Indexed 412 articles into collection \"kb\"'"
+    },
+    {
+      "title": "Run locally and test on real tickets",
+      "body": "Start the agent in suggest-only mode and replay a few anonymized tickets to inspect decisions before going live.",
+      "code": "langgraph dev\n# in another shell:\npython run.py --ticket samples/billing_double_charge.json --explain"
+    },
+    {
+      "title": "Wire the helpdesk webhook",
+      "body": "Point your helpdesk's 'ticket created' webhook at the agent endpoint. Keep MODE=suggest until QA on drafts/escalations looks good, then promote specific intents to auto.",
+      "code": "# Zendesk example: Admin > Webhooks > new webhook\n# POST https://your-host/agent/webhook  (HMAC-signed)\n# Promote one intent at a time, e.g. password_reset, in config/intents.yml"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Grounded how-to, auto-resolved",
+      "scenario": "A verified user asks a common how-to question that is fully covered by a help-center article. Low risk, no account changes.",
+      "input": "Subject: Can't find where to turn on 2FA\nFrom: jordan@acme.io (verified, Pro plan)\nBody: Hey, I want to enable two-factor authentication on my account but I can't find the setting. Can you point me to it?",
+      "output": "{\n  \"intent\": \"how_to_2fa\",\n  \"sentiment\": \"neutral\",\n  \"urgency\": \"low\",\n  \"confidence\": 0.93,\n  \"grounded\": true,\n  \"decision\": \"AUTO_RESOLVE\",\n  \"reason\": \"Fully covered by KB-118; informational, no account change, confidence >= 0.85.\",\n  \"actions\": [\n    { \"tool\": \"send_reply\", \"args\": { \"mode\": \"send\" } },\n    { \"tool\": \"ticket_update\", \"args\": { \"status\": \"solved\", \"tags\": [\"security\", \"2fa\", \"auto_resolved\"] } }\n  ],\n  \"customer_reply\": \"Hi Jordan — happy to help! You can turn on two-factor authentication under Settings > Security > Two-Factor Authentication, then tap 'Enable' and scan the QR code with your authenticator app. After you confirm one code, 2FA is active. If your authenticator is ever unavailable, your backup codes (shown during setup) will let you back in.\",\n  \"internal_note\": \"Answer grounded in KB-118 'Enabling Two-Factor Authentication'. No tools beyond KB needed.\",\n  \"tags\": [\"security\", \"2fa\", \"auto_resolved\"],\n  \"escalation\": { \"needed\": false, \"queue\": \"\", \"priority\": \"low\", \"trigger\": \"\" }\n}",
+      "notes": "This is the bread-and-butter case the kit is built to absorb. Note the answer is grounded in a specific article ID and the agent stops after one KB call — no wasted tool budget. Only this low-risk, high-confidence shape is allowed to auto-send."
+    },
+    {
+      "title": "Within-policy refund, drafted for approval",
+      "scenario": "A verified customer was double-charged. The refund matches policy and is below the $50 auto-cap, but money is involved, so the agent drafts rather than silently executing.",
+      "input": "Subject: Charged twice this month\nFrom: lee@startup.dev (verified, Pro plan, $29/mo)\nBody: I just noticed two $29 charges on the same day for my subscription. I should only be billed once. Please refund the duplicate.",
+      "output": "{\n  \"intent\": \"billing_duplicate_charge\",\n  \"sentiment\": \"negative\",\n  \"urgency\": \"medium\",\n  \"confidence\": 0.88,\n  \"grounded\": true,\n  \"decision\": \"DRAFT\",\n  \"reason\": \"order_lookup confirms two identical $29 charges on 2026-06-03 (txn_8841, txn_8842). Matches refund policy KB-204 (duplicate charge). Amount $29 <= cap $50, but money is involved, so draft for approval.\",\n  \"actions\": [\n    { \"tool\": \"refund_issue\", \"args\": { \"amount_usd\": 29, \"txn_id\": \"txn_8842\", \"reason\": \"duplicate_charge\", \"requires_approval\": true } },\n    { \"tool\": \"send_reply\", \"args\": { \"mode\": \"draft\" } }\n  ],\n  \"customer_reply\": \"Hi Lee — you're right, I can see two identical $29 charges on June 3rd. That's a duplicate, and I've queued a refund for the extra charge (you'll see it back on your original payment method in 5–10 business days). Sorry for the scare — your billing is otherwise correct and you won't be charged again until your normal renewal.\",\n  \"internal_note\": \"Confirmed duplicate via order_lookup (txn_8841 kept, txn_8842 refundable). Policy KB-204. Refund $29 within cap; routed for one-click approval.\",\n  \"tags\": [\"billing\", \"refund\", \"duplicate_charge\", \"needs_approval\"],\n  \"escalation\": { \"needed\": false, \"queue\": \"\", \"priority\": \"medium\", \"trigger\": \"\" }\n}",
+      "notes": "Even though the refund is within the cap, the agent does not move money autonomously by default — it stages the action with requires_approval=true. The executor would reject this refund outright if the amount exceeded AUTO_REFUND_CAP_USD or if no policy matched, regardless of what the model 'decided'."
+    },
+    {
+      "title": "Angry enterprise churn risk — escalate under pressure",
+      "scenario": "A high-value enterprise customer is furious, threatening to cancel, and alleging data loss. The claim is serious and not groundable. The agent must resist the urge to placate with invented commitments and escalate cleanly.",
+      "input": "Subject: URGENT — our data is GONE and we're done\nFrom: cto@bigcorp.com (verified, Enterprise, $240k ARR)\nBody: Half our dashboards are empty and a report we needed for the board is missing data. This is unacceptable. If this isn't fixed today we are canceling and moving to a competitor. I want someone to call me NOW and tell me what compensation we're getting.",
+      "output": "{\n  \"intent\": \"data_loss_complaint\",\n  \"sentiment\": \"critical\",\n  \"urgency\": \"high\",\n  \"confidence\": 0.34,\n  \"grounded\": false,\n  \"decision\": \"ESCALATE\",\n  \"reason\": \"Multiple triggers: enterprise/high-ARR account, explicit churn threat, data-loss claim, demand for compensation, and critical sentiment. Root cause is not groundable from KB/CRM and may indicate an incident. Must not promise a callback SLA or compensation that is not in policy.\",\n  \"actions\": [\n    { \"tool\": \"escalate_to_human\", \"args\": { \"queue\": \"tier2_enterprise\", \"priority\": \"high\", \"page_on_call\": true } },\n    { \"tool\": \"ticket_update\", \"args\": { \"tags\": [\"enterprise\", \"churn_risk\", \"possible_incident\", \"data_loss\"], \"priority\": \"urgent\" } }\n  ],\n  \"customer_reply\": \"Thank you for flagging this, and I'm sorry for the disruption — I understand how serious missing data is ahead of a board report. I'm escalating this to our enterprise team right now as a priority so a specialist can investigate the dashboards directly and follow up with you quickly. I won't guess at a cause or a timeline before they've looked; you'll hear from a person shortly.\",\n  \"internal_note\": \"DO NOT auto-handle. $240k ARR, churn threat, alleged data loss -> possible incident; recommend checking status/incident channel. Customer is demanding a callback and compensation; no SLA/comp policy in context, so none promised. Suggested actions for human: confirm incident scope, give honest ETA, involve account owner.\",\n  \"tags\": [\"enterprise\", \"churn_risk\", \"possible_incident\", \"data_loss\"],\n  \"escalation\": { \"needed\": true, \"queue\": \"tier2_enterprise\", \"priority\": \"high\", \"trigger\": \"enterprise_churn_data_loss\" }\n}",
+      "notes": "This is the example that separates a flagship agent from a prompt wrapper. Under heavy emotional pressure and an explicit demand for a callback and compensation, the agent refuses to invent commitments, drops to low confidence because nothing is groundable, and escalates with a genuinely useful internal handoff. The holding reply is empathetic but promises nothing it can't keep."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "How does it avoid hallucinating policies or prices?",
+      "a": "It is only allowed to state facts that appear in the retrieved knowledge-base or CRM context for that ticket. If retrieval returns nothing relevant, it sets grounded=false and escalates rather than guessing. Cited source IDs are required in the internal note."
+    },
+    {
+      "q": "Can it issue refunds on its own?",
+      "a": "Only within strict limits enforced outside the model: the amount must be at or below your configured cap and match a documented refund policy. By default even within-cap refunds are staged for one-click human approval; anything above the cap or outside policy is escalated."
+    },
+    {
+      "q": "What stops it from doing something risky for an angry customer?",
+      "a": "Escalation triggers. Strong negative sentiment, churn threats, enterprise accounts, legal/security/privacy language, and ungroundable claims all force an escalation with a clean summary — the agent will not invent compensation or callback SLAs to placate."
+    },
+    {
+      "q": "How do you control cost at volume?",
+      "a": "A cheap model handles classification and routing; the strong model only drafts customer-facing replies. Tool calls are capped per ticket, retrieval is filtered to the top chunks, and the agent never re-queries the same thing."
+    },
+    {
+      "q": "How do we go live safely?",
+      "a": "Start in suggest-only mode, review drafts and escalations, and promote one intent at a time to auto-resolve once it clears a quality bar. The decision log and human edits give you the data to do this confidently."
+    },
+    {
+      "q": "Which helpdesks and models does it work with?",
+      "a": "It is channel- and model-agnostic. The reference build uses LangGraph with Claude/OpenAI and a vector store, and connects to common helpdesks (Zendesk, Intercom, Front, email) via webhook plus your CRM/order system through read-only lookups."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Escalation (Research → Evaluate → Plan → Escalate)",
+    "worstCaseAction": "Drafts an incorrect reply or misroutes a ticket, caught before a human sends or acts. It cannot send messages on its own, and it cannot take account actions such as refunds, cancellations, or data changes — those tools are absent from its registry.",
+    "authorityBoundary": "Reads an incoming ticket, classifies and prioritizes it, drafts a suggested reply, and routes or escalates it. A human sends the reply and takes any account action. It never sends autonomously and never refunds, cancels, or modifies an account.",
+    "verificationTest": "Attempt to call a send-message, refund, or account-change tool → confirm it is absent from the agent's registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: send/account-action tools absent. Human gates: a human sends and acts. Confidence escalation: low-confidence or sensitive tickets escalated. Cost ceiling: bounded per ticket. Audit trail: classification, draft, and routing logged. Escalation path: sensitive issues routed to an agent.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "support-triage-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Escalation",
+      "worst_case_action": "Drafts a wrong reply or misroutes a ticket, caught before send. Cannot send or take account actions.",
+      "authority_boundary": "Classifies, drafts replies, and routes tickets; send and account-action tools absent.",
+      "tags": [
+        "customer-support",
+        "triage",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_ticket",
+          "classify",
+          "prioritize",
+          "draft_reply",
+          "route"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "send_message",
+          "refund",
+          "cancel",
+          "account_change"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.22,
+        "alert_threshold_usd": 0.15
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "sensitive_issue",
+          "account_action_needed",
+          "low_confidence"
+        ],
+        "destination": "support_agent"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "classification",
+          "draft",
+          "routing"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Drafts a reply with wrong or fabricated information a customer could act on.",
+      "detection": "Claims are grounded in the knowledge base and uncited assertions are flagged.",
+      "mitigation": "It drafts only — a human sends; it never sends or takes account actions.",
+      "recovery": "The agent edits or discards the draft before sending."
+    },
+    {
+      "mode": "Misroutes a ticket to the wrong queue, delaying resolution.",
+      "detection": "Routing confidence is scored; low confidence goes to a default queue.",
+      "mitigation": "Routing is reversible and no account action is taken.",
+      "recovery": "The receiving team bounces it back and it is re-routed, with the correction logged."
+    },
+    {
+      "mode": "Fails to escalate an urgent or sensitive issue, such as a complaint or a vulnerable customer.",
+      "detection": "Sensitivity and urgency signals trigger escalation.",
+      "mitigation": "Sensitive cases are always escalated, never auto-handled.",
+      "recovery": "A human picks it up from the escalation queue."
+    }
+  ],
+  "evaluation": {
+    "primary": "Routing accuracy plus draft groundedness are primary — a misroute delays resolution and an ungrounded draft, if sent, misinforms.",
+    "metrics": [
+      {
+        "name": "Routing accuracy",
+        "description": "Share of tickets routed to the correct queue versus ground truth."
+      },
+      {
+        "name": "Draft groundedness",
+        "description": "Share of drafted replies whose claims are supported by the knowledge base."
+      },
+      {
+        "name": "Escalation recall",
+        "description": "Of urgent or sensitive tickets, the share correctly escalated."
+      },
+      {
+        "name": "Draft edit rate",
+        "description": "How much a human edits the draft before sending — lower is better."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to a routed, drafted ticket."
+      }
+    ],
+    "approach": "Label a sample of tickets with the correct queue and known KB answers; measure routing accuracy and draft groundedness against agent edits, and include sensitive cases to test escalation recall. Verify it never sends."
+  }
+}

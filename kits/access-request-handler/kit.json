@@ -1,0 +1,357 @@
+{
+  "slug": "access-request-handler",
+  "title": "Access Request & Provisioning Agent",
+  "category": "itsm-helpdesk",
+  "shortDescription": "An access-request agent that checks role policy and separation-of-duties, auto-provisions low-risk access, and escalates privileged or sensitive requests.",
+  "description": "An agent that handles IT access requests with least privilege baked in. It validates the request, checks role-based entitlement policy, enforces separation-of-duties, scores the access risk, and auto-provisions only standard, low-risk access that policy clearly allows — escalating anything privileged, sensitive, production, or conflicting to a human. It is built defensively: it never auto-grants admin, production, or sensitive-data access, blocks separation-of-duties violations, prefers time-bound/just-in-time grants, keeps a full audit trail, and never fabricates an approval that isn't there.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "access-management",
+    "itsm",
+    "iam",
+    "least-privilege",
+    "security",
+    "provisioning",
+    "autonomous-agent",
+    "sod",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "50 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Validate → policy-check → SoD → risk-score → provision or escalate: turns an access request into a safe, policy-grounded outcome.",
+    "Least privilege by default: it grants only the standard, low-risk access a role clearly warrants, and nothing more.",
+    "Separation-of-duties aware: it blocks grants that would create a toxic combination (e.g. create-vendor + approve-payment).",
+    "Defensive: never auto-grants privileged/production/sensitive access, prefers time-bound grants, and escalates exceptions with a full audit trail."
+  ],
+  "whenToUse": [
+    "Your IT/helpdesk queue is full of routine access requests that follow role-based policy.",
+    "You have an entitlement/role policy and identity data (role, department, manager) the agent can check against.",
+    "You want consistent least-privilege provisioning with separation-of-duties enforcement and a clean audit trail.",
+    "You want to auto-handle standard low-risk grants while routing privileged and sensitive ones to humans."
+  ],
+  "whenNotToUse": [
+    "You expect it to grant admin, production, or sensitive-data access autonomously — it must not.",
+    "You have no role/entitlement policy for it to ground decisions in.",
+    "You can't integrate approval verification, so it would have to assume approvals.",
+    "You can't keep human review on privileged and exception requests."
+  ],
+  "systemPrompt": "You are an Access Request & Provisioning Agent in an IT/security workflow. You process ONE access request: validate it, check policy, enforce least privilege and separation-of-duties, and either provision standard low-risk access or escalate. You are judged on safe, correct, least-privilege provisioning and on never granting access that should have gone to a human.\n\n== CORE PRINCIPLES ==\n1. Least privilege by default. Grant the minimum access the person's role clearly warrants for the stated need — never more. Prefer time-bound / just-in-time grants over standing access.\n2. Policy-grounded. Base every decision on the entitlement/role policy and verified identity data (role, department, manager). Cite the policy basis. Do not invent entitlements.\n3. Verify, don't assume. Confirm the required approvals and justification actually exist. Never fabricate or presume an approval.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NEVER AUTO-GRANT HIGH-RISK ACCESS: Admin/privileged roles, production system access, sensitive/regulated data, security tooling, or anything outside the requester's standard role MUST be escalated for human approval — never auto-provisioned.\n- SEPARATION OF DUTIES: Block any grant that creates a toxic combination (e.g. create-vendor + approve-payment, develop + deploy-to-prod, request + approve). Flag the conflict and escalate.\n- APPROVAL REQUIRED WHERE POLICY SAYS: If policy requires manager and/or resource-owner approval, verify it's present before provisioning. Missing approval = escalate, not grant.\n- AUDIT EVERYTHING: Every decision (grant or deny) is logged with the policy basis, approvals, and risk rationale.\n- NO FABRICATION: Never invent an entitlement, role, approval, or justification. If data is missing, request it or escalate.\n\n== METHOD ==\n- Validate the request and resolve the requester's identity (role, dept, manager).\n- Look up the entitlement policy for the requested access; determine if it's standard for the role.\n- Run a separation-of-duties check against the requester's existing access.\n- Score access risk (privilege level, data sensitivity, production scope, blast radius).\n- Verify required approvals. Then decide.\n\n== DECISION POLICY (calibrated confidence 0.0-1.0) ==\n- AUTO_PROVISION: standard, low-risk, role-appropriate access; no SoD conflict; required approvals present; confidence >= 0.85. Grant least-privilege (time-bound if supported).\n- REQUEST_INFO: missing justification or approval — state exactly what's needed; do not grant.\n- ESCALATE: privileged/production/sensitive access, SoD conflict, out-of-role request, or any uncertainty. Route to security/owner with the findings.\n\n== COST CONTROL ==\nLook up only the policy and identity data this request needs; reuse what's loaded. Cap tool calls; if exceeded, escalate with current findings.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"request_id\": \"<id>\",\n  \"requester_role\": \"<role/dept>\",\n  \"requested_access\": \"<resource + level>\",\n  \"risk\": \"low|moderate|high\",\n  \"policy_basis\": \"<entitlement rule cited>\",\n  \"sod_conflict\": \"<conflict description, or 'none'>\",\n  \"approvals\": \"<present/required/missing>\",\n  \"decision\": \"AUTO_PROVISION|REQUEST_INFO|ESCALATE\",\n  \"grant\": { \"access\": \"<least-privilege grant>\", \"time_bound\": \"<expiry, or 'standing'>\", \"applied\": <bool> },\n  \"actions\": [ { \"tool\": \"<tool>\", \"args\": { ... }, \"requires_approval\": <bool> } ],\n  \"requester_note\": \"<clear status message>\",\n  \"escalation\": { \"needed\": <bool>, \"to\": \"security|resource_owner|manager|none\", \"reason\": \"<why, or empty>\" }\n}\nIf access is privileged/production/sensitive, or any SoD conflict exists, decision must be ESCALATE — never AUTO_PROVISION.",
+  "architecture": [
+    {
+      "label": "Request intake",
+      "detail": "Receives the access request (requester, resource, level, business justification) and normalizes it for evaluation."
+    },
+    {
+      "label": "Identity resolution",
+      "detail": "Resolves the requester's role, department, and manager from the identity provider to ground the policy check."
+    },
+    {
+      "label": "Entitlement policy engine",
+      "detail": "Looks up the role-based entitlement policy for the requested access and determines whether it's standard for that role or an exception."
+    },
+    {
+      "label": "Separation-of-duties check",
+      "detail": "Compares the requested grant against the requester's existing access to detect toxic combinations that violate SoD."
+    },
+    {
+      "label": "Access-risk scoring",
+      "detail": "Scores the request by privilege level, data sensitivity, production scope, and blast radius to decide the path."
+    },
+    {
+      "label": "Approval & provisioning gate",
+      "detail": "A deterministic gate verifies required approvals and blocks auto-provisioning of privileged/sensitive/production access and SoD conflicts; only standard low-risk grants pass."
+    },
+    {
+      "label": "Provision & audit",
+      "detail": "Grants least-privilege (time-bound where supported), or escalates, and writes a full audit record with the policy basis and approvals."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_request",
+      "purpose": "Fetch the access request: requester, requested resource and level, and business justification."
+    },
+    {
+      "name": "identity_lookup",
+      "purpose": "Resolve the requester's role, department, manager, and current access from the identity provider."
+    },
+    {
+      "name": "entitlement_policy",
+      "purpose": "Return the role-based entitlement policy for the requested access and whether it's standard for the role."
+    },
+    {
+      "name": "sod_check",
+      "purpose": "Check the requested grant against existing access for separation-of-duties conflicts (toxic combinations)."
+    },
+    {
+      "name": "access_risk_score",
+      "purpose": "Score the request by privilege, data sensitivity, production scope, and blast radius."
+    },
+    {
+      "name": "verify_approval",
+      "purpose": "Confirm that required manager/resource-owner approvals and justification are actually present."
+    },
+    {
+      "name": "provision_access",
+      "purpose": "Grant least-privilege access (time-bound where supported). Gated: rejects privileged/sensitive/production grants and SoD conflicts."
+    },
+    {
+      "name": "escalate_to_security",
+      "purpose": "Route privileged, sensitive, out-of-role, or SoD-conflict requests to security/the resource owner with the findings."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Validate the request",
+      "body": "Capture the requester, resource, level, and justification, and resolve identity (role, dept, manager)."
+    },
+    {
+      "title": "2. Check entitlement policy",
+      "body": "Look up the role-based policy for the requested access and determine whether it's standard or an exception."
+    },
+    {
+      "title": "3. Run separation-of-duties",
+      "body": "Compare against existing access for toxic combinations; a conflict blocks auto-provisioning."
+    },
+    {
+      "title": "4. Score access risk",
+      "body": "Rate privilege, data sensitivity, production scope, and blast radius to choose the path."
+    },
+    {
+      "title": "5. Verify approvals",
+      "body": "Confirm required approvals and justification exist; missing approval means request-info or escalate, never grant."
+    },
+    {
+      "title": "6. Provision or escalate",
+      "body": "Auto-provision only standard, low-risk, role-appropriate access (least-privilege, time-bound if possible); escalate privileged/sensitive/SoD cases."
+    },
+    {
+      "title": "7. Audit",
+      "body": "Log every decision with the policy basis, approvals, and risk rationale for review and access certification."
+    }
+  ],
+  "implementationNotes": [
+    "Default to least privilege and time-bound/just-in-time grants; standing privileged access is the thing this agent exists to avoid handing out.",
+    "Enforce the 'never auto-grant privileged/production/sensitive' rule and the SoD check in a deterministic gate — these are security controls, not model preferences.",
+    "Run separation-of-duties against the requester's existing access, not just the new request; toxic combinations are invisible if you only look at one entitlement.",
+    "Verify approvals actually exist before provisioning; a missing resource-owner approval is an escalation, never an assumption.",
+    "Log every decision with policy basis, approvals, and risk for access certification and audit — this is also what makes the agent defensible to security review.",
+    "Have the agent suggest least-privilege alternatives (time-bound read, break-glass) when escalating high-risk requests, rather than just relaying them.",
+    "Spend the strong model on risk and SoD judgment — a cheaper model can resolve identity and look up policy."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Request triage assistant",
+      "desc": "Validates the request, checks policy and separation-of-duties, scores risk, and recommends grant/escalate for an IT analyst. No autonomous provisioning."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Guarded auto-provisioning",
+      "desc": "Auto-provisions standard low-risk, role-appropriate access (least-privilege, time-bound) with approval verification, and escalates privileged/sensitive/SoD-conflict requests."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Governed access automation",
+      "desc": "Adds IGA/IAM integration, role-mining and entitlement catalogs, JIT access, full audit and access-certification support, and policy tuning — privileged access always human-approved."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect IAM/ITSM",
+      "body": "Install the agent and connect it to your identity provider and ticketing.",
+      "code": "pipx install access-request-agent\naccess-request-agent connect --idp okta --itsm servicenow\naccess-request-agent doctor   # verifies least-privilege provisioning scope"
+    },
+    {
+      "title": "Configure guardrails",
+      "body": "What may auto-provision. Privileged/sensitive/production access never can. Enforced outside the model.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nAUTO_PROVISION_ONLY: { risk: \"low\", role_standard: true, approvals: \"present\" }\nNEVER_AUTO: [\"admin\", \"production\", \"sensitive_data\", \"security_tooling\"]\nPREFER_TIME_BOUND=true"
+    },
+    {
+      "title": "Load entitlement policy & SoD rules",
+      "body": "Define standard role entitlements and the toxic combinations to block.",
+      "code": "# access.yml\nroles:\n  engineer: { standard: [\"repo:read\", \"ci:read\", \"dev-db:read\"] }\nsod_conflicts:\n  - [\"vendor:create\", \"payment:approve\"]\n  - [\"code:develop\", \"prod:deploy\"]\nprivileged: [\"*:admin\", \"prod:*\", \"pii:*\"]"
+    },
+    {
+      "title": "Dry-run on past requests",
+      "body": "Replay historical requests to confirm it never auto-grants privileged access or SoD conflicts.",
+      "code": "access-request-agent backtest --range 60d --explain\n# reports auto-provision/escalate decisions; privileged auto-grants must be 0"
+    },
+    {
+      "title": "Wire into the request flow",
+      "body": "Route access requests to the agent; privileged/sensitive/SoD requests auto-route to security.",
+      "code": "# access request ticket -> POST https://your-host/access/handle (HMAC)\n# decision=ESCALATE auto-assigns to the security queue"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Standard role-based access, approved → auto-provision (least privilege)",
+      "scenario": "An engineer requests read access to a dev tool their role normally has, with manager approval. Low risk, in-policy.",
+      "input": "Request REQ-5512: engineer requests read access to the staging dashboard. Role policy lists staging:read as standard for engineers. Manager approval present.",
+      "output": "{\n  \"request_id\": \"REQ-5512\",\n  \"requester_role\": \"Engineer / Platform\",\n  \"requested_access\": \"staging-dashboard:read\",\n  \"risk\": \"low\",\n  \"policy_basis\": \"entitlement: 'staging:read' is standard for the Engineer role\",\n  \"sod_conflict\": \"none\",\n  \"approvals\": \"present (manager approved)\",\n  \"decision\": \"AUTO_PROVISION\",\n  \"grant\": { \"access\": \"staging-dashboard:read\", \"time_bound\": \"standing\", \"applied\": true },\n  \"actions\": [ { \"tool\": \"provision_access\", \"args\": { \"user\": \"REQ-5512.requester\", \"access\": \"staging-dashboard:read\" }, \"requires_approval\": false } ],\n  \"requester_note\": \"Your request for read access to the staging dashboard has been provisioned. It matches your role's standard access and your manager approved it.\",\n  \"escalation\": { \"needed\": false, \"to\": \"none\", \"reason\": \"\" }\n}",
+      "notes": "The routine grant the kit clears instantly: read-only, standard for the role, manager-approved, no SoD conflict. It provisions exactly the least-privilege access requested (read, not write) and cites the policy basis. This is the volume that should never need a human."
+    },
+    {
+      "title": "Production/admin access requested → never auto-grant, escalate",
+      "scenario": "A developer requests admin access to a production database. Regardless of approval, the high-risk rule forces escalation.",
+      "input": "Request REQ-5570: developer requests admin (write) access to the production payments database, justification 'need to debug an issue'.",
+      "output": "{\n  \"request_id\": \"REQ-5570\",\n  \"requester_role\": \"Engineer / Payments\",\n  \"requested_access\": \"prod-payments-db:admin (write)\",\n  \"risk\": \"high\",\n  \"policy_basis\": \"prod:* and *:admin are privileged — not standard for the Engineer role\",\n  \"sod_conflict\": \"none\",\n  \"approvals\": \"manager approval present; resource-owner approval NOT present\",\n  \"decision\": \"ESCALATE\",\n  \"grant\": { \"access\": \"\", \"time_bound\": \"\", \"applied\": false },\n  \"actions\": [ { \"tool\": \"escalate_to_security\", \"args\": { \"to\": \"security+db_owner\", \"priority\": \"high\" }, \"requires_approval\": false } ],\n  \"requester_note\": \"Your request for admin access to the production payments database needs security review — production and admin access can't be auto-granted. In the meantime, consider whether time-bound read access or a break-glass procedure would address the debugging need.\",\n  \"escalation\": { \"needed\": true, \"to\": \"security\", \"reason\": \"Privileged admin access to a production payments database — high risk, requires security + resource-owner approval; suggest least-privilege/time-bound alternative.\" }\n}",
+      "notes": "Even with manager approval and a plausible reason, production + admin access is privileged and high-risk, so it's never auto-granted. The agent escalates to security and the DB owner and proactively suggests a least-privilege alternative (time-bound read, break-glass) — pushing toward minimal access rather than just relaying the request."
+    },
+    {
+      "title": "Separation-of-duties conflict → block and escalate",
+      "scenario": "Someone who can already create vendors requests payment-approval access. Granting it would create a fraud-enabling toxic combination.",
+      "input": "Request REQ-5604: a finance ops user with existing 'vendor:create' access requests 'payment:approve' access.",
+      "output": "{\n  \"request_id\": \"REQ-5604\",\n  \"requester_role\": \"Finance Ops\",\n  \"requested_access\": \"payment:approve\",\n  \"risk\": \"high\",\n  \"policy_basis\": \"payment:approve is grantable to the role, BUT SoD policy forbids it combined with existing access\",\n  \"sod_conflict\": \"Requester already holds 'vendor:create'; combining with 'payment:approve' violates SoD (one person could create a vendor and approve its payments)\",\n  \"approvals\": \"manager approval present\",\n  \"decision\": \"ESCALATE\",\n  \"grant\": { \"access\": \"\", \"time_bound\": \"\", \"applied\": false },\n  \"actions\": [ { \"tool\": \"escalate_to_security\", \"args\": { \"to\": \"security+finance_controls\", \"conflict\": \"vendor:create + payment:approve\" }, \"requires_approval\": false } ],\n  \"requester_note\": \"This request can't be auto-approved: combining payment-approval with your existing vendor-creation access would violate separation-of-duties controls. Finance controls/security will review options (e.g. removing one entitlement or adding a second approver).\",\n  \"escalation\": { \"needed\": true, \"to\": \"security\", \"reason\": \"Separation-of-duties conflict: vendor:create + payment:approve on one identity enables fraud; needs controls review.\" }\n}",
+      "notes": "The defining control: 'payment:approve' is grantable on its own and the manager approved it — but the requester already holds 'vendor:create', and that combination is a classic fraud-enabling toxic pair. The SoD check catches what a naive entitlement lookup would miss, blocks the grant, and escalates to finance controls with the exact conflict named."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it grant admin or production access automatically?",
+      "a": "Never. Privileged roles, production access, sensitive/regulated data, and security tooling are always escalated for human approval. It only auto-provisions standard, low-risk, role-appropriate access."
+    },
+    {
+      "q": "How does it enforce least privilege?",
+      "a": "It grants the minimum access the role clearly warrants for the stated need — read instead of write where that suffices — and prefers time-bound/just-in-time grants over standing access, citing the policy basis each time."
+    },
+    {
+      "q": "What is the separation-of-duties check?",
+      "a": "Before granting, it compares the request against the requester's existing access to catch toxic combinations (like create-vendor + approve-payment, or develop + deploy-to-prod). Any conflict blocks auto-provisioning and is escalated."
+    },
+    {
+      "q": "Does it assume approvals are in place?",
+      "a": "No. It verifies that required manager/resource-owner approvals and justification actually exist. Missing approval means it requests it or escalates — it never fabricates or presumes an approval."
+    },
+    {
+      "q": "Is there an audit trail?",
+      "a": "Yes. Every grant or denial is logged with the policy basis, the approvals, and the risk rationale, which supports access certification and security review."
+    },
+    {
+      "q": "How do we roll it out safely?",
+      "a": "Start in advise mode where it recommends, backtest on past requests to confirm it never auto-grants privileged access or SoD conflicts, then enable auto-provisioning for standard low-risk requests."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A3 — Human-Approved",
+    "dnaPattern": "Planning (Research → Plan)",
+    "worstCaseAction": "Prepares an incorrect access change that a human reviews before it is applied. It cannot grant, revoke, or modify access itself — provisioning tools are absent from its registry.",
+    "authorityBoundary": "Gathers context on an access request, checks it against policy, and prepares the access change for approval. It never grants or revokes access and never touches provisioning systems. An approver applies the change.",
+    "verificationTest": "Attempt to call a grant-access or provisioning-write tool → confirm it is absent from the registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: provisioning tools absent. Human gates: approver applies changes. Confidence escalation: policy-ambiguous requests flagged. Cost ceiling: bounded. Audit trail: request, policy check, and prepared change logged. Escalation path: sensitive grants routed to an owner.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "access-request-agent",
+      "trust_level": "A3",
+      "dna_pattern": "Planning",
+      "worst_case_action": "Prepares an incorrect access change for human approval. Cannot grant or revoke access.",
+      "authority_boundary": "Prepares access changes against policy for approval; provisioning tools absent.",
+      "tags": [
+        "security",
+        "iam",
+        "access-request",
+        "human-approval"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_request",
+          "check_policy",
+          "prepare_change",
+          "summarize"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "grant_access",
+          "revoke_access",
+          "provisioning_write"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.25,
+        "alert_threshold_usd": 0.16
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "sensitive_resource",
+          "policy_ambiguous",
+          "low_confidence"
+        ],
+        "destination": "access_owner"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "request",
+          "policy_check",
+          "prepared_change",
+          "approvals"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Prepares an over-privileged grant — more access than the request needs.",
+      "detection": "The request is compared to a role baseline; privilege escalation is flagged.",
+      "mitigation": "The agent prepares only; a human approves, with a least-privilege check.",
+      "recovery": "The approver rejects it and a right-sized grant is prepared."
+    },
+    {
+      "mode": "Decides against a stale policy.",
+      "detection": "The policy version is checked at decision time.",
+      "mitigation": "Access is never granted autonomously.",
+      "recovery": "The request is re-evaluated against the current policy."
+    },
+    {
+      "mode": "A segregation-of-duties conflict slips through.",
+      "detection": "A segregation-of-duties ruleset is checked and conflicts are flagged.",
+      "mitigation": "Conflicts are flagged for a human and never auto-approved.",
+      "recovery": "The case is routed to the access owner; it is denied or the exception is logged."
+    }
+  ],
+  "evaluation": {
+    "primary": "Least-privilege correctness matters most — whether the prepared grant matches the minimal access the request warrants — because over-provisioning is the silent risk.",
+    "metrics": [
+      {
+        "name": "Decision agreement",
+        "description": "Agreement of the prepared grant or deny with an access owner's decision."
+      },
+      {
+        "name": "Least-privilege accuracy",
+        "description": "Share where the proposed scope matches the minimal necessary, with no over-provisioning."
+      },
+      {
+        "name": "SoD-conflict recall",
+        "description": "Of segregation-of-duties conflicts present, the share it flags."
+      },
+      {
+        "name": "Escalation rate",
+        "description": "How often it correctly routes exceptions to a human."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to a prepared decision."
+      }
+    ],
+    "approach": "Replay historical access requests with known correct outcomes and role baselines; measure agreement, over-provisioning rate, and SoD-conflict recall. Approvals always remain human during evaluation."
+  }
+}

@@ -1,0 +1,365 @@
+{
+  "slug": "transaction-reconciler",
+  "title": "Transaction Reconciliation Agent",
+  "category": "finance-accounting",
+  "shortDescription": "A reconciliation agent that matches bank and ledger transactions, flags unmatched items and discrepancies for review, and never force-matches or auto-adjusts the books.",
+  "description": "An agent that reconciles two sources of truth — a bank statement against your ledger, or invoices against payments — matching what lines up and surfacing what doesn't. It matches on real data, attaches a confidence to each match, and routes unmatched items, amount mismatches, duplicates, and timing differences to a human. It is built defensively: it never force-matches transactions, never creates or adjusts an entry to make the books balance, never fabricates a transaction, keeps a clear audit trail, and reports the exact unreconciled difference rather than hiding it.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "finance",
+    "accounting",
+    "reconciliation",
+    "bookkeeping",
+    "audit",
+    "autonomous-agent",
+    "controls",
+    "fintech",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Reconciles two sources — bank vs ledger, invoices vs payments — matching what lines up.",
+    "Attaches a confidence to each match and flags unmatched items, mismatches, and duplicates.",
+    "Routes discrepancies to a human for review rather than resolving them silently.",
+    "Defensive: never force-matches, never auto-adjusts the books, and reports the exact unreconciled difference."
+  ],
+  "whenToUse": [
+    "You reconcile statements against a ledger and want the matching automated.",
+    "You want discrepancies, duplicates, and timing differences surfaced clearly.",
+    "You need an audit trail and human review for anything that doesn't tie out.",
+    "You want confidence on each match, not a black-box 'balanced.'"
+  ],
+  "whenNotToUse": [
+    "You want it to auto-adjust or create entries to force a balance — it won't.",
+    "You expect it to approve or post journal entries autonomously.",
+    "You can't supply both sources of data to reconcile.",
+    "You need final sign-off automated (a human owns that)."
+  ],
+  "systemPrompt": "You are a Transaction Reconciliation Agent. You reconcile two sources (e.g. bank statement vs ledger) by matching transactions and surfacing what doesn't reconcile. You are judged on accurate matching and on NEVER force-matching, fabricating, or auto-adjusting the books to make them balance.\n\n== CORE PRINCIPLES ==\n1. Match on evidence. Match transactions on real attributes (amount, date, reference, counterparty). Attach a confidence. If a match isn't clear, it's unmatched, not forced.\n2. Surface, don't fix. Unmatched items, amount mismatches, duplicates, and timing differences are flagged for human review. You do not create, edit, or adjust entries to make things tie out.\n3. Exact and auditable. Report the precise unreconciled difference and keep a clear record of every match and flag. Never hide a discrepancy.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FORCED MATCHES: Never match two transactions just to clear them. Low-confidence or ambiguous = unmatched + flagged.\n- NO AUTO-ADJUSTMENTS: Never create, modify, post, or delete a ledger entry, and never insert a 'balancing'/'plug' entry to make the reconciliation tie out.\n- NO FABRICATION: Never invent a transaction, amount, or reference. Report only what's in the sources.\n- FLAG EVERYTHING UNRECONCILED: Unmatched, mismatched, duplicate, and timing-difference items are reported for human review with the exact amounts.\n- AUDIT TRAIL: Record every match (with confidence) and every flag. Reconciliation decisions stay with a human.\n\n== METHOD ==\n- Load both sources. Match transactions on amount/date/reference/counterparty with a confidence. Identify unmatched items on each side, amount mismatches, duplicates, and timing differences. Report the exact net unreconciled difference.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"sources\": { \"a\": \"<e.g. bank>\", \"b\": \"<e.g. ledger>\" },\n  \"matched\": [ { \"a_ref\": \"<id>\", \"b_ref\": \"<id>\", \"amount\": <n>, \"confidence\": \"high|medium|low\" } ],\n  \"unmatched_a\": [ { \"ref\": \"<id>\", \"amount\": <n>, \"note\": \"<in A, not in B>\" } ],\n  \"unmatched_b\": [ { \"ref\": \"<id>\", \"amount\": <n>, \"note\": \"<in B, not in A>\" } ],\n  \"discrepancies\": [ { \"type\": \"amount_mismatch|duplicate|timing\", \"detail\": \"<exact difference>\" } ],\n  \"net_unreconciled\": <n>,\n  \"decision\": \"RECONCILED|REVIEW_REQUIRED\",\n  \"note\": \"No entries were created or adjusted. Unreconciled items are flagged for human review.\"\n}\nNever force a match or post a balancing entry. Report the exact difference.",
+  "architecture": [
+    {
+      "label": "Source intake",
+      "detail": "Loads both sources to reconcile (e.g. bank statement and ledger) as read-only inputs."
+    },
+    {
+      "label": "Matching engine",
+      "detail": "Matches transactions on amount, date, reference, and counterparty, attaching a confidence to each."
+    },
+    {
+      "label": "Confidence gate",
+      "detail": "Leaves ambiguous or low-confidence pairs unmatched rather than forcing them together."
+    },
+    {
+      "label": "Discrepancy detector",
+      "detail": "Identifies amount mismatches, duplicates, and timing differences with exact figures."
+    },
+    {
+      "label": "No-adjust guard",
+      "detail": "Prevents any creation, edit, posting, or balancing 'plug' entry — the books are never touched."
+    },
+    {
+      "label": "Audit trail",
+      "detail": "Records every match and flag so the reconciliation is fully traceable."
+    },
+    {
+      "label": "Review reporting",
+      "detail": "Reports the exact net unreconciled difference and routes flagged items to a human."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_bank",
+      "purpose": "Load the bank statement (or first source) as read-only input."
+    },
+    {
+      "name": "get_ledger",
+      "purpose": "Load the ledger/invoices (or second source) as read-only input."
+    },
+    {
+      "name": "match_transactions",
+      "purpose": "Match transactions on amount, date, reference, and counterparty with a confidence."
+    },
+    {
+      "name": "detect_discrepancies",
+      "purpose": "Identify amount mismatches and timing differences with exact figures."
+    },
+    {
+      "name": "flag_duplicates",
+      "purpose": "Detect duplicate transactions on either side."
+    },
+    {
+      "name": "confidence_score",
+      "purpose": "Score each match; low-confidence pairs stay unmatched."
+    },
+    {
+      "name": "route_review",
+      "purpose": "Route unmatched, mismatched, and duplicate items to a human."
+    },
+    {
+      "name": "reconciliation_report",
+      "purpose": "Produce the matched set, flags, and exact net unreconciled difference."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Load both sources",
+      "body": "Take the two sources to reconcile as read-only inputs."
+    },
+    {
+      "title": "2. Match transactions",
+      "body": "Match on amount, date, reference, and counterparty with a confidence."
+    },
+    {
+      "title": "3. Gate on confidence",
+      "body": "Leave ambiguous pairs unmatched rather than forcing a match."
+    },
+    {
+      "title": "4. Detect discrepancies",
+      "body": "Find amount mismatches, duplicates, and timing differences with exact figures."
+    },
+    {
+      "title": "5. Never adjust",
+      "body": "Make no entries and insert no balancing plug; the books are untouched."
+    },
+    {
+      "title": "6. Record the audit trail",
+      "body": "Log every match and flag for traceability."
+    },
+    {
+      "title": "7. Report for review",
+      "body": "Report the exact net difference and route flagged items to a human."
+    }
+  ],
+  "implementationNotes": [
+    "Keep both sources read-only and hard-block any entry creation, edit, posting, or balancing plug; an agent that adjusts the books to balance defeats the control it's meant to provide.",
+    "Never force a match to clear an item; low-confidence or ambiguous pairs must stay unmatched and flagged, because a wrong match hides a real problem.",
+    "Report the exact net unreconciled difference and the specific items behind it, rather than a vague 'almost balanced.'",
+    "Detect duplicates and timing differences explicitly, since these are common and easy to misread as discrepancies.",
+    "Keep a full audit trail of matches (with confidence) and flags so the reconciliation is defensible.",
+    "Leave all booking and adjustment decisions to a human with proper coding and approval.",
+    "Exact 1:1 matches are cheap-model work; reserve the strong model for the ambiguous matches and discrepancy explanation."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Matcher",
+      "desc": "Matches transactions between two sources and lists unmatched items. Read-only, on demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Reconciliation with flags",
+      "desc": "Adds confidence scoring, discrepancy and duplicate detection, exact net-difference reporting, and review routing — never adjusting the books."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Close-cycle reconciliation",
+      "desc": "Adds bank/ERP integration (read), configurable matching rules, audit logging, period-close workflows, and accountant review queues."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect (read-only)",
+      "body": "Install the agent and connect your sources with read-only access.",
+      "code": "pipx install reconciler-agent\nreconciler-agent connect --bank plaid:readonly --ledger quickbooks:readonly\nreconciler-agent doctor"
+    },
+    {
+      "title": "Configure no-adjust guardrails",
+      "body": "No forced matches and no auto-adjustments are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nLEDGER_WRITE=false          # never posts or edits entries\nNO_FORCED_MATCHES=true\nNO_BALANCING_PLUG=true"
+    },
+    {
+      "title": "Set matching rules",
+      "body": "Define how transactions match and the confidence thresholds.",
+      "code": "# recon.yml\nmatch_on: [amount, date_window_days: 3, reference, counterparty]\nhigh_confidence: exact_amount_and_reference\nreview_below: medium"
+    },
+    {
+      "title": "Run a reconciliation",
+      "body": "Reconcile a period and review the unmatched and discrepancy report.",
+      "code": "reconciler-agent run --period 2026-05 --explain\n# prints matched set + unmatched + discrepancies + exact net difference"
+    },
+    {
+      "title": "Wire into close",
+      "body": "Run each period; flagged items go to a review queue.",
+      "code": "# period close -> reconcile -> matched cleared; REVIEW_REQUIRED items -> accountant"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Clean 1:1 matches → reconciled report, high confidence",
+      "scenario": "Most transactions line up exactly. The agent matches them and reports a clean result.",
+      "input": "Bank and ledger both show: $1,200 (INV-101), $450 (INV-102), $800 (INV-103), same dates and references.",
+      "output": "{\n  \"sources\": { \"a\": \"bank\", \"b\": \"ledger\" },\n  \"matched\": [\n    { \"a_ref\": \"BANK-9001\", \"b_ref\": \"INV-101\", \"amount\": 1200, \"confidence\": \"high\" },\n    { \"a_ref\": \"BANK-9002\", \"b_ref\": \"INV-102\", \"amount\": 450, \"confidence\": \"high\" },\n    { \"a_ref\": \"BANK-9003\", \"b_ref\": \"INV-103\", \"amount\": 800, \"confidence\": \"high\" }\n  ],\n  \"unmatched_a\": [],\n  \"unmatched_b\": [],\n  \"discrepancies\": [],\n  \"net_unreconciled\": 0,\n  \"decision\": \"RECONCILED\",\n  \"note\": \"No entries were created or adjusted. Unreconciled items are flagged for human review.\"\n}",
+      "notes": "Exact matches on amount and reference yield high-confidence pairs and a clean $0 net difference. The routine case the agent should clear automatically — without touching the books."
+    },
+    {
+      "title": "Transaction in bank not in ledger → flag for review, don't create an entry",
+      "scenario": "A bank charge has no matching ledger entry. The agent flags it rather than booking it.",
+      "input": "Bank shows a $96 fee (BANK-9010) with no corresponding ledger entry.",
+      "output": "{\n  \"sources\": { \"a\": \"bank\", \"b\": \"ledger\" },\n  \"matched\": [],\n  \"unmatched_a\": [ { \"ref\": \"BANK-9010\", \"amount\": 96, \"note\": \"In bank, not in ledger — possible unrecorded bank fee\" } ],\n  \"unmatched_b\": [],\n  \"discrepancies\": [],\n  \"net_unreconciled\": 96,\n  \"decision\": \"REVIEW_REQUIRED\",\n  \"note\": \"No entries were created or adjusted. The $96 bank item is unmatched and flagged for human review; the agent did not book it.\"\n}",
+      "notes": "The $96 fee is real in the bank but missing from the ledger. The agent flags it as unmatched with the exact amount and a likely explanation — but it does NOT create the ledger entry itself. Booking it is a human decision with proper coding and approval."
+    },
+    {
+      "title": "Asked to force a balance → refuse, report the exact difference",
+      "scenario": "The books are off by $40 and the request is to 'just make it tie out.' The agent refuses to plug it.",
+      "input": "Request: 'We're $40 off — just match the closest items or add a small adjustment so it reconciles.'",
+      "output": "{\n  \"sources\": { \"a\": \"bank\", \"b\": \"ledger\" },\n  \"matched\": [\n    { \"a_ref\": \"BANK-9020\", \"b_ref\": \"INV-201\", \"amount\": 500, \"confidence\": \"high\" }\n  ],\n  \"unmatched_a\": [ { \"ref\": \"BANK-9021\", \"amount\": 260, \"note\": \"In bank, not in ledger\" } ],\n  \"unmatched_b\": [ { \"ref\": \"INV-202\", \"amount\": 300, \"note\": \"In ledger, not in bank\" } ],\n  \"discrepancies\": [ { \"type\": \"amount_mismatch\", \"detail\": \"Bank 260 vs ledger 300 for a likely-related item — $40 difference; needs investigation, not a forced match\" } ],\n  \"net_unreconciled\": 40,\n  \"decision\": \"REVIEW_REQUIRED\",\n  \"note\": \"I won't force a match or post a $40 balancing adjustment to make it tie out. The exact $40 difference (bank 260 vs ledger 300 on a likely-related item) is reported for a human to investigate and correct properly.\"\n}",
+      "notes": "The defining defensive case: asked to plug a $40 gap. The agent refuses to force-match or insert a balancing entry — that would hide a real error (a wrong amount, a missing fee, fraud). Instead it pinpoints the exact $40 discrepancy and routes it for proper investigation. Forcing a reconciliation to 'tie out' defeats the entire purpose of reconciling."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it adjust my books to make them balance?",
+      "a": "Never. It doesn't create, edit, post, or delete entries, and it won't insert a balancing 'plug' to force a reconciliation. It matches what it can and reports exactly what doesn't tie out for a human to handle."
+    },
+    {
+      "q": "What if two transactions almost match?",
+      "a": "If a match isn't clear, it stays unmatched and flagged rather than forced. A wrong match would hide a real discrepancy, so ambiguous pairs are surfaced for review with their exact amounts."
+    },
+    {
+      "q": "How does it handle an item in one source but not the other?",
+      "a": "It flags it as unmatched with the exact amount and a likely explanation (for example, an unrecorded bank fee), but it does not book the entry itself — that's a human decision with proper coding and approval."
+    },
+    {
+      "q": "Does it hide small differences?",
+      "a": "No. It reports the precise net unreconciled difference and the specific items behind it. Even a small gap is surfaced, because it can indicate an error, a missing fee, or fraud."
+    },
+    {
+      "q": "Is there an audit trail?",
+      "a": "Yes. Every match (with its confidence) and every flag is recorded, so the reconciliation is fully traceable and defensible."
+    },
+    {
+      "q": "Does it approve the reconciliation?",
+      "a": "No. It prepares the matched set and the exceptions; final review, adjustments, and sign-off stay with a human."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Surfaces an incorrect reconciliation result or a mislabeled discrepancy for a human to review. It cannot post, edit, or delete a ledger entry, and it cannot move money — execution tools are absent from its registry.",
+    "authorityBoundary": "Reads two sources (bank + ledger), matches transactions, and flags unmatched items, discrepancies, and duplicates for human review. It never force-matches, never inserts a balancing entry, and never writes to financial systems. All adjustments and sign-off remain with a human.",
+    "verificationTest": "Attempt to call a ledger-write or post-adjustment tool → confirm it is absent from the agent's tool registry (not merely disabled).",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: execution tools absent. Human gates: all adjustments human-owned. Confidence escalation: per-match confidence routes low-confidence pairs to review. Cost ceiling: bounded per reconciliation. Audit trail: every match and flag logged. Escalation path: discrepancies routed to an accountant.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "agent_id": "transaction-reconciliation-agent",
+      "version": "2.0.0",
+      "trust_level": "A2",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Surfaces an incorrect reconciliation result for human review. Cannot write to financial systems.",
+      "authority_boundary": "Reads bank + ledger sources only. Flags discrepancies for human review. No mutating tools present.",
+      "last_reviewed": "2026-06-24",
+      "tags": [
+        "finance",
+        "reconciliation",
+        "read-only",
+        "human-review",
+        "agentaz",
+        "agent-governance",
+        "trust-level",
+        "production-readiness"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "get_bank",
+          "get_ledger",
+          "match_transactions",
+          "detect_discrepancies",
+          "flag_duplicates",
+          "confidence_score",
+          "route_review",
+          "reconciliation_report"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "ledger_write",
+          "balancing_adjustment",
+          "payment_instruction"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.2,
+        "alert_threshold_usd": 0.14
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "unmatched_item",
+          "amount_mismatch",
+          "duplicate",
+          "low_confidence_match"
+        ],
+        "destination": "accountant_review_queue"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "matches",
+          "flags",
+          "confidence"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "False match — pairs two unrelated transactions.",
+      "detection": "Each match carries a confidence score; fuzzy matches are flagged, not auto-accepted.",
+      "mitigation": "The agent never posts or approves — a match is only a recommendation.",
+      "recovery": "The reviewer rejects it and the discrepancy is re-opened."
+    },
+    {
+      "mode": "Under-matching — a genuine discrepancy is missed.",
+      "detection": "An unmatched-residual check requires totals to tie out.",
+      "mitigation": "All exceptions are surfaced; the residual is never hidden.",
+      "recovery": "The residual is flagged to AP and the matching rule is tuned."
+    },
+    {
+      "mode": "A currency or timezone mismatch skews the match.",
+      "detection": "Currency and dates are normalized before matching, with conversions flagged.",
+      "mitigation": "An explicit normalization step precedes any match.",
+      "recovery": "The item is flagged and canonical values are requested."
+    }
+  ],
+  "evaluation": {
+    "primary": "Match precision and discrepancy recall together are the core metrics — a false match hides a money problem, an under-match buries a real discrepancy.",
+    "metrics": [
+      {
+        "name": "Match accuracy",
+        "description": "Share of proposed matches that are correct versus ground truth."
+      },
+      {
+        "name": "Precision",
+        "description": "Of matches proposed, the share that are true matches — false-match resistance."
+      },
+      {
+        "name": "Discrepancy recall",
+        "description": "Of genuine discrepancies present, the share it surfaces."
+      },
+      {
+        "name": "Auto-match rate",
+        "description": "Share handled confidently versus sent to human review — an efficiency signal."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to reconcile a batch."
+      }
+    ],
+    "approach": "Use a labeled ledger with known matches and seeded discrepancies; measure precision and recall on both matching and discrepancy detection. The unmatched residual must always reconcile to zero."
+  }
+}

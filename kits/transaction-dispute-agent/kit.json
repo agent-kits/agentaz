@@ -1,0 +1,356 @@
+{
+  "slug": "transaction-dispute-agent",
+  "title": "Payment Dispute & Chargeback Agent",
+  "category": "banking-fintech",
+  "shortDescription": "A card-dispute agent: classifies reason codes, weighs friendly fraud vs. true fraud, and refunds, represents, or escalates — within network rules and refund caps.",
+  "description": "An agent that takes a cardholder dispute and works it the way a good disputes analyst would: classify the network reason code, pull the transaction and account history, weigh genuine fraud against 'friendly fraud,' and decide whether to refund within policy, represent the chargeback with assembled evidence, or escalate. It is built defensively — it honors card-network rules and Reg E/Z timelines, never moves money beyond a configured cap without approval, never accuses a customer of fraud without evidence, and escalates account-takeover and true-fraud patterns to humans instead of quietly refunding them.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "disputes",
+    "chargebacks",
+    "fraud",
+    "fintech",
+    "banking",
+    "reason-codes",
+    "autonomous-agent",
+    "evidence",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "50 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Intake → classify → investigate → decide: refund, represent, or escalate — every call grounded in transaction evidence, not a guess.",
+    "Distinguishes merchant error, friendly fraud, and true fraud, so legitimate chargebacks are honored and abusive ones are challenged with evidence.",
+    "Rule- and timeline-aware: respects card-network reason-code rules and Reg E/Z windows, and never moves money beyond a configured cap without approval.",
+    "Defensive on fraud: account-takeover and true-fraud signals trigger escalation and card action, not a silent refund."
+  ],
+  "whenToUse": [
+    "You process card disputes/chargebacks at volume and analysts spend hours on intake, evidence-gathering, and reason-code lookups.",
+    "You have transaction, account, and history data the agent can use to investigate.",
+    "You want consistent, documented dispute handling with a clear audit trail for compliance.",
+    "You want automation to clear the clean cases (obvious merchant errors) and assemble evidence for the contested ones, while routing fraud to humans."
+  ],
+  "whenNotToUse": [
+    "You can't give the agent access to transaction/account evidence — it would be deciding blind.",
+    "You want it to make final fraud determinations or move large sums autonomously; those need human analysts.",
+    "Your disputes are dominated by complex litigation or regulatory matters requiring counsel.",
+    "You are unwilling to keep approval gates on refunds above a cap and on representment filings."
+  ],
+  "systemPrompt": "You are a Payment Disputes Agent working a single cardholder dispute inside a regulated payments operation. Your job is to investigate it on the evidence and decide: refund, represent (challenge the chargeback), or escalate. You are judged on resolving valid disputes fairly, challenging abusive ones with evidence, and never moving money you shouldn't or mishandling fraud.\n\n== CORE PRINCIPLES ==\n1. Evidence over assumption. Base every conclusion on the transaction record, account history, and documents you actually retrieved. Cite them. Never assume a customer is lying or honest without evidence.\n2. Fair both ways. A legitimate dispute deserves a prompt refund; an abusive one ('friendly fraud') deserves a fact-based representment. Do not reflexively side with either party.\n3. Fraud is not a refund problem. If signals point to true fraud or account takeover, that is a security event — escalate and protect the account, do not just refund and close.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- MONEY LIMITS: You may auto-issue a refund/credit ONLY within a documented dispute reason AND at or below the configured auto-refund cap. Anything above the cap, or outside a valid reason, requires human approval.\n- NETWORK & REGULATORY RULES: Respect card-network reason-code requirements and Reg E/Z timelines. Do not file a representment without the evidence the reason code requires. Flag any approaching regulatory deadline.\n- NO UNFOUNDED ACCUSATIONS: Never label a customer's claim 'fraud' or 'friendly fraud' without specific supporting evidence. If evidence is mixed, treat the dispute as valid pending review.\n- PII / PCI: Never expose full card numbers (last 4 only) or sensitive credentials. Keep data within scope. Redact in any customer-facing output.\n- REPRESENTMENT IS APPROVAL-GATED: You may ASSEMBLE a representment evidence package and recommend it, but a human approves filing it (unless explicitly auto-enabled for a low-risk reason code).\n\n== INVESTIGATION METHOD ==\n- Classify the network reason code from the dispute details.\n- Retrieve the transaction, the customer's history (prior disputes, AVS/CVV, device/IP, delivery confirmation, prior usage of the merchant), and any provided documents.\n- Weigh the three hypotheses: merchant error (refund), friendly fraud (represent), true fraud/ATO (escalate). State which the evidence supports and your confidence.\n\n== DECISION POLICY (calibrated confidence 0.0-1.0) ==\n- REFUND: clear merchant error / valid dispute, within cap and policy, confidence >= 0.8. Issue and document.\n- REPRESENT: evidence indicates friendly fraud (e.g. delivery to the customer's verified address, prior usage, matching device). Assemble the evidence package and recommend filing (human-approved by default).\n- ESCALATE: true-fraud / account-takeover signals, amount over cap, regulatory-deadline or compliance concern, conflicting evidence, or confidence < 0.6. Recommend card/account protection where fraud is suspected.\n\n== COST CONTROL ==\nPull only the evidence the reason code and hypotheses require; don't query every system for every case. Reuse data already retrieved. Cap tool calls; if exceeded, escalate with what you have.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"reason_code\": \"<network reason code + plain meaning>\",\n  \"hypothesis\": \"merchant_error|friendly_fraud|true_fraud|unclear\",\n  \"confidence\": <0.0-1.0>,\n  \"evidence\": [\"<transaction/history/doc references that support the hypothesis>\"],\n  \"decision\": \"REFUND|REPRESENT|ESCALATE\",\n  \"amount_usd\": <number or null>,\n  \"actions\": [ { \"tool\": \"<tool>\", \"args\": { ... }, \"requires_approval\": <bool> } ],\n  \"customer_note\": \"<neutral, factual message; no accusations>\",\n  \"analyst_note\": \"<summary + cited evidence + any deadline>\",\n  \"escalation\": { \"needed\": <bool>, \"reason\": \"<fraud/cap/deadline, or empty>\" }\n}\nIf hypothesis is unclear or evidence is mixed, do not REPRESENT or refuse a valid claim — REFUND if within policy or ESCALATE.",
+  "architecture": [
+    {
+      "label": "Dispute intake",
+      "detail": "Receives the dispute (from the card processor, banking core, or a form), normalizes amount, merchant, date, and the cardholder's stated reason, and attaches the account reference."
+    },
+    {
+      "label": "Reason-code classification",
+      "detail": "Maps the dispute to the correct card-network reason code, which determines the evidence required and the network/regulatory timeline."
+    },
+    {
+      "label": "Evidence retrieval",
+      "detail": "Pulls the transaction record, account/dispute history, fraud signals (AVS/CVV, device/IP, velocity), and delivery/usage proof — only what the reason code and hypotheses require."
+    },
+    {
+      "label": "Hypothesis engine",
+      "detail": "The model weighs merchant error vs. friendly fraud vs. true fraud against the evidence and produces a confidence and the rationale, citing specific records."
+    },
+    {
+      "label": "Decision & money gate",
+      "detail": "A deterministic gate enforces the refund cap, valid-reason requirement, and approval rules; refunds over cap or representment filings are staged for human approval."
+    },
+    {
+      "label": "Evidence assembly",
+      "detail": "For representment, compiles the network-required evidence into a structured packet; for fraud, prepares an escalation with card-protection recommendations."
+    },
+    {
+      "label": "Audit & timelines",
+      "detail": "Logs the full decision trail with cited evidence and tracks the regulatory/network deadline so nothing ages out; feeds win/loss outcomes back for tuning."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_dispute",
+      "purpose": "Fetch the dispute: amount, merchant, date, cardholder's stated reason, and channel, with the linked account reference."
+    },
+    {
+      "name": "transaction_lookup",
+      "purpose": "Retrieve the underlying transaction and related records (auth, settlement, AVS/CVV result, MID, descriptor)."
+    },
+    {
+      "name": "customer_history",
+      "purpose": "Pull account and dispute history: prior disputes/chargebacks, tenure, prior purchases from this merchant, and standing."
+    },
+    {
+      "name": "fraud_signals",
+      "purpose": "Return fraud indicators: device/IP, geo, velocity, account-takeover flags, and known-fraud associations."
+    },
+    {
+      "name": "reason_code_classify",
+      "purpose": "Map the dispute to the correct network reason code and the evidence + timeline it requires."
+    },
+    {
+      "name": "evidence_assemble",
+      "purpose": "Compile the network-required representment evidence (delivery proof, prior usage, AVS match, communications) into a structured packet."
+    },
+    {
+      "name": "issue_refund",
+      "purpose": "Issue a refund/credit. Hard-capped: the executor rejects amounts above the configured cap or outside a valid dispute reason."
+    },
+    {
+      "name": "escalate_to_analyst",
+      "purpose": "Route to a human disputes/fraud analyst with the evidence, hypothesis, deadline, and recommended card/account action."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Intake the dispute",
+      "body": "Normalize the dispute and attach the account. Capture the cardholder's stated reason and the channel it came through."
+    },
+    {
+      "title": "2. Classify the reason code",
+      "body": "Determine the network reason code; it sets the evidence required and the regulatory/network deadline to track."
+    },
+    {
+      "title": "3. Gather evidence",
+      "body": "Retrieve the transaction, account/dispute history, fraud signals, and delivery/usage proof — only what this reason code and the hypotheses need."
+    },
+    {
+      "title": "4. Weigh the hypotheses",
+      "body": "Assess merchant error vs. friendly fraud vs. true fraud against the evidence, with a confidence and cited records."
+    },
+    {
+      "title": "5. Decide under policy",
+      "body": "Refund clean valid disputes within cap; assemble a representment package for friendly fraud; escalate true-fraud, over-cap, or deadline-sensitive cases."
+    },
+    {
+      "title": "6. Act through the money gate",
+      "body": "The executor enforces the cap and valid-reason rule and runs only what passes; over-cap refunds and representment filings are staged for approval."
+    },
+    {
+      "title": "7. Document & track deadline",
+      "body": "Log the decision with cited evidence, track the network/regulatory deadline, and feed win/loss outcomes back to improve reason-code handling."
+    }
+  ],
+  "implementationNotes": [
+    "Enforce the refund cap and valid-reason requirement in a deterministic gate; never let the model alone move money. Representment filings stay human-approved by default.",
+    "Treat fraud as a security event: account-takeover and true-fraud signals must escalate with card-protection recommendations, never resolve as a silent refund.",
+    "Require cited evidence for any 'friendly fraud' conclusion. No accusation without specific records; mixed evidence defaults to honoring the dispute.",
+    "Track network/regulatory deadlines on every case (Reg E/Z, network windows). Missing a deadline loses the dispute regardless of merits.",
+    "Backtest against resolved disputes and watch win/loss rate on representments and any wrongly-refunded fraud before enabling auto mode.",
+    "Keep PCI discipline: last-4 only, redact in customer-facing output, and keep evidence within scope.",
+    "A cheaper model can classify reason codes and gather evidence; reserve the strong model for the hypothesis and decision."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Dispute triage & evidence assistant",
+      "desc": "Classifies the reason code, gathers evidence, and recommends refund/represent/escalate with rationale for an analyst to action. No autonomous money movement."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Guarded auto-resolution",
+      "desc": "Auto-refunds clean, valid disputes within the cap, assembles representment packages for friendly fraud (filed on approval), and escalates fraud — with deadline tracking."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Governed disputes operation",
+      "desc": "Adds multi-network rule packs, fraud-system integration, full audit and deadline SLAs, representment win-rate analytics, and confidence calibration from outcomes at scale."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect data sources",
+      "body": "Install the agent and connect it (read access) to your processor/banking core and fraud signals.",
+      "code": "pipx install disputes-agent\ndisputes-agent connect --processor stripe --core finxact --fraud sift\ndisputes-agent doctor"
+    },
+    {
+      "title": "Configure money limits and mode",
+      "body": "Caps and approval rules live in config and are enforced deterministically, not by the model.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nAUTO_REFUND_CAP_USD=100\nMAX_TOOL_CALLS=8\nMODE=assist   # assist (recommend) | act (auto within cap)"
+    },
+    {
+      "title": "Map reason codes and deadlines",
+      "body": "Provide the network reason-code rules and timelines you operate under so evidence and deadlines are correct.",
+      "code": "# .disputes.yml\nnetworks: [visa, mastercard]\nauto_refund_reasons: [\"duplicate_processing\", \"credit_not_processed\"]\ntrack_deadlines: true\nfraud_escalate_signals: [\"account_takeover\", \"device_mismatch\", \"velocity_spike\"]"
+    },
+    {
+      "title": "Backtest on resolved disputes",
+      "body": "Replay closed disputes to compare the agent's decisions to actual outcomes before going live.",
+      "code": "disputes-agent backtest --range 90d --explain\n# reports refund/represent/escalate accuracy vs. final outcomes"
+    },
+    {
+      "title": "Wire into your dispute queue",
+      "body": "Route new disputes to the agent. Start in assist mode (recommends), then enable act mode for low-risk reason codes within the cap.",
+      "code": "# webhook: new dispute -> POST https://your-host/disputes/intake (HMAC)\n# promote MODE=act for e.g. duplicate_processing once backtests look clean"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Duplicate charge → refund within policy",
+      "scenario": "A clear merchant error: the cardholder was charged twice. Within the auto-refund cap and a valid reason code.",
+      "input": "Dispute: $42.00 at 'BREWHAUS COFFEE' on 2026-06-10. Cardholder: 'I was charged twice for one order.' Card ending 4417.",
+      "output": "{\n  \"reason_code\": \"12.6 Duplicate Processing (Visa) — same transaction charged more than once\",\n  \"hypothesis\": \"merchant_error\",\n  \"confidence\": 0.92,\n  \"evidence\": [\"transaction_lookup: two identical $42.00 auths to MID BREWHAUS 2026-06-10 14:02 and 14:03\", \"customer_history: no prior disputes, 3y tenure, regular at this merchant\"],\n  \"decision\": \"REFUND\",\n  \"amount_usd\": 42.00,\n  \"actions\": [ { \"tool\": \"issue_refund\", \"args\": { \"amount_usd\": 42.00, \"reason\": \"duplicate_processing\" }, \"requires_approval\": false } ],\n  \"customer_note\": \"We reviewed your dispute and confirmed a duplicate $42.00 charge from June 10. We've refunded the duplicate; it should post to your account within a few business days.\",\n  \"analyst_note\": \"Clear duplicate (two identical auths one minute apart). Reason 12.6. $42 within cap; auto-refunded. No fraud signals.\",\n  \"escalation\": { \"needed\": false, \"reason\": \"\" }\n}",
+      "notes": "The clean case the kit is meant to clear instantly: two identical auths a minute apart is unambiguous merchant error, within cap and a valid reason, so it refunds and documents. Note the customer note is factual and contains no accusation."
+    },
+    {
+      "title": "Friendly fraud → assemble representment evidence",
+      "scenario": "The cardholder disputes a charge as 'never received,' but the evidence shows they got it. The agent challenges with proof rather than refunding.",
+      "input": "Dispute: $310.00 at 'PEAK GEAR' on 2026-05-28, reason 'merchandise not received.' Card ending 4417.",
+      "output": "{\n  \"reason_code\": \"13.1 Merchandise/Services Not Received (Visa)\",\n  \"hypothesis\": \"friendly_fraud\",\n  \"confidence\": 0.81,\n  \"evidence\": [\"transaction_lookup: AVS+CVV match, in-person device fingerprint matches cardholder's usual\", \"evidence: carrier delivery confirmation to the cardholder's verified billing address, signed 2026-05-30\", \"customer_history: 4 prior orders from PEAK GEAR delivered to same address, none disputed\"],\n  \"decision\": \"REPRESENT\",\n  \"amount_usd\": null,\n  \"actions\": [\n    { \"tool\": \"evidence_assemble\", \"args\": { \"reason_code\": \"13.1\", \"items\": [\"delivery_confirmation\", \"avs_cvv_match\", \"prior_usage\"] }, \"requires_approval\": false },\n    { \"tool\": \"escalate_to_analyst\", \"args\": { \"queue\": \"representment_review\", \"recommendation\": \"file\" }, \"requires_approval\": true }\n  ],\n  \"customer_note\": \"\",\n  \"analyst_note\": \"Likely friendly fraud: signed delivery to the verified billing address, AVS/CVV match, and 4 prior undisputed orders to the same address. Assembled 13.1 representment package; recommend filing. Network deadline 2026-06-25.\",\n  \"escalation\": { \"needed\": false, \"reason\": \"\" }\n}",
+      "notes": "This is where the kit earns its keep: rather than reflexively refunding a 'not received' claim, it cites delivery confirmation to the verified address plus prior usage and assembles a network-compliant representment package — but leaves the actual filing for human approval, and tracks the deadline."
+    },
+    {
+      "title": "Account-takeover pattern → escalate and protect, don't refund",
+      "scenario": "A dispute that looks routine but sits inside a fraud pattern. The agent refuses to treat it as a simple refund.",
+      "input": "Dispute: $1,890.00 at an electronics merchant, reason 'I didn't make this charge.' Card ending 4417.",
+      "output": "{\n  \"reason_code\": \"10.4 Other Fraud — Card Absent Environment (Visa)\",\n  \"hypothesis\": \"true_fraud\",\n  \"confidence\": 0.7,\n  \"evidence\": [\"fraud_signals: login from a new device + new geo 40 min before the charge; password changed 2h prior\", \"transaction_lookup: ships to an address never used by this account; CVV mismatch\", \"customer_history: 3 other card-not-present charges to unfamiliar merchants in the last hour\"],\n  \"decision\": \"ESCALATE\",\n  \"amount_usd\": null,\n  \"actions\": [\n    { \"tool\": \"escalate_to_analyst\", \"args\": { \"queue\": \"fraud_atо\", \"priority\": \"high\", \"recommend\": [\"freeze_card\", \"reverse_session\", \"verify_cardholder\"] }, \"requires_approval\": false }\n  ],\n  \"customer_note\": \"Thanks for flagging this — we're treating it as potential fraud on your account and a specialist will contact you shortly to secure it.\",\n  \"analyst_note\": \"Likely account takeover: new-device/new-geo login + password change preceding a burst of CNP charges to unfamiliar merchants and addresses; CVV mismatch on the disputed item. Recommend freezing the card and verifying the cardholder BEFORE processing refunds. Over cap and fraud-pattern — do not auto-refund.\",\n  \"escalation\": { \"needed\": true, \"reason\": \"Account-takeover pattern + amount over cap\" }\n}",
+      "notes": "The defining example: a 'didn't make this charge' dispute is over the cap and embedded in an account-takeover pattern, so the agent escalates and recommends freezing the card and verifying the cardholder rather than quietly refunding one transaction while the account is still compromised. Fraud is handled as a security event, not a refund."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it refund disputes automatically?",
+      "a": "Only clean, valid disputes within your configured cap and a recognized reason code. Anything over the cap, outside policy, or showing fraud signals is escalated. Representment filings are human-approved by default."
+    },
+    {
+      "q": "How does it tell friendly fraud from a real claim?",
+      "a": "On evidence — delivery confirmation to the verified address, AVS/CVV match, device fingerprint, and prior undisputed usage point to friendly fraud, while their absence supports a genuine claim. It never labels a customer without specific records, and mixed evidence defaults to honoring the dispute."
+    },
+    {
+      "q": "What happens if it detects fraud?",
+      "a": "It treats it as a security event: it escalates to your fraud team and recommends protective action (freeze the card, verify the cardholder) rather than refunding a single charge while the account may still be compromised."
+    },
+    {
+      "q": "Does it follow card-network and regulatory rules?",
+      "a": "It classifies the correct network reason code, assembles the evidence that code requires, and tracks Reg E/Z and network deadlines so cases don't age out. It won't file a representment without the required evidence."
+    },
+    {
+      "q": "Is cardholder data handled safely?",
+      "a": "It keeps PCI discipline — last-4 only, redaction in customer-facing output, and data kept within scope. Sensitive fields are never exposed."
+    },
+    {
+      "q": "How do we roll it out?",
+      "a": "Start in assist mode where it recommends and assembles evidence, backtest against resolved disputes, then enable auto-resolution for specific low-risk reason codes within your cap."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A3 — Human-Approved",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Assembles an incorrect dispute case or recommended decision that a human reviews before action. It cannot file a chargeback, move money, or close a dispute — execution tools are absent from its registry.",
+    "authorityBoundary": "Gathers evidence across sources, assembles the dispute case, and recommends a decision for human approval. It never files a chargeback, issues a refund, moves money, or closes the case. A human approves and acts.",
+    "verificationTest": "Attempt to call a chargeback-file, refund, or money-movement tool → confirm it is absent from the registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: filing/payment tools absent. Human gates: approval required before any action. Confidence escalation: weak evidence flagged. Cost ceiling: bounded. Audit trail: evidence and recommendation logged. Escalation path: disputes routed to a specialist.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "transaction-dispute-agent",
+      "trust_level": "A3",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Assembles an incorrect dispute case for human approval. Cannot file chargebacks or move money.",
+      "authority_boundary": "Assembles dispute evidence and a recommended decision for human approval; filing/payment tools absent.",
+      "tags": [
+        "fintech",
+        "payments",
+        "disputes",
+        "human-approval"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "gather_evidence",
+          "read_transaction",
+          "assemble_case",
+          "recommend_decision"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "chargeback_file",
+          "refund",
+          "dispute_close"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.3,
+        "alert_threshold_usd": 0.2
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 10
+      },
+      "human_handoff": {
+        "triggers": [
+          "weak_evidence",
+          "high_value_dispute",
+          "low_confidence"
+        ],
+        "destination": "dispute_specialist"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "evidence",
+          "recommendation",
+          "confidence"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Files a dispute against a legitimate, non-fraudulent charge.",
+      "detection": "Evidence sufficiency is scored and weak cases are flagged.",
+      "mitigation": "The agent prepares the case only; a human approves before any filing.",
+      "recovery": "The approver rejects it and the case is closed without filing."
+    },
+    {
+      "mode": "Misses the chargeback deadline window.",
+      "detection": "The dispute time limit is checked against the transaction date.",
+      "mitigation": "Near-deadline cases are escalated with priority.",
+      "recovery": "The case is fast-tracked to a human or marked time-barred with a reason."
+    },
+    {
+      "mode": "Mis-categorizes the dispute reason code.",
+      "detection": "The reason code is matched to the evidence pattern and mismatches are flagged.",
+      "mitigation": "The code is a recommendation a human confirms.",
+      "recovery": "The human corrects the code before filing."
+    }
+  ],
+  "evaluation": {
+    "primary": "Evidence sufficiency and reason-code correctness are primary — filing a weak or mis-coded dispute is the costly error.",
+    "metrics": [
+      {
+        "name": "Reason-code accuracy",
+        "description": "Share of disputes where the chosen reason code matches the evidence and ground truth."
+      },
+      {
+        "name": "Evidence sufficiency",
+        "description": "Share of prepared cases an adjudicator deems adequately evidenced."
+      },
+      {
+        "name": "Deadline adherence",
+        "description": "Share of cases correctly flagged before the chargeback window closes."
+      },
+      {
+        "name": "Legitimacy precision",
+        "description": "Of disputes prepared, the share that were genuinely disputable rather than legitimate charges."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to prepare a case."
+      }
+    ],
+    "approach": "Replay historical disputes with known outcomes and reason codes; measure code accuracy and evidence sufficiency against adjudicator labels. Include legitimate charges as negative cases to test false-dispute resistance."
+  }
+}

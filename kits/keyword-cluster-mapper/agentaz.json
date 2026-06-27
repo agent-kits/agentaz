@@ -1,0 +1,54 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "keyword-cluster-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Synthesis",
+  "worst_case_action": "Produces a flawed clustering for human review. No fabricated metrics; no ranking guarantees.",
+  "authority_boundary": "Clusters keywords from provided data; never fabricates metrics; publish/action tools absent.",
+  "tags": [
+    "seo",
+    "keyword-clustering",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_keywords",
+      "cluster_by_intent",
+      "label_provided_metrics"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "publish",
+      "action"
+    ],
+    "never_fabricates": true,
+    "no_ranking_guarantee": true
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.2,
+    "alert_threshold_usd": 0.14
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "ambiguous_intent",
+      "thin_data"
+    ],
+    "destination": "seo_owner"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "clusters",
+      "inputs"
+    ]
+  }
+}

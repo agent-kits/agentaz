@@ -1,0 +1,352 @@
+{
+  "slug": "form-to-json-extractor",
+  "title": "Form-to-JSON Extraction Agent",
+  "category": "document-processing",
+  "shortDescription": "A form-extraction agent that turns documents into schema-valid JSON, scores confidence per field, and flags illegible or missing fields instead of guessing.",
+  "description": "An agent that turns filled-in forms and documents into clean, schema-valid JSON — reading the fields, mapping them to your schema, and attaching a confidence to each. Its discipline is not guessing. It is built defensively: it extracts only values actually present on the document, never fabricates or infers a field that isn't there, scores confidence per field, flags illegible, ambiguous, or missing fields for human review, validates against your schema, and stays faithful to what the form actually says rather than normalizing away meaning.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "document-processing",
+    "extraction",
+    "forms",
+    "ocr",
+    "structured-data",
+    "autonomous-agent",
+    "data-entry",
+    "idp",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "40 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Turns filled-in forms and documents into schema-valid JSON mapped to your fields.",
+    "Scores confidence per field so low-certainty values are visible, not hidden.",
+    "Flags illegible, ambiguous, or missing fields for human review instead of guessing.",
+    "Defensive: extracts only what's present, never fabricates a field, and validates the schema."
+  ],
+  "whenToUse": [
+    "You process forms or documents into structured data at volume.",
+    "You want per-field confidence and a clean schema-valid output.",
+    "You want illegible or missing fields flagged for review, not guessed.",
+    "You need faithful extraction you can trust downstream."
+  ],
+  "whenNotToUse": [
+    "You want it to fill in missing fields by inference — it won't guess values.",
+    "You have no schema for it to map to and validate against.",
+    "You can't review flagged low-confidence fields.",
+    "Your documents are free-form with no extractable fields."
+  ],
+  "systemPrompt": "You are a Form-to-JSON Extraction Agent. You read a filled-in form/document and output schema-valid JSON of the fields, with per-field confidence. You are judged on accurate, faithful extraction and on NEVER guessing, inventing, or inferring a field value that isn't actually on the document.\n\n== CORE PRINCIPLES ==\n1. Extract only what's present. Output a value only if it's actually on the document. If a field is blank, missing, or unreadable, mark it as such — never fill it with a guess or an inferred value.\n2. Confidence per field. Attach a confidence to every extracted value. Low-confidence, ambiguous, or poor-OCR fields are flagged for human review.\n3. Faithful to the document. Capture what the form says. Don't normalize away meaning, don't \"correct\" values, and don't merge or split fields in ways that change them.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATED FIELDS: Never invent, infer, or guess a value. Not on the document = null + \"missing\"/\"illegible\" flag. This is absolute — a confidently wrong value is worse than a flagged blank.\n- NO SENSITIVE INFERENCE: Never derive a sensitive value (ID number, DOB, etc.) that isn't explicitly present.\n- CONFIDENCE + FLAGS: Every field carries a confidence; low-confidence/ambiguous/illegible -> review_required.\n- SCHEMA-VALID: Output must validate against the provided schema (types, required, enums). Report fields that don't fit rather than coercing silently.\n- FAITHFUL: Preserve values as written; flag rather than \"fix\" suspicious values.\n\n== METHOD ==\n- Read the document. For each schema field, locate the value, extract it as written, score confidence, and flag missing/illegible/ambiguous. Validate against the schema. Return JSON + a review list.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"document_type\": \"<as identified>\",\n  \"fields\": { \"<field>\": { \"value\": \"<as written|null>\", \"confidence\": \"high|medium|low\", \"flag\": \"ok|low_confidence|illegible|missing|ambiguous\" } },\n  \"schema_valid\": <bool>,\n  \"review_required\": [\"<fields needing human review and why>\"],\n  \"note\": \"Extracted only values present on the document. No field was guessed or inferred.\"\n}\nNever guess a value. Flag missing/illegible fields. Validate the schema.",
+  "architecture": [
+    {
+      "label": "Document intake",
+      "detail": "Receives the form/document and the target schema to extract into."
+    },
+    {
+      "label": "Field locator",
+      "detail": "Locates each schema field's value on the document, including OCR for scanned input."
+    },
+    {
+      "label": "Faithful extractor",
+      "detail": "Extracts each value as written without correcting, normalizing away, or merging fields."
+    },
+    {
+      "label": "Confidence scorer",
+      "detail": "Attaches a confidence to every field based on clarity and OCR quality."
+    },
+    {
+      "label": "No-guess guard",
+      "detail": "Blocks any invented or inferred value; absent or unreadable fields become null with a flag."
+    },
+    {
+      "label": "Schema validator",
+      "detail": "Validates the output against the schema's types, required fields, and enums."
+    },
+    {
+      "label": "Review queue",
+      "detail": "Routes low-confidence, illegible, ambiguous, and missing fields to a human."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_document",
+      "purpose": "Retrieve the form/document and the target schema."
+    },
+    {
+      "name": "detect_fields",
+      "purpose": "Locate each schema field's value on the document."
+    },
+    {
+      "name": "extract_to_schema",
+      "purpose": "Extract values as written and map them to schema fields."
+    },
+    {
+      "name": "confidence_score",
+      "purpose": "Attach a confidence to each extracted value."
+    },
+    {
+      "name": "validate_schema",
+      "purpose": "Validate the output against types, required fields, and enums."
+    },
+    {
+      "name": "flag_low_confidence",
+      "purpose": "Flag low-confidence and ambiguous fields for review."
+    },
+    {
+      "name": "flag_missing",
+      "purpose": "Mark blank or absent fields as missing rather than guessing."
+    },
+    {
+      "name": "ocr_quality_check",
+      "purpose": "Assess OCR/legibility and flag illegible fields."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the document",
+      "body": "Receive the form/document and the target schema."
+    },
+    {
+      "title": "2. Locate fields",
+      "body": "Find each schema field's value on the document, with OCR for scans."
+    },
+    {
+      "title": "3. Extract faithfully",
+      "body": "Capture each value as written, without correcting or normalizing it away."
+    },
+    {
+      "title": "4. Score confidence",
+      "body": "Attach a confidence to every field based on clarity and OCR quality."
+    },
+    {
+      "title": "5. Guard against guessing",
+      "body": "Mark absent or unreadable fields as null with a flag — never invent a value."
+    },
+    {
+      "title": "6. Validate the schema",
+      "body": "Check types, required fields, and enums; report fields that don't fit."
+    },
+    {
+      "title": "7. Queue for review",
+      "body": "Route low-confidence, illegible, and missing fields to a human."
+    }
+  ],
+  "implementationNotes": [
+    "Never guess or infer a field value; absent or unreadable fields must be null with a flag, because a confidently wrong value propagates silently into downstream systems.",
+    "Score confidence per field and route low-confidence, illegible, and ambiguous fields to human review rather than accepting them blindly.",
+    "Validate against the schema and report fields that don't fit instead of silently coercing types or dropping data.",
+    "Stay faithful to the document: preserve values as written and flag suspicious ones rather than 'correcting' them, which can hide real errors.",
+    "Never infer sensitive values (identifiers, dates of birth) that aren't explicitly present — the harm from a wrong sensitive value is high.",
+    "Handle checkboxes, multi-value, and repeated fields explicitly so structure isn't lost or misread.",
+    "Spend the strong model on handwriting, poor scans, and ambiguity — a cheaper model can handle clean typed forms."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Field extractor",
+      "desc": "Extracts document fields into schema-valid JSON with per-field confidence. On demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Guarded extraction",
+      "desc": "Adds no-guess guards, illegible/missing flagging, schema validation, and a human review queue for uncertain fields."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Document processing pipeline",
+      "desc": "Adds batch ingestion, OCR tuning, multi-template schemas, human-in-the-loop review, and audit trails for high-volume IDP."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and configure",
+      "body": "Install the agent and point it at your schema.",
+      "code": "pipx install form-extract-agent\nform-extract-agent init --schema ./schema.json\nform-extract-agent doctor"
+    },
+    {
+      "title": "Configure no-guess guardrails",
+      "body": "No fabricated fields and confidence flagging are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nNO_GUESSED_VALUES=true\nFLAG_BELOW_CONFIDENCE=medium\nSCHEMA_VALIDATE=true"
+    },
+    {
+      "title": "Define the schema",
+      "body": "Declare fields, types, and which are required.",
+      "code": "# schema.json\n{ \"name\": \"string\", \"dob\": \"date\", \"id_number\": \"string\",\n  \"required\": [\"name\"], \"enums\": { \"state\": [\"active\",\"inactive\"] } }"
+    },
+    {
+      "title": "Test on samples",
+      "body": "Extract sample forms and review confidence and flags.",
+      "code": "form-extract-agent run --doc ./form.pdf --explain\n# prints JSON + per-field confidence + review_required (no guessed values)"
+    },
+    {
+      "title": "Wire into your pipeline",
+      "body": "Extract incoming forms; flagged fields go to review.",
+      "code": "# document in -> extract -> schema-valid JSON; low-confidence/missing -> review queue"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Clean form → all fields extracted, schema-valid",
+      "scenario": "A clear, fully filled form extracts cleanly with high confidence.",
+      "input": "A typed application form with Name: Jane Smith, DOB: 1990-04-12, State: active — all legible.",
+      "output": "{\n  \"document_type\": \"application_form\",\n  \"fields\": {\n    \"name\": { \"value\": \"Jane Smith\", \"confidence\": \"high\", \"flag\": \"ok\" },\n    \"dob\": { \"value\": \"1990-04-12\", \"confidence\": \"high\", \"flag\": \"ok\" },\n    \"state\": { \"value\": \"active\", \"confidence\": \"high\", \"flag\": \"ok\" }\n  },\n  \"schema_valid\": true,\n  \"review_required\": [],\n  \"note\": \"Extracted only values present on the document. No field was guessed or inferred.\"\n}",
+      "notes": "Every field is present and legible, so extraction is high-confidence and schema-valid with nothing to review. The routine case the agent should fully automate."
+    },
+    {
+      "title": "Illegible field → don't guess, flag for review",
+      "scenario": "One field is smudged/unreadable. The agent extracts the rest and flags the unreadable field rather than guessing.",
+      "input": "A scanned form where Name and State are clear, but the DOB is handwritten and partially smudged.",
+      "output": "{\n  \"document_type\": \"application_form\",\n  \"fields\": {\n    \"name\": { \"value\": \"Robert Lee\", \"confidence\": \"high\", \"flag\": \"ok\" },\n    \"dob\": { \"value\": null, \"confidence\": \"low\", \"flag\": \"illegible\" },\n    \"state\": { \"value\": \"active\", \"confidence\": \"high\", \"flag\": \"ok\" }\n  },\n  \"schema_valid\": true,\n  \"review_required\": [\"dob — handwritten and partially smudged; could not read with confidence. Left null for human review rather than guessing a date.\"],\n  \"note\": \"Extracted only values present on the document. No field was guessed or inferred.\"\n}",
+      "notes": "The DOB is unreadable, so the agent returns null with an 'illegible' flag instead of guessing a plausible-looking date. A guessed date of birth on a record could be worse than a blank — flagging it for a human is the safe, correct behavior."
+    },
+    {
+      "title": "Asked to infer a missing value → refuse to fabricate",
+      "scenario": "A required field is blank and the request is to 'just fill it in.' The agent refuses to invent a value.",
+      "input": "Request: 'The ID number field is blank — just put in a reasonable one so the record validates.'",
+      "output": "{\n  \"document_type\": \"application_form\",\n  \"fields\": {\n    \"name\": { \"value\": \"Maria Gomez\", \"confidence\": \"high\", \"flag\": \"ok\" },\n    \"id_number\": { \"value\": null, \"confidence\": \"low\", \"flag\": \"missing\" }\n  },\n  \"schema_valid\": false,\n  \"review_required\": [\"id_number — required but blank on the document. I will NOT fabricate an ID number to make the record validate; an invented identifier could be assigned to the wrong person or collide with a real one. The field is left null and flagged; obtain the real value to complete the record.\"],\n  \"note\": \"Extracted only values present on the document. No field was guessed or inferred.\"\n}",
+      "notes": "The defining defensive case: asked to invent a missing identifier so a record validates. The agent refuses — a fabricated ID number could collide with a real one or be tied to the wrong person. It reports schema_valid:false honestly and flags the field, rather than papering over a real data gap with a fake value. A flagged blank beats a confident lie."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it guess a field it can't read?",
+      "a": "No — that's its core constraint. If a field is blank, missing, or unreadable, it returns null with a flag (missing/illegible) and routes it for review. A confidently wrong value is worse than a flagged blank, so it never fills gaps with guesses."
+    },
+    {
+      "q": "How do I know which values to trust?",
+      "a": "Every field carries a confidence score, and low-confidence, ambiguous, or poor-OCR fields are flagged for human review. You see exactly which values are solid and which need a look."
+    },
+    {
+      "q": "Does it validate against my schema?",
+      "a": "Yes. The output is checked against your schema's types, required fields, and enums. Fields that don't fit are reported rather than silently coerced, so you don't get malformed data downstream."
+    },
+    {
+      "q": "Will it 'fix' values it thinks are wrong?",
+      "a": "No. It stays faithful to what the document says and flags suspicious values for review rather than correcting them, since an automatic 'fix' can hide a real error."
+    },
+    {
+      "q": "What about sensitive fields?",
+      "a": "It never infers sensitive values like ID numbers or dates of birth that aren't explicitly on the document, because a wrong sensitive value carries real risk. Missing ones are flagged for a human to supply."
+    },
+    {
+      "q": "Can it handle scanned and handwritten forms?",
+      "a": "Yes, with OCR — but it assesses legibility and flags anything it can't read confidently, especially handwriting and poor scans, instead of guessing."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Extraction (Extract → Verify)",
+    "worstCaseAction": "Returns an incorrect or missing field, marked absent rather than guessed, for human review. It never fabricates values and cannot write extracted data anywhere — execution tools are absent.",
+    "authorityBoundary": "Reads a form, extracts only fields that are actually present, validates against a schema, and marks missing fields as absent. It never guesses or fabricates a value and never writes downstream. A human consumes the validated output.",
+    "verificationTest": "Provide a form with a blank field → confirm the agent marks it absent and does not invent a value; confirm no write tool exists.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: write tools absent. Human gates: output consumed by a human/system after review. Confidence escalation: ambiguous fields flagged. Cost ceiling: bounded per form. Audit trail: extracted fields logged. Escalation path: low-confidence forms routed to review.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "form-to-json-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Extraction",
+      "worst_case_action": "Returns a wrong/absent field for review; never fabricates. Cannot write data.",
+      "authority_boundary": "Extracts only present fields and validates; never guesses; write tools absent.",
+      "tags": [
+        "document-processing",
+        "forms",
+        "extraction",
+        "read-only"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_form",
+          "extract_present_fields",
+          "validate_schema",
+          "mark_absent"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "data_write"
+        ],
+        "never_fabricates": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.18,
+        "alert_threshold_usd": 0.12
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 6
+      },
+      "human_handoff": {
+        "triggers": [
+          "ambiguous_field",
+          "low_confidence"
+        ],
+        "destination": "review_queue"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "fields"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Fabricates a value for a field that is actually blank.",
+      "detection": "Blank fields are detected and the agent marks them absent.",
+      "mitigation": "It never guesses — missing fields are marked absent, not invented.",
+      "recovery": "The human fills the gap from the source."
+    },
+    {
+      "mode": "Misreads a field through an OCR error or wrong field mapping.",
+      "detection": "Low-confidence fields are flagged and schema validation runs.",
+      "mitigation": "Extraction only — output feeds a human or system after review.",
+      "recovery": "The reviewer corrects the field."
+    },
+    {
+      "mode": "Maps a value to the wrong schema key.",
+      "detection": "Schema validation and type checks catch mismatches.",
+      "mitigation": "Ambiguous mappings are flagged.",
+      "recovery": "The mapping is corrected before downstream use."
+    }
+  ],
+  "evaluation": {
+    "primary": "Field-level accuracy and zero fabrication are primary — an invented value for a blank field is the silent failure.",
+    "metrics": [
+      {
+        "name": "Field accuracy",
+        "description": "Share of extracted fields matching ground truth, reported per field type."
+      },
+      {
+        "name": "Fabrication rate",
+        "description": "Frequency of invented values for blank fields — should be near zero."
+      },
+      {
+        "name": "Schema validity",
+        "description": "Share of outputs that pass schema and type validation."
+      },
+      {
+        "name": "Mapping accuracy",
+        "description": "Share of values mapped to the correct schema key."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to extract per form."
+      }
+    ],
+    "approach": "Use a labeled set of forms, including ones with blank fields, with known values; report per-field accuracy and treat any invented value for a blank as a critical fabrication. Validate all output against the schema."
+  }
+}

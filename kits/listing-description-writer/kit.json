@@ -1,0 +1,355 @@
+{
+  "slug": "listing-description-writer",
+  "title": "Real Estate Listing Description Agent",
+  "category": "real-estate",
+  "shortDescription": "A listing agent that writes accurate property descriptions from provided facts — Fair-Housing compliant, never fabricating features or using discriminatory language.",
+  "description": "An agent that writes compelling property listing descriptions from the facts you provide — and keeps them legal. It describes the home, not the buyer, so it stays clear of Fair Housing violations, and it never invents features, measurements, or amenities that weren't supplied. It is built defensively: it refuses discriminatory or steering language and references to protected classes, sticks strictly to provided facts (flagging unverifiable claims for the agent to confirm), notes where disclosures are needed, and keeps the copy persuasive without becoming misleading.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "real-estate",
+    "listing",
+    "copywriting",
+    "fair-housing",
+    "compliance",
+    "autonomous-agent",
+    "marketing",
+    "proptech",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "35 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Writes persuasive, accurate listing descriptions from the facts you provide.",
+    "Fair-Housing aware: it describes the property and its features, never the ideal buyer or protected classes.",
+    "Sticks to provided facts — it won't invent square footage, renovations, school ratings, or amenities.",
+    "Defensive: flags unverifiable claims for confirmation, notes needed disclosures, and stays compelling without misleading."
+  ],
+  "whenToUse": [
+    "Agents need fast, compelling listing copy from structured property facts.",
+    "You want Fair-Housing-compliant descriptions by default, not after a manual scrub.",
+    "You want copy grounded only in verified facts, with unverifiable claims flagged.",
+    "You're producing many listings and want consistent, on-brand, accurate descriptions."
+  ],
+  "whenNotToUse": [
+    "You want it to embellish with features or figures that aren't provided — it won't.",
+    "You expect it to assert legal compliance sign-off (it assists; a human/broker reviews).",
+    "You have no property facts for it to work from.",
+    "You want buyer-targeting language, which Fair Housing prohibits."
+  ],
+  "systemPrompt": "You are a Real Estate Listing Description Agent. You write compelling, accurate property descriptions from provided facts, and you keep them Fair Housing compliant. You are judged on persuasive, truthful copy and on NEVER producing discriminatory language or fabricating property facts.\n\n== CORE PRINCIPLES ==\n1. Describe the property, not the buyer. Sell the home's features, location attributes, and lifestyle the property objectively offers — never the type of person who 'should' live there.\n2. Facts only. Use only the property facts provided. Do not invent square footage, renovations, materials, amenities, school ratings, or neighborhood claims. Missing info is omitted or flagged, never fabricated.\n3. Persuasive, not misleading. Vivid, appealing language is great; misrepresentation is not. Don't overstate condition or features beyond the facts.\n\n== HARD RULES (NON-NEGOTIABLE — FAIR HOUSING) ==\n- NO PROTECTED-CLASS REFERENCES: Never reference or imply preference/limitation based on race, color, religion, sex, familial status, national origin, disability, or other protected classes. This includes coded phrases: \"perfect for a young family\", \"great for couples\", \"ideal for professionals\", \"safe Christian neighborhood\", \"walking distance to [church/temple]\", \"no children\", \"able-bodied\", \"exclusive community\", etc.\n- NO STEERING: Don't describe who the neighborhood is 'for' or characterize the population. Describe amenities and features factually (e.g. \"near Lincoln Elementary\" as a fact, not \"great for families\").\n- NO FABRICATION: Never invent features, measurements, or claims not in the provided facts. Flag agent-supplied claims that need verification (e.g. school ratings, square footage, \"newly renovated\").\n- DISCLOSURES: Note where required disclosures may apply (e.g. known material facts) — but you do not invent or omit them; flag for the agent.\n- NOT LEGAL SIGN-OFF: You assist with compliant copy; a human/broker is responsible for final compliance and disclosures.\n\n== METHOD ==\n- Take the property facts. Write an engaging description grounded only in them. Run a Fair Housing check on the copy. Flag any unverifiable facts and any disclosure considerations.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"description\": \"<the listing copy — property-focused, fact-grounded>\",\n  \"fair_housing\": { \"compliant\": <bool>, \"removed_or_avoided\": [\"<any problematic phrasing avoided/rewritten>\"] },\n  \"facts_used\": [\"<the provided facts reflected>\"],\n  \"unverified_flags\": [\"<claims to verify before publishing, e.g. 'newly renovated' not in facts>\"],\n  \"disclosure_notes\": [\"<possible disclosure considerations for the agent>\"],\n  \"note\": \"Copy assist — agent/broker is responsible for final Fair Housing compliance and disclosures.\"\n}\nNever include protected-class or steering language. Never state a fact not provided; flag anything unverifiable.",
+  "architecture": [
+    {
+      "label": "Property facts intake",
+      "detail": "Receives the structured property facts (specs, features, location attributes) that are the only allowed basis for the copy."
+    },
+    {
+      "label": "Description generation",
+      "detail": "Writes engaging, property-focused copy grounded strictly in the provided facts."
+    },
+    {
+      "label": "Fair Housing filter",
+      "detail": "Scans for protected-class references, steering, and coded phrasing, rewriting to describe the property rather than a buyer."
+    },
+    {
+      "label": "Fact guard",
+      "detail": "Blocks invented features, measurements, and claims, flagging agent-supplied items that need verification."
+    },
+    {
+      "label": "Disclosure check",
+      "detail": "Notes where required disclosures may apply for the agent to handle, without inventing or omitting them."
+    },
+    {
+      "label": "Tone & brand",
+      "detail": "Applies the desired voice and length while keeping the copy truthful and non-misleading."
+    },
+    {
+      "label": "Review handoff",
+      "detail": "Outputs the copy with compliance notes and flags for the agent/broker, who owns final sign-off."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_property_facts",
+      "purpose": "Retrieve the structured property facts that are the sole basis for the description."
+    },
+    {
+      "name": "draft_description",
+      "purpose": "Generate engaging listing copy grounded only in the provided facts."
+    },
+    {
+      "name": "fair_housing_check",
+      "purpose": "Scan and rewrite copy to remove protected-class references, steering, and coded phrasing."
+    },
+    {
+      "name": "fact_guard",
+      "purpose": "Block invented features/measurements and flag agent claims needing verification."
+    },
+    {
+      "name": "disclosure_check",
+      "purpose": "Identify where required disclosures may apply for the agent to handle."
+    },
+    {
+      "name": "tone_style",
+      "purpose": "Apply the desired brand voice, length, and format without overstating facts."
+    },
+    {
+      "name": "flag_unverifiable",
+      "purpose": "List claims (e.g. square footage, school ratings) to confirm before publishing."
+    },
+    {
+      "name": "compliance_review",
+      "purpose": "Bundle the copy with Fair Housing and disclosure notes for human/broker sign-off."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the facts",
+      "body": "Receive the property facts that will be the only basis for the description."
+    },
+    {
+      "title": "2. Draft the copy",
+      "body": "Write engaging, property-focused copy grounded strictly in those facts."
+    },
+    {
+      "title": "3. Run the Fair Housing check",
+      "body": "Remove or rewrite any protected-class, steering, or coded language."
+    },
+    {
+      "title": "4. Guard the facts",
+      "body": "Ensure no invented features or figures; flag agent claims needing verification."
+    },
+    {
+      "title": "5. Note disclosures",
+      "body": "Identify where required disclosures may apply for the agent to handle."
+    },
+    {
+      "title": "6. Apply tone",
+      "body": "Shape voice and length while keeping the copy truthful and non-misleading."
+    },
+    {
+      "title": "7. Hand off for sign-off",
+      "body": "Output copy with compliance notes and flags; the agent/broker owns final compliance."
+    }
+  ],
+  "implementationNotes": [
+    "Treat Fair Housing as a hard, structural filter, including coded/indirect phrasing ('perfect for families', 'safe neighborhood', 'walking distance to church'); describe the property and factual amenities, never the target buyer.",
+    "Generate strictly from provided facts and flag any agent-supplied embellishment (renovations, views, school ratings) for verification — fabricated features are misrepresentation, not marketing.",
+    "State location attributes as facts (e.g. 'near Lincoln Elementary'), never as audience framing ('great for families'), which is steering.",
+    "Surface disclosure considerations for the agent without inventing or omitting them; the agent/broker owns the actual disclosures.",
+    "Keep copy persuasive but truthful — vivid language is fine, overstating condition or features is not.",
+    "Position the agent as a copy assist with a human/broker responsible for final compliance sign-off; don't claim legal certification.",
+    "A cheaper model can format facts; reserve the strong model for the Fair Housing rewrite and embellishment judgment."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Listing copy generator",
+      "desc": "Writes a property-focused description from provided facts with a Fair Housing pass. Single listing, on demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Compliance-guarded copy",
+      "desc": "Adds coded-language detection and rewriting, fact-only generation with unverified-claim flags, and disclosure notes for review."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Brokerage listing engine",
+      "desc": "Adds MLS integration, brand-voice profiles, batch generation, compliance audit logging, and broker review workflows at scale."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect your listing source",
+      "body": "Install the agent and connect it to your listing/MLS data entry.",
+      "code": "pipx install listing-writer-agent\nlisting-writer-agent connect --source mls-export\nlisting-writer-agent doctor"
+    },
+    {
+      "title": "Configure compliance guardrails",
+      "body": "Fair Housing and fact-only generation are enforced, not optional.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nFAIR_HOUSING_STRICT=true\nFACTS_ONLY=true\nFLAG_UNVERIFIABLE=true"
+    },
+    {
+      "title": "Set brand voice & banned phrases",
+      "body": "Define tone and reinforce the coded-language blocklist.",
+      "code": "# listing.yml\ntone: warm_professional\nmax_words: 180\nbanned_phrases: ['perfect for families','safe neighborhood','exclusive','walking distance to church','ideal for professionals']\ndescribe: property_features_only"
+    },
+    {
+      "title": "Test on sample listings",
+      "body": "Generate copy and review the Fair Housing and unverified flags.",
+      "code": "listing-writer-agent run --facts ./property.json --explain\n# prints copy + fair_housing report + unverified flags + disclosure notes"
+    },
+    {
+      "title": "Wire into your workflow",
+      "body": "Generate descriptions from new listings; copy goes to the agent for review.",
+      "code": "# new listing -> description + compliance notes -> agent reviews & publishes"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Standard listing from facts → compelling, compliant copy",
+      "scenario": "A normal set of property facts. The agent writes appealing, accurate, property-focused copy.",
+      "input": "Facts: 3 bed / 2 bath, 1,650 sqft, updated kitchen (2025, quartz counters), fenced backyard, 2-car garage, near Lincoln Elementary and Riverside Park.",
+      "output": "{\n  \"description\": \"Welcome to a beautifully updated 3-bedroom, 2-bath home offering 1,650 square feet of comfortable living. The 2025-updated kitchen shines with quartz countertops and modern finishes, while the fenced backyard and 2-car garage add everyday convenience. Located near Lincoln Elementary and Riverside Park, this home pairs a move-in-ready interior with an established, amenity-rich setting.\",\n  \"fair_housing\": { \"compliant\": true, \"removed_or_avoided\": [\"Described proximity to the school as a factual location detail, not 'great for families'\"] },\n  \"facts_used\": [\"3 bed / 2 bath\", \"1,650 sqft\", \"updated kitchen 2025 quartz\", \"fenced backyard\", \"2-car garage\", \"near Lincoln Elementary and Riverside Park\"],\n  \"unverified_flags\": [],\n  \"disclosure_notes\": [],\n  \"note\": \"Copy assist — agent/broker is responsible for final Fair Housing compliance and disclosures.\"\n}",
+      "notes": "Compelling copy built entirely from the provided facts. Note the Fair Housing discipline even in the clean case: the nearby school is stated as a factual location detail, never framed as 'perfect for families,' which would be steering."
+    },
+    {
+      "title": "Agent requests buyer-targeting language → refuse, rewrite to property",
+      "scenario": "The agent asks for phrasing that targets a buyer demographic. The Fair Housing rule blocks it and rewrites around the property.",
+      "input": "Agent instruction: 'Make it sound perfect for a young Christian family — mention it's in a safe neighborhood near the church.'",
+      "output": "{\n  \"description\": \"This inviting home offers bright, comfortable living spaces and a functional layout. It's located near local parks, shops, and places of worship, with easy access to nearby amenities and well-maintained surroundings. Thoughtful features throughout make it a versatile choice for a range of buyers.\",\n  \"fair_housing\": { \"compliant\": true, \"removed_or_avoided\": [\"'perfect for a young Christian family' (familial status + religion)\", \"'safe neighborhood' (steering / unverifiable characterization)\", \"'near the church' rephrased to neutral 'places of worship' as a factual amenity, not a target audience\"] },\n  \"facts_used\": [\"location near amenities and places of worship\"],\n  \"unverified_flags\": [\"'safe neighborhood' is both a Fair Housing risk and an unverifiable claim — not included\"],\n  \"disclosure_notes\": [],\n  \"note\": \"Copy assist — agent/broker is responsible for final Fair Housing compliance and disclosures.\"\n}",
+      "notes": "The defining compliance case: the requested phrasing violates Fair Housing on multiple fronts (familial status, religion, and 'safe neighborhood' steering). The agent doesn't comply — it explains what it removed and why, and rewrites to describe the property and factual amenities for 'a range of buyers.' It protects the agent from a costly violation rather than just following instructions."
+    },
+    {
+      "title": "Tempted to embellish with unverified features → stick to facts, flag",
+      "scenario": "The copy could be juiced with claims not in the facts. The agent refuses to fabricate and flags the claims to verify.",
+      "input": "Facts: 2 bed / 1 bath condo, 900 sqft, in-unit laundry. Agent adds: 'just say it's newly renovated with top-rated schools and a stunning city view.'",
+      "output": "{\n  \"description\": \"A well-appointed 2-bedroom, 1-bath condo offering 900 square feet of efficient living, complete with the convenience of in-unit laundry. A comfortable, low-maintenance home in a connected location.\",\n  \"fair_housing\": { \"compliant\": true, \"removed_or_avoided\": [] },\n  \"facts_used\": [\"2 bed / 1 bath\", \"900 sqft\", \"in-unit laundry\"],\n  \"unverified_flags\": [\n    \"'newly renovated' — not in the provided facts; confirm scope/date before adding\",\n    \"'top-rated schools' — unverified and a potential steering/accuracy risk; provide a source or omit\",\n    \"'stunning city view' — not in the facts; confirm the unit actually has this view before claiming it\"\n  ],\n  \"disclosure_notes\": [],\n  \"note\": \"Copy assist — agent/broker is responsible for final Fair Housing compliance and disclosures.\"\n}",
+      "notes": "Asked to add three appealing-but-unsupported claims, the agent writes only from the actual facts and flags each embellishment to verify rather than baking it in. Fabricated features ('newly renovated', a 'city view' the unit may not have) are misrepresentation risks — the agent surfaces them for the human to confirm or drop."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "How does it keep listings Fair Housing compliant?",
+      "a": "It describes the property and its factual features rather than the ideal buyer, and it filters out protected-class references and coded/steering phrases — including subtle ones like 'perfect for families' or 'safe neighborhood' — rewriting them to focus on the home."
+    },
+    {
+      "q": "Will it add appealing features to make a listing pop?",
+      "a": "Only ones you actually provide. It won't invent square footage, renovations, views, or school ratings; if an embellishment isn't in the facts, it flags it for you to verify or omit rather than baking a misrepresentation into the copy."
+    },
+    {
+      "q": "Can I tell it to target a certain type of buyer?",
+      "a": "No — that's exactly what Fair Housing prohibits. If asked, it declines the buyer-targeting framing, explains what it avoided, and rewrites the copy to describe the property for a range of buyers."
+    },
+    {
+      "q": "Does it handle disclosures?",
+      "a": "It flags where required disclosures may apply so you don't overlook them, but it doesn't invent or omit them — the agent or broker handles the actual disclosures."
+    },
+    {
+      "q": "Is it legally responsible for compliance?",
+      "a": "No. It's a compliance-minded copy assistant that makes violations far less likely, but the agent or broker is responsible for final Fair Housing compliance and disclosure sign-off."
+    },
+    {
+      "q": "Can it match our brand voice?",
+      "a": "Yes. It applies your preferred tone, length, and format while keeping the copy truthful and grounded in the provided facts."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Writes an inaccurate or non-compliant listing description that an agent reviews before publishing. It writes only from provided property facts, stays Fair Housing compliant, never invents features, and cannot publish — those tools are absent from its registry.",
+    "authorityBoundary": "Writes a property listing description strictly from provided facts, in Fair-Housing-compliant language that describes the property and not the buyer. A licensed agent reviews and publishes. It never invents features, never uses discriminatory or steering language, and never publishes.",
+    "verificationTest": "Confirm the description uses only provided facts and Fair-Housing-compliant language; confirm no publish tool exists in the registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: publish tools absent. Human gates: a licensed agent publishes. Confidence escalation: unverifiable claims flagged. Cost ceiling: bounded per listing. Audit trail: description and facts logged. Escalation path: potential compliance issues flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "listing-description-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Writes an inaccurate/non-compliant description for agent review. Cannot publish; never invents features.",
+      "authority_boundary": "Writes listings from provided facts in Fair-Housing-compliant language; publish tools absent.",
+      "tags": [
+        "real-estate",
+        "listing",
+        "fair-housing",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_property_facts",
+          "write_description",
+          "check_fair_housing",
+          "flag_unverifiable"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "publish"
+        ],
+        "never_fabricates": true,
+        "fair_housing_compliant": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.18,
+        "alert_threshold_usd": 0.12
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 6
+      },
+      "human_handoff": {
+        "triggers": [
+          "unverifiable_claim",
+          "compliance_concern"
+        ],
+        "destination": "listing_agent"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "description",
+          "facts"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Writes discriminatory or steering language (a Fair Housing violation).",
+      "detection": "A Fair-Housing language check flags risky phrasing.",
+      "mitigation": "It writes in compliant language describing the property, not the buyer; there is no publish tool.",
+      "recovery": "A licensed agent reviews and corrects before publishing."
+    },
+    {
+      "mode": "Invents a feature the property doesn't have.",
+      "detection": "Claims are tied to provided facts and unverifiable ones are flagged.",
+      "mitigation": "It writes only from provided facts and never invents.",
+      "recovery": "The agent removes the false feature."
+    },
+    {
+      "mode": "Overstates or embellishes a fact in a way that misleads.",
+      "detection": "Subjective or embellished phrasing is flagged.",
+      "mitigation": "It stays factual.",
+      "recovery": "The agent tones it down before publishing."
+    }
+  ],
+  "evaluation": {
+    "primary": "Fair-Housing compliance and factual accuracy are primary — discriminatory language or an invented feature is the failure.",
+    "metrics": [
+      {
+        "name": "Fair-Housing compliance",
+        "description": "Share of descriptions free of discriminatory or steering language, per reviewer audit."
+      },
+      {
+        "name": "Factual accuracy",
+        "description": "Share of stated features supported by provided facts."
+      },
+      {
+        "name": "Fabrication rate",
+        "description": "Frequency of invented features — should be near zero."
+      },
+      {
+        "name": "Embellishment rate",
+        "description": "Frequency of misleading puffery, per reviewer."
+      },
+      {
+        "name": "Acceptance rate",
+        "description": "Share published with little editing — a licensed agent reviews."
+      }
+    ],
+    "approach": "Have reviewers audit descriptions against Fair-Housing guidelines and provided property facts; measure compliance and factual accuracy and flag any invented feature. A licensed agent reviews before publishing."
+  }
+}

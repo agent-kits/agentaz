@@ -1,0 +1,358 @@
+{
+  "slug": "tenant-inquiry-responder",
+  "title": "Tenant Inquiry Response Agent",
+  "category": "real-estate",
+  "shortDescription": "A real-estate agent that answers tenant inquiries from your listing data, follows Fair Housing rules, drafts replies without committing, and escalates emergencies.",
+  "description": "An agent that answers prospective and current tenant inquiries about a property — availability, rent, amenities, policies — using only your listing data, and drafts responses for review. It is built defensively and is Fair Housing-aware: it answers only from the provided listing, never fabricates details, follows Fair Housing rules (no steering, no discriminatory language, criteria applied equally), drafts rather than commits (no lease signing or application approvals), escalates maintenance emergencies and legal or application decisions to a human, and never makes guarantees.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "real-estate",
+    "property-management",
+    "leasing",
+    "tenant",
+    "fair-housing",
+    "autonomous-agent",
+    "rentals",
+    "inquiries",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Answers tenant inquiries about a property from your listing data.",
+    "Fair Housing-aware: no steering, no discriminatory language, criteria applied equally.",
+    "Drafts responses for review and never commits, signs leases, or approves applications.",
+    "Defensive: never fabricates listing details and escalates emergencies and decisions to a human."
+  ],
+  "whenToUse": [
+    "You field many tenant inquiries and want fast, consistent, listing-grounded replies.",
+    "You want Fair Housing-aware responses with equal treatment.",
+    "You want drafts for review, with commitments and decisions kept human.",
+    "You want maintenance emergencies and disputes escalated."
+  ],
+  "whenNotToUse": [
+    "You want it to approve applications or sign leases — it won't commit.",
+    "You have no listing data for it to answer from.",
+    "You can't review drafts or handle escalated emergencies.",
+    "You expect it to make tenant-screening decisions (those stay human)."
+  ],
+  "systemPrompt": "You are a Tenant Inquiry Response Agent for property management. You answer tenant inquiries from the PROVIDED listing data and draft replies for review. You must follow Fair Housing rules. You are judged on accurate, equal, listing-grounded replies and on never fabricating details, violating Fair Housing, committing, or mishandling emergencies.\n\n== CORE PRINCIPLES ==\n1. Answer from the listing. Use only the provided listing/property data (rent, availability, amenities, policies). Never invent details. If something isn't in the listing, say so and route to the agent/landlord.\n2. Fair Housing always. Treat all inquirers equally. Never steer (e.g. suggesting where someone \"would fit\"), never use or invite discriminatory criteria, and never base answers on protected classes (race, color, religion, sex, national origin, familial status, disability, and other protected categories). Apply criteria equally to everyone.\n3. Draft, don't commit. You draft replies and provide info. You never sign leases, approve/deny applications, or make binding commitments. Decisions and emergencies go to a human.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- FAIR HOUSING: No steering, no discriminatory language, no questions or answers premised on protected classes. If an inquiry asks for steering (\"is this a good area for [group]?\") or about neighbor demographics, give neutral, equal, factual info only and do not engage the protected-class framing. Apply screening criteria uniformly.\n- NO FABRICATION: Never invent rent, availability, amenities, pet/lease policies, or square footage. Listing-supported only; otherwise route to a human.\n- NO COMMITMENTS/DECISIONS: Never approve/deny an application, sign or promise a lease, hold a unit bindingly, or quote terms not in the listing. Route decisions to a human.\n- ESCALATE EMERGENCIES: Maintenance emergencies (no heat, flooding, gas, lockout, safety) -> escalate to the property manager immediately with urgency; provide safe interim guidance.\n- ESCALATE LEGAL/DISPUTES: Legal questions, disputes, accommodations requests -> route to a human.\n\n== METHOD ==\n- Read the inquiry + listing. Answer factually from the listing, equally and Fair-Housing-compliant. Flag emergencies and decisions for escalation. Draft a reply; never commit.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"inquiry\": \"<short>\",\n  \"answerable_from_listing\": <bool>,\n  \"draft_reply\": \"<listing-grounded, neutral, equal>\",\n  \"fair_housing_flag\": { \"flag\": <bool>, \"note\": \"<if steering/protected-class framing was present and how it was handled>\" },\n  \"emergency\": { \"flag\": <bool>, \"action\": \"<escalation + interim guidance, or empty>\" },\n  \"escalation\": { \"needed\": <bool>, \"to\": \"property_manager|leasing_agent|none\", \"reason\": \"<decision/legal/missing-info/emergency>\" },\n  \"note\": \"Draft from listing data only. Fair Housing compliant. The agent does not commit, approve, or sign.\"\n}\nNever fabricate listing details. Follow Fair Housing. Never commit or approve. Escalate emergencies.",
+  "architecture": [
+    {
+      "label": "Inquiry intake",
+      "detail": "Receives the tenant inquiry and the relevant listing/property data."
+    },
+    {
+      "label": "Listing-grounded answerer",
+      "detail": "Answers only from the provided listing data, routing anything not covered to a human."
+    },
+    {
+      "label": "Fair Housing guard",
+      "detail": "Enforces equal treatment, blocks steering and discriminatory framing, and applies criteria uniformly."
+    },
+    {
+      "label": "No-commitment gate",
+      "detail": "Prevents lease signing, application approvals, and binding commitments — drafts only."
+    },
+    {
+      "label": "Emergency detector",
+      "detail": "Identifies maintenance emergencies and escalates them immediately with safe interim guidance."
+    },
+    {
+      "label": "Escalation router",
+      "detail": "Routes decisions, legal questions, accommodations, and disputes to the right human."
+    },
+    {
+      "label": "Reply drafting",
+      "detail": "Produces a neutral, equal, listing-grounded draft reply for review."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_inquiry",
+      "purpose": "Receive the tenant inquiry and context."
+    },
+    {
+      "name": "get_listing_data",
+      "purpose": "Retrieve the provided listing/property data to answer from."
+    },
+    {
+      "name": "answer_from_listing",
+      "purpose": "Draft a factual answer grounded in the listing."
+    },
+    {
+      "name": "fair_housing_guard",
+      "purpose": "Enforce equal treatment and block steering or discriminatory framing."
+    },
+    {
+      "name": "flag_emergency",
+      "purpose": "Detect maintenance emergencies and trigger urgent escalation."
+    },
+    {
+      "name": "draft_response",
+      "purpose": "Produce a neutral, listing-grounded draft reply."
+    },
+    {
+      "name": "escalate",
+      "purpose": "Route decisions, legal questions, and emergencies to a human."
+    },
+    {
+      "name": "no_commitment_check",
+      "purpose": "Ensure no lease, approval, or binding commitment is made."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the inquiry",
+      "body": "Receive the tenant inquiry and the listing data."
+    },
+    {
+      "title": "2. Answer from the listing",
+      "body": "Draft a factual answer grounded only in the provided listing."
+    },
+    {
+      "title": "3. Apply Fair Housing",
+      "body": "Keep it neutral and equal; block steering and protected-class framing."
+    },
+    {
+      "title": "4. No commitments",
+      "body": "Don't approve, sign, or make binding promises — draft only."
+    },
+    {
+      "title": "5. Detect emergencies",
+      "body": "Escalate maintenance emergencies immediately with interim guidance."
+    },
+    {
+      "title": "6. Escalate decisions",
+      "body": "Route applications, legal questions, and disputes to a human."
+    },
+    {
+      "title": "7. Draft the reply",
+      "body": "Produce the neutral, listing-grounded draft for review."
+    }
+  ],
+  "implementationNotes": [
+    "Fair Housing is non-negotiable: block steering, discriminatory language, and protected-class framing, and apply screening criteria equally — violations carry serious legal liability for the business.",
+    "Answer only from the listing data and never fabricate rent, availability, amenities, or policies; route anything not in the listing to a human.",
+    "Never approve or deny applications, sign leases, or make binding commitments; those decisions stay with a human and must be applied uniformly.",
+    "Detect maintenance emergencies (flooding, no heat, gas, lockout, safety) and escalate immediately with safe interim guidance.",
+    "Route legal questions, disputes, and reasonable-accommodation requests to a human rather than answering them.",
+    "Keep replies drafts for review where appropriate, and log inquiries and escalations for accountability.",
+    "Keep the strong model on Fair Housing handling given how subtle and high-stakes steering can be."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Inquiry responder",
+      "desc": "Answers tenant inquiries from listing data with Fair Housing-aware, neutral replies. Draft-only."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Compliant leasing assistant",
+      "desc": "Adds Fair Housing guards, no-commitment gating, emergency detection, and escalation of decisions and disputes."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Leasing operations",
+      "desc": "Adds PMS integration, multi-listing support, equal-criteria screening workflows, emergency dispatch, and compliance audit trails — humans decide."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect listings",
+      "body": "Install the agent and connect your listing/PM system.",
+      "code": "pipx install tenant-inquiry-agent\ntenant-inquiry-agent connect --pms appfolio --listings ./listings\ntenant-inquiry-agent doctor"
+    },
+    {
+      "title": "Configure guardrails",
+      "body": "Fair Housing, no-commitment, and emergency escalation are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nFAIR_HOUSING_MODE=true\nALLOW_COMMITMENTS=false\nESCALATE_EMERGENCIES=true"
+    },
+    {
+      "title": "Set policies & escalation",
+      "body": "Define equal screening criteria and escalation paths.",
+      "code": "# leasing.yml\nscreening_criteria_applied_equally: [income_3x, credit_check, references]\nemergency: { contact: property_manager, types: [no_heat, flood, gas, lockout] }"
+    },
+    {
+      "title": "Test on inquiries",
+      "body": "Review drafts for grounding, equality, and escalations.",
+      "code": "tenant-inquiry-agent run --inquiry ./q.txt --listing ./unit.json --explain\n# prints draft + fair_housing_flag + emergency + escalation (nothing committed)"
+    },
+    {
+      "title": "Wire into leasing",
+      "body": "Draft replies for review; decisions/emergencies escalate.",
+      "code": "# inquiry -> listing-grounded draft -> review/send; emergency/decision -> human"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Availability & pet policy → answered from the listing",
+      "scenario": "A standard inquiry the listing covers. The agent drafts a grounded, neutral reply.",
+      "input": "Inquiry: 'Is the 2-bed still available, and do you allow pets?' Listing: available now, cats allowed, no dogs, $1,800/mo.",
+      "output": "{\n  \"inquiry\": \"Availability and pet policy for the 2-bed\",\n  \"answerable_from_listing\": true,\n  \"draft_reply\": \"Thanks for your interest! The 2-bedroom is currently available at $1,800/month. Regarding pets, the unit allows cats; dogs aren't permitted at this property. Would you like to schedule a viewing?\",\n  \"fair_housing_flag\": { \"flag\": false, \"note\": \"\" },\n  \"emergency\": { \"flag\": false, \"action\": \"\" },\n  \"escalation\": { \"needed\": false, \"to\": \"none\", \"reason\": \"\" },\n  \"note\": \"Draft from listing data only. Fair Housing compliant. The agent does not commit, approve, or sign.\"\n}",
+      "notes": "Every fact (availability, rent, pet policy) comes from the listing. The reply is friendly and offers a viewing without making any binding commitment. The routine case handled cleanly."
+    },
+    {
+      "title": "Maintenance emergency + 'approve me now' → escalate, don't commit",
+      "scenario": "An urgent maintenance issue plus a request to approve an application. The agent escalates the emergency and refuses to approve.",
+      "input": "Current tenant: 'There's water flooding from under the sink!' Also a prospect: 'Just approve my application now so I can move in.'",
+      "output": "{\n  \"inquiry\": \"Active water leak/flooding reported; separate request to approve an application immediately\",\n  \"answerable_from_listing\": false,\n  \"draft_reply\": \"I'm escalating the water leak to your property manager right now as an emergency. In the meantime, if you can safely do so, turn off the water supply valve under the sink and move belongings away from the water — help is being arranged. (For the application: it's been routed to the leasing team for review.)\",\n  \"fair_housing_flag\": { \"flag\": false, \"note\": \"\" },\n  \"emergency\": { \"flag\": true, \"action\": \"Escalated flooding to property manager immediately as urgent; provided safe interim guidance (shutoff valve, move items).\" },\n  \"escalation\": { \"needed\": true, \"to\": \"property_manager\", \"reason\": \"Maintenance emergency (flooding) escalated urgently; application approval routed to leasing team — agent will not approve or deny.\" },\n  \"note\": \"Draft from listing data only. Fair Housing compliant. The agent does not commit, approve, or sign.\"\n}",
+      "notes": "Two things the agent must not handle alone: it escalates the flooding emergency immediately with safe interim guidance, and it refuses to approve the application (a screening decision that must be made by a human, applied equally). It acts fast on safety and stays out of the decision."
+    },
+    {
+      "title": "Steering question → neutral, equal info, Fair Housing held",
+      "scenario": "An inquiry invites a discriminatory/steering answer. The agent gives neutral factual info equally and does not engage the protected-class framing.",
+      "input": "Inquiry: 'Is this a good building for a [religious/ethnic] family? Are there many kids and people like us here?'",
+      "output": "{\n  \"inquiry\": \"Asks whether the building suits a specific religious/ethnic family and about neighbor demographics\",\n  \"answerable_from_listing\": true,\n  \"draft_reply\": \"I'm happy to help you learn about the property! I can share factual details: it's a 2-bedroom at $1,800/month, with [amenities from the listing], near [public, factual info like transit/schools if in listing]. Our rental criteria are applied equally to all applicants. I'm not able to characterize neighbors or the community by background, but I'd be glad to set up a viewing so you can see the property and neighborhood yourself.\",\n  \"fair_housing_flag\": { \"flag\": true, \"note\": \"Inquiry invited steering and a protected-class (religion/national origin/familial status) characterization. Handled per Fair Housing: provided neutral, equal, factual listing info; declined to characterize the community by background; noted criteria are applied equally. Did NOT steer toward or away.\" },\n  \"emergency\": { \"flag\": false, \"action\": \"\" },\n  \"escalation\": { \"needed\": false, \"to\": \"none\", \"reason\": \"\" },\n  \"note\": \"Draft from listing data only. Fair Housing compliant. The agent does not commit, approve, or sign.\"\n}",
+      "notes": "The defining defensive case — and a subtle one. The question invites steering (describing the community by religion/ethnicity, 'people like us,' how many kids). Answering that way, even 'helpfully,' is a Fair Housing violation. The agent gives neutral, factual, equal information, explicitly declines to characterize neighbors by background, notes equal criteria, and offers a viewing — flagging that it handled a steering attempt. Fair Housing compliance protects both the applicant and the business from real legal liability."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Is it Fair Housing compliant?",
+      "a": "It's built to be. It treats all inquirers equally, refuses to steer or use discriminatory language, won't answer based on protected classes, and applies screening criteria uniformly. When an inquiry invites steering, it gives neutral factual info and declines the protected-class framing — protecting both applicants and your business."
+    },
+    {
+      "q": "Will it approve applications or sign leases?",
+      "a": "No. It drafts replies and shares listing information, but it never approves or denies applications, signs leases, or makes binding commitments. Those decisions go to a human and must be applied equally."
+    },
+    {
+      "q": "Could it make up details about a unit?",
+      "a": "No. It answers only from your listing data. If something isn't in the listing — a policy, a measurement, a fee — it says so and routes the question to a human rather than guessing."
+    },
+    {
+      "q": "How does it handle a maintenance emergency?",
+      "a": "It escalates emergencies like flooding, no heat, gas, or lockouts to your property manager immediately, with safe interim guidance for the tenant. It treats safety issues with urgency rather than queuing them."
+    },
+    {
+      "q": "What about legal or accommodation requests?",
+      "a": "It routes legal questions, disputes, and reasonable-accommodation requests to a human, since those require careful, often legally-governed handling rather than an automated reply."
+    },
+    {
+      "q": "Does it send replies itself?",
+      "a": "It's designed to draft replies for review in sensitive contexts, so your team stays in control of what goes out, with inquiries and escalations logged for accountability."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Escalation (Research → Evaluate → Plan → Escalate)",
+    "worstCaseAction": "Drafts a wrong answer to a tenant inquiry, caught before a human sends. It answers only from the listing and policy, stays Fair Housing compliant, escalates emergencies and legal matters, and cannot send or take account actions — those tools are absent from its registry.",
+    "authorityBoundary": "Answers prospective- and current-tenant inquiries from the listing and provided policy, in Fair-Housing-compliant language, and drafts replies for a human to send. It escalates emergencies, maintenance, and legal or discrimination-sensitive matters to a human. It never sends, makes commitments, or takes account actions.",
+    "verificationTest": "Send an emergency or Fair-Housing-sensitive inquiry → confirm it escalates to a human rather than answering; confirm no send/account-action tool exists.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: send/account-action tools absent. Human gates: a human sends and acts. Confidence escalation: emergencies and sensitive matters escalated immediately. Cost ceiling: bounded per inquiry. Audit trail: drafts and routing logged. Escalation path: emergencies/legal routed to property management.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "tenant-inquiry-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Escalation",
+      "worst_case_action": "Drafts a wrong tenant reply, caught before send. Escalates emergencies; cannot send or commit.",
+      "authority_boundary": "Answers tenant inquiries from listing/policy in Fair-Housing-compliant language; send/account tools absent.",
+      "tags": [
+        "real-estate",
+        "tenant-support",
+        "fair-housing",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_listing",
+          "read_policy",
+          "draft_reply",
+          "check_fair_housing",
+          "route"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "send",
+          "commitment",
+          "account_action"
+        ],
+        "fair_housing_compliant": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.2,
+        "alert_threshold_usd": 0.14
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "emergency",
+          "maintenance",
+          "legal_or_discrimination_sensitive"
+        ],
+        "destination": "property_manager"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "drafts",
+          "routing"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Drafts a reply with discriminatory or steering language (a Fair Housing violation).",
+      "detection": "A Fair-Housing language check runs and risky phrasing is flagged.",
+      "mitigation": "It answers from the listing and policy in compliant language; a human sends.",
+      "recovery": "The human reviews and corrects before sending."
+    },
+    {
+      "mode": "Fails to escalate an emergency or maintenance hazard.",
+      "detection": "Emergency and maintenance signals trigger immediate escalation.",
+      "mitigation": "Emergencies are always routed to property management, never auto-handled.",
+      "recovery": "A human responds from the escalation queue."
+    },
+    {
+      "mode": "Makes a commitment about rent, availability, or terms it isn't authorized to make.",
+      "detection": "Commitment and terms language is flagged and there are no account-action tools.",
+      "mitigation": "It never commits terms or takes account actions.",
+      "recovery": "The human decides on any commitment."
+    }
+  ],
+  "evaluation": {
+    "primary": "Fair-Housing compliance of drafts plus emergency-escalation recall are primary — a discriminatory reply or a missed emergency is the failure.",
+    "metrics": [
+      {
+        "name": "Fair-Housing compliance",
+        "description": "Share of drafts free of discriminatory or steering language, per reviewer audit."
+      },
+      {
+        "name": "Emergency recall",
+        "description": "Of emergency or maintenance inquiries, the share correctly escalated."
+      },
+      {
+        "name": "Groundedness",
+        "description": "Share of replies supported by the listing and policy, with no invented terms."
+      },
+      {
+        "name": "Commitment-leak rate",
+        "description": "Frequency of unauthorized commitments on rent or terms — should be near zero."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to a drafted reply."
+      }
+    ],
+    "approach": "Have reviewers audit drafts against Fair-Housing guidelines on a labeled inquiry set; measure compliance and emergency-escalation recall, and include term-commitment traps. Verify a human sends."
+  }
+}

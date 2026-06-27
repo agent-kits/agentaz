@@ -1,0 +1,54 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "inbox-triage-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Escalation",
+  "worst_case_action": "Mislabels a message for user correction. Cannot send, delete, or take account actions.",
+  "authority_boundary": "Classifies and prioritizes mail and suggests labels; send/delete tools absent.",
+  "tags": [
+    "email",
+    "triage",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_mail",
+      "classify",
+      "prioritize",
+      "suggest_label"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "send",
+      "delete",
+      "account_action"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.18,
+    "alert_threshold_usd": 0.12
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 6
+  },
+  "human_handoff": {
+    "triggers": [
+      "ambiguous",
+      "sensitive",
+      "low_confidence"
+    ],
+    "destination": "user"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "classifications"
+    ]
+  }
+}

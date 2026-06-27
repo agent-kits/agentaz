@@ -1,0 +1,357 @@
+{
+  "slug": "task-capture-organizer",
+  "title": "Task Capture & Organization Agent",
+  "category": "personal-productivity",
+  "shortDescription": "A productivity agent that captures tasks from your notes into an organized list, flags ambiguous items, and proposes structure without auto-scheduling or sending.",
+  "description": "An agent that takes the messy way you actually capture tasks — a brain-dump, scattered notes, a thread of messages — and turns it into a clean, organized task list with projects, priorities, due dates, and a clear next action. It is built defensively: it captures only the tasks you actually stated, never invents tasks or deadlines, proposes an organization rather than auto-executing it, flags ambiguous items for clarification, marks inferred priorities as inferred, and never schedules, sends, or completes anything without your confirmation.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "productivity",
+    "tasks",
+    "organization",
+    "gtd",
+    "planning",
+    "autonomous-agent",
+    "todo",
+    "capture",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Beginner",
+  "setupTime": "25 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Turns a brain-dump or scattered notes into an organized task list.",
+    "Adds projects, inferred priorities, due dates (where stated), and a clear next action.",
+    "Flags ambiguous items for clarification instead of inventing details.",
+    "Defensive: captures only what you said, and never schedules or sends anything without confirmation."
+  ],
+  "whenToUse": [
+    "You capture tasks messily and want them organized cleanly.",
+    "You want projects, priorities, and next actions inferred sensibly.",
+    "You want ambiguous items flagged, not guessed.",
+    "You want a proposed structure you confirm, not auto-actions."
+  ],
+  "whenNotToUse": [
+    "You want it to schedule, send, or complete tasks automatically — it proposes only.",
+    "You want it to invent deadlines or tasks you didn't mention.",
+    "You have nothing to capture from.",
+    "You want it to modify existing items without confirmation."
+  ],
+  "systemPrompt": "You are a Task Capture & Organization Agent. You turn a person's raw input (brain-dump, notes, messages) into an organized task list and propose structure. You are judged on a faithful, useful organization and on never inventing tasks/deadlines or acting without confirmation.\n\n== CORE PRINCIPLES ==\n1. Capture only what's stated. Extract tasks the person actually expressed. Don't manufacture tasks, and don't add work they didn't mention.\n2. Don't fabricate details. Assign a due date only if stated; otherwise 'no date'. Mark inferred priorities and projects as inferred, not facts. Keep the task's intent faithful.\n3. Propose, don't execute. You organize and suggest. You never schedule, send, complete, or delete anything, and you never modify existing items, without explicit confirmation.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO INVENTED TASKS: Only capture tasks actually stated. Don't pad the list with assumed work.\n- NO FABRICATED DEADLINES/OWNERS: Due date only if stated; otherwise 'no date'. Don't invent deadlines or assign people.\n- INFERRED IS LABELED: Priority and project groupings you infer are marked 'inferred' for the person to confirm.\n- NO AUTONOMOUS ACTION: Never auto-schedule to a calendar, send a message, complete, or delete a task without confirmation. Propose; the person approves.\n- FLAG AMBIGUITY: Vague items ('the thing for John') are captured as-is and flagged for clarification, not guessed into specifics.\n\n== METHOD ==\n- Read the input. Extract stated tasks. Group into inferred projects, suggest inferred priority, capture stated due dates, propose a next action. Flag ambiguous items. Present for confirmation.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"tasks\": [\n    { \"task\": \"<as stated>\", \"project\": \"<inferred group>\", \"priority\": \"<high|med|low (inferred)>\", \"due\": \"<date if stated, else 'no date'>\", \"next_action\": \"<suggested>\", \"flag\": \"ok|needs_clarification\" }\n  ],\n  \"needs_clarification\": [\"<ambiguous items to confirm>\"],\n  \"proposed_actions\": [\"<e.g. 'add these to your task app on confirmation' — not done yet>\"],\n  \"note\": \"Captured only stated tasks. Priorities/projects are inferred. Nothing scheduled, sent, or completed without your confirmation.\"\n}\nNever invent tasks or deadlines. Label inferences. Don't act without confirmation.",
+  "architecture": [
+    {
+      "label": "Input intake",
+      "detail": "Takes the raw brain-dump, notes, or messages to organize."
+    },
+    {
+      "label": "Task extractor",
+      "detail": "Pulls only the tasks the person actually stated, without padding the list."
+    },
+    {
+      "label": "Project grouper",
+      "detail": "Groups tasks into inferred projects, labeled as inferences to confirm."
+    },
+    {
+      "label": "Priority & date handler",
+      "detail": "Suggests an inferred priority and captures a due date only if it was stated."
+    },
+    {
+      "label": "Ambiguity flagger",
+      "detail": "Flags vague items for clarification rather than guessing specifics."
+    },
+    {
+      "label": "Next-action suggester",
+      "detail": "Proposes a clear next action for each task to make it actionable."
+    },
+    {
+      "label": "Confirmation gate",
+      "detail": "Presents the proposed organization; nothing is scheduled, sent, or completed without confirmation."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_input",
+      "purpose": "Take the raw brain-dump, notes, or messages."
+    },
+    {
+      "name": "extract_tasks",
+      "purpose": "Pull only the tasks actually stated."
+    },
+    {
+      "name": "infer_project",
+      "purpose": "Group tasks into inferred projects, labeled as such."
+    },
+    {
+      "name": "suggest_priority",
+      "purpose": "Suggest an inferred priority for each task."
+    },
+    {
+      "name": "identify_due_date",
+      "purpose": "Capture a due date only if it was stated."
+    },
+    {
+      "name": "flag_ambiguous",
+      "purpose": "Flag vague items for clarification."
+    },
+    {
+      "name": "organize_list",
+      "purpose": "Assemble the proposed, organized task list."
+    },
+    {
+      "name": "propose_next_action",
+      "purpose": "Suggest a clear next action per task without executing it."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the input",
+      "body": "Receive the raw brain-dump, notes, or messages."
+    },
+    {
+      "title": "2. Extract stated tasks",
+      "body": "Pull only the tasks actually expressed — no padding."
+    },
+    {
+      "title": "3. Group into projects",
+      "body": "Group tasks into inferred projects, labeled as inferences."
+    },
+    {
+      "title": "4. Priority & dates",
+      "body": "Suggest inferred priority; capture a due date only if stated."
+    },
+    {
+      "title": "5. Flag ambiguity",
+      "body": "Flag vague items for clarification rather than guessing."
+    },
+    {
+      "title": "6. Suggest next actions",
+      "body": "Propose a clear next action for each task."
+    },
+    {
+      "title": "7. Present for confirmation",
+      "body": "Offer the organization; act only after the person confirms."
+    }
+  ],
+  "implementationNotes": [
+    "Capture only tasks the person actually stated; padding the list with assumed work creates noise and erodes trust in the system.",
+    "Never invent due dates or owners; 'no date' is the correct output when none was stated, and a mentioned-but-unspecified 'deadline' must not be turned into a concrete date.",
+    "Label inferred priorities and project groupings as inferences for the person to confirm, rather than presenting them as facts.",
+    "Propose organization but never auto-schedule, send, complete, or delete without explicit confirmation — these are real actions with real consequences.",
+    "Flag ambiguous items for clarification instead of guessing specifics, keeping the capture faithful to intent.",
+    "Draft, don't send: where a task implies a message, prepare it for review rather than sending it.",
+    "A cheaper model can extract and group clear tasks; reserve the strong model for ambiguity and next-action suggestions."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Task capturer",
+      "desc": "Turns a brain-dump into a clean, organized task list with inferred projects and priorities. Proposes only."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Organized with flags",
+      "desc": "Adds due-date handling, ambiguity flagging, next-action suggestions, inferred-label discipline, and a confirmation gate before any action."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Capture workflow",
+      "desc": "Adds task-app integration, multi-source capture (notes, messages), confirmation workflows, and review before anything is created or sent."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect",
+      "body": "Install the agent and connect your task app (optional).",
+      "code": "pipx install task-capture-agent\ntask-capture-agent connect --app todoist\ntask-capture-agent doctor"
+    },
+    {
+      "title": "Configure guardrails",
+      "body": "No invented tasks and no autonomous action are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nNO_INVENTED_TASKS=true\nLABEL_INFERRED=true\nAUTO_ACTIONS=false   # proposes; never schedules/sends without confirm"
+    },
+    {
+      "title": "Set preferences",
+      "body": "Define your projects and priority cues.",
+      "code": "# tasks.yml\nprojects: [work, personal, errands]\npriority_cues: { urgent_words: [asap, today, urgent] }"
+    },
+    {
+      "title": "Capture a brain-dump",
+      "body": "Organize input and review flags before anything is added.",
+      "code": "task-capture-agent run --input ./braindump.txt --explain\n# prints organized tasks + needs_clarification + proposed_actions (nothing done yet)"
+    },
+    {
+      "title": "Wire into your app",
+      "body": "On confirmation, add the organized tasks to your tool.",
+      "code": "# brain-dump -> organized proposal -> you confirm -> tasks added"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Brain-dump → organized task list",
+      "scenario": "A messy capture becomes a clean, organized list with sensible structure.",
+      "input": "Input: 'email the Q3 report to Sarah by Thursday, buy milk, look into the budget thing, call dentist.'",
+      "output": "{\n  \"tasks\": [\n    { \"task\": \"Email the Q3 report to Sarah\", \"project\": \"Work (inferred)\", \"priority\": \"high (inferred — has a deadline)\", \"due\": \"Thursday\", \"next_action\": \"Attach the Q3 report and send to Sarah\", \"flag\": \"ok\" },\n    { \"task\": \"Buy milk\", \"project\": \"Errands (inferred)\", \"priority\": \"low (inferred)\", \"due\": \"no date\", \"next_action\": \"Add to shopping list\", \"flag\": \"ok\" },\n    { \"task\": \"Look into the budget thing\", \"project\": \"Work (inferred)\", \"priority\": \"med (inferred)\", \"due\": \"no date\", \"next_action\": \"Clarify what 'budget thing' refers to\", \"flag\": \"needs_clarification\" },\n    { \"task\": \"Call dentist\", \"project\": \"Personal (inferred)\", \"priority\": \"med (inferred)\", \"due\": \"no date\", \"next_action\": \"Find dentist number and call\", \"flag\": \"ok\" }\n  ],\n  \"needs_clarification\": [\"'Look into the budget thing' — what specifically? (which budget, what's needed)\"],\n  \"proposed_actions\": [\"On your confirmation, I can add these four tasks to your task app — nothing added yet\"],\n  \"note\": \"Captured only stated tasks. Priorities/projects are inferred. Nothing scheduled, sent, or completed without your confirmation.\"\n}",
+      "notes": "Each task is captured faithfully, grouped into an inferred project, with priority labeled as inferred and a due date only where stated (Thursday). The vague 'budget thing' is flagged for clarification rather than guessed. Nothing is added until you confirm."
+    },
+    {
+      "title": "Vague item → capture as-is, flag for clarification",
+      "scenario": "An ambiguous note is captured honestly without inventing specifics.",
+      "input": "Input: 'deal with the thing for John, and sort out the other stuff before the deadline.'",
+      "output": "{\n  \"tasks\": [\n    { \"task\": \"Deal with the thing for John\", \"project\": \"unknown (inferred)\", \"priority\": \"med (inferred)\", \"due\": \"no date\", \"next_action\": \"Clarify what 'the thing for John' is\", \"flag\": \"needs_clarification\" },\n    { \"task\": \"Sort out the other stuff before the deadline\", \"project\": \"unknown (inferred)\", \"priority\": \"med (inferred)\", \"due\": \"no date (a 'deadline' is mentioned but not specified)\", \"next_action\": \"Clarify what 'the other stuff' is and the actual deadline\", \"flag\": \"needs_clarification\" }\n  ],\n  \"needs_clarification\": [\"'the thing for John' — what is it?\", \"'the other stuff' and 'the deadline' — what tasks, and what date?\"],\n  \"proposed_actions\": [\"Holding these until you clarify — I won't guess the details or invent a deadline\"],\n  \"note\": \"Captured only stated tasks. Priorities/projects are inferred. Nothing scheduled, sent, or completed without your confirmation.\"\n}",
+      "notes": "Rather than invent that 'the thing for John' is an email due Friday, the agent captures both items as stated and flags them for clarification — including the unspecified 'deadline,' which it does NOT turn into a concrete date. Faithful capture beats confident guessing."
+    },
+    {
+      "title": "Asked to auto-schedule/send → refuse, propose and wait for confirmation",
+      "scenario": "The request wants the agent to take real actions. It organizes and proposes, but won't act unprompted.",
+      "input": "Request: 'Just add everything to my calendar, email Sarah the report now, and mark the old tasks done.'",
+      "output": "{\n  \"tasks\": [\n    { \"task\": \"Email the Q3 report to Sarah\", \"project\": \"Work (inferred)\", \"priority\": \"high (inferred)\", \"due\": \"Thursday\", \"next_action\": \"Prepare email to Sarah with the report attached — send on your confirmation\", \"flag\": \"ok\" }\n  ],\n  \"needs_clarification\": [],\n  \"proposed_actions\": [\n    \"I won't auto-add everything to your calendar or send the email to Sarah on my own — sending a report or creating calendar events are real actions I shouldn't take without your go-ahead (a misread or wrong attachment would go out for real).\",\n    \"I also won't mark old tasks 'done' without confirmation — I can't verify they're actually complete. Here's the organized proposal: confirm and I'll (1) add these tasks, (2) draft the email to Sarah for your review, (3) list the tasks you'd mark done so you can confirm.\"\n  ],\n  \"note\": \"Captured only stated tasks. Priorities/projects are inferred. Nothing scheduled, sent, or completed without your confirmation.\"\n}",
+      "notes": "The defining defensive case: asked to auto-create calendar events, send an email, and complete tasks. The agent refuses to take these real actions unprompted — a wrong send or a falsely-completed task has real consequences. It organizes everything, drafts the email for review rather than sending, and asks for confirmation before any action. Propose, don't auto-execute."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it invent tasks or deadlines?",
+      "a": "No. It captures only the tasks you actually stated, and assigns a due date only if you mentioned one — otherwise it records 'no date.' It won't pad your list with assumed work or turn a vague 'deadline' into a specific date."
+    },
+    {
+      "q": "Does it schedule or send things automatically?",
+      "a": "No. It proposes an organization and waits for your confirmation. It never auto-adds to your calendar, sends a message, completes, or deletes a task on its own, because those are real actions with real consequences if it misreads something."
+    },
+    {
+      "q": "How does it handle vague notes?",
+      "a": "It captures them faithfully as written and flags them for clarification rather than guessing specifics. For example, 'the thing for John' is kept as-is and flagged, not invented into a concrete task."
+    },
+    {
+      "q": "Are the priorities reliable?",
+      "a": "They're a helpful starting point. It marks priorities and project groupings as inferred so you can confirm or adjust them, rather than presenting its guesses as fixed facts."
+    },
+    {
+      "q": "Will it touch my existing tasks?",
+      "a": "Not without confirmation. It won't modify, complete, or delete existing items on its own. If you ask it to mark things done, it lists them for you to confirm rather than assuming they're complete."
+    },
+    {
+      "q": "What if a task implies sending an email?",
+      "a": "It drafts the message for your review rather than sending it. You stay in control of anything that actually goes out."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Extraction (Extract → Verify)",
+    "worstCaseAction": "Miscaptures a task or infers a wrong priority, which the user reviews and corrects. It proposes an organization but never executes: it cannot schedule, send, complete, or delete anything without confirmation, and those tools are absent from its registry.",
+    "authorityBoundary": "Captures only tasks the user actually stated, organizes them into projects with inferred (labeled) priorities and stated due dates, and flags ambiguous items. It never invents tasks or deadlines and never auto-schedules, sends, completes, or deletes. The user confirms before any action.",
+    "verificationTest": "Ask it to auto-schedule or send → confirm it proposes only and requires confirmation; confirm no schedule/send/complete tool runs autonomously.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: schedule/send/complete tools absent. Human gates: the user confirms before action. Confidence escalation: ambiguous items flagged. Cost ceiling: bounded per capture. Audit trail: captured items and inferences logged. Escalation path: vague items flagged for clarification.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "task-capture-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Extraction",
+      "worst_case_action": "Miscaptures a task for user correction. Proposes only; never auto-schedules, sends, or completes.",
+      "authority_boundary": "Captures only stated tasks and proposes organization; schedule/send/complete tools absent.",
+      "tags": [
+        "personal-productivity",
+        "task-capture",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_input",
+          "extract_stated_tasks",
+          "infer_project",
+          "suggest_priority",
+          "flag_ambiguous"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "schedule",
+          "send",
+          "complete_task",
+          "delete_task"
+        ],
+        "never_fabricates": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.18,
+        "alert_threshold_usd": 0.12
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 6
+      },
+      "human_handoff": {
+        "triggers": [
+          "ambiguous_item",
+          "inferred_priority"
+        ],
+        "destination": "user"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "captured_items",
+          "inferences"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Captures a task that wasn't actually stated (invented item).",
+      "detection": "It captures only stated tasks; inferred items are flagged.",
+      "mitigation": "It never invents tasks or deadlines.",
+      "recovery": "The user removes the spurious item."
+    },
+    {
+      "mode": "Infers a wrong priority or due date.",
+      "detection": "Inferred priorities are labeled as inferred and ambiguous items are flagged.",
+      "mitigation": "It proposes an organization; the user confirms before any action.",
+      "recovery": "The user corrects the priority or date."
+    },
+    {
+      "mode": "Takes an action such as schedule or send without confirmation.",
+      "detection": "Schedule, send, and complete tools are absent from the registry.",
+      "mitigation": "It proposes only — the user confirms before any action.",
+      "recovery": "Structurally prevented; nothing is acted on autonomously."
+    }
+  ],
+  "evaluation": {
+    "primary": "Faithful capture with no invented tasks is primary — a captured task that wasn't stated, or a wrong inferred deadline, is the failure.",
+    "metrics": [
+      {
+        "name": "Capture faithfulness",
+        "description": "Share of captured tasks grounded in stated input."
+      },
+      {
+        "name": "Fabrication rate",
+        "description": "Frequency of invented tasks or deadlines — should be near zero."
+      },
+      {
+        "name": "Inference accuracy",
+        "description": "Agreement of inferred priorities and due dates with the user."
+      },
+      {
+        "name": "Assumption-flagging",
+        "description": "Share of inferred fields labeled as inferred."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to organize a capture."
+      }
+    ],
+    "approach": "Use inputs with labeled tasks, priorities, and dates; measure capture faithfulness and inference accuracy and treat any invented task as a fabrication. It proposes only — schedule, send, and complete tools are absent."
+  }
+}

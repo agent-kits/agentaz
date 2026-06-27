@@ -1,0 +1,54 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "meeting-summary-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Synthesis",
+  "worst_case_action": "Produces an inaccurate summary for participant review. Cannot send, assign, or schedule.",
+  "authority_boundary": "Summarizes transcripts and extracts stated action items; send/assign tools absent; no invented owners.",
+  "tags": [
+    "meeting-intelligence",
+    "summary",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_transcript",
+      "summarize",
+      "extract_action_items",
+      "flag_ambiguous"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "send",
+      "assign_task",
+      "schedule"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.2,
+    "alert_threshold_usd": 0.14
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "unclear_ownership",
+      "ambiguous_item"
+    ],
+    "destination": "meeting_owner"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "summary",
+      "action_items"
+    ]
+  }
+}

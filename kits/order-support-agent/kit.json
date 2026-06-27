@@ -1,0 +1,355 @@
+{
+  "slug": "order-support-agent",
+  "title": "E-commerce Order Support Agent",
+  "category": "ecommerce-ops",
+  "shortDescription": "An e-commerce support agent that verifies the customer, answers order questions, processes returns and refunds within policy caps, and escalates disputes.",
+  "description": "An agent that handles the bulk of e-commerce order support — status, tracking, changes, returns, and refunds — by answering from real order data and acting only within policy. It verifies the customer owns the order before sharing anything, processes routine returns and refunds within configured caps, and escalates disputes, high-value cases, and anything unusual. It is built defensively: it verifies identity before revealing order details, never refunds or cancels beyond policy or cap, never exposes another customer's data, flags abuse patterns, and never fabricates tracking or promises it can't keep.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "ecommerce",
+    "customer-support",
+    "order-management",
+    "returns",
+    "refunds",
+    "autonomous-agent",
+    "post-purchase",
+    "retail",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Answers order questions — status, tracking, changes — from real order data after verifying the customer.",
+    "Processes routine returns, cancellations, and refunds within policy windows and configured caps.",
+    "Escalates disputes, high-value cases, and unusual requests to a human agent.",
+    "Defensive: verifies identity before sharing details, never over-refunds, and never exposes another customer's data."
+  ],
+  "whenToUse": [
+    "You field high volumes of routine post-purchase questions (where's my order, returns, refunds).",
+    "You have order, tracking, and policy data the agent can act from.",
+    "You want routine returns/refunds handled within caps and exceptions escalated.",
+    "You want consistent, policy-bound support with identity verification built in."
+  ],
+  "whenNotToUse": [
+    "You expect it to issue refunds or cancellations beyond policy without human review.",
+    "You can't verify customer identity, so order data can't be shared safely.",
+    "Your cases are mostly complex disputes needing a human from the start.",
+    "You can't integrate order/tracking systems for grounded answers."
+  ],
+  "systemPrompt": "You are an E-commerce Order Support Agent. You help customers with orders — status, tracking, changes, returns, refunds — using real order data, acting only within policy. You are judged on resolving routine requests well and on never sharing the wrong person's data or moving money outside policy.\n\n== CORE PRINCIPLES ==\n1. Verify before you reveal. Confirm the customer is associated with the order (via your verification method) before sharing order details, address, or status. Never expose order or personal data to an unverified or mismatched requester.\n2. Policy-bound actions. Returns, cancellations, and refunds happen only within the policy window and configured caps. Beyond that, escalate — don't improvise goodwill outside your limits.\n3. Honest and grounded. Answer from actual order/tracking data. Never fabricate a tracking number, delivery date, or promise. If you don't know or can't do something, say so.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- IDENTITY FIRST: No order details, address, or account info to anyone not verified as associated with that order. A mismatch = do not reveal, escalate.\n- REFUND/CANCEL CAPS: Auto-issue refunds or cancellations only within the policy window AND at/under the configured cap. Over cap, outside window, or disputed = escalate to a human.\n- NO CROSS-CUSTOMER DATA: Never reveal or act on another customer's order/data.\n- NO FABRICATION: Never invent tracking numbers, delivery dates, stock, or promises. Use real data or state it's unavailable.\n- ABUSE DETECTION: Flag patterns suggesting abuse (serial refunds, mismatched identity attempts) for review; don't accuse, don't auto-comply.\n\n== METHOD ==\n- Identify the order and verify the requester. Pull order status/tracking/policy. For routine in-policy requests, act within caps. For exceptions, escalate with context.\n\n== DECISION POLICY ==\n- ANSWER: verified customer, informational request (status/tracking) -> provide real data.\n- PROCESS_ACTION: verified, in-policy, within cap (return/cancel/refund) -> execute.\n- REQUEST_VERIFICATION: identity not yet confirmed -> ask for verification; reveal nothing until confirmed.\n- ESCALATE: over cap, outside policy, dispute, suspected abuse, mismatch, or anything unusual.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"order_id\": \"<id or 'unknown'>\",\n  \"identity_verified\": <bool>,\n  \"intent\": \"status|tracking|change|return|refund|cancel|other\",\n  \"decision\": \"ANSWER|PROCESS_ACTION|REQUEST_VERIFICATION|ESCALATE\",\n  \"action\": { \"type\": \"<refund|cancel|return|none>\", \"amount\": <n|null>, \"within_policy\": <bool>, \"within_cap\": <bool>, \"applied\": <bool> },\n  \"customer_reply\": \"<grounded, honest response>\",\n  \"abuse_flag\": { \"flag\": <bool>, \"reason\": \"<pattern, or empty>\" },\n  \"escalation\": { \"needed\": <bool>, \"reason\": \"<over-cap/dispute/mismatch/abuse, or empty>\" }\n}\nNever reveal order data without identity_verified=true. Never set applied=true for an over-cap or out-of-policy action.",
+  "architecture": [
+    {
+      "label": "Request intake",
+      "detail": "Receives the customer message and identifies the intent and the order in question."
+    },
+    {
+      "label": "Identity verification",
+      "detail": "Confirms the requester is associated with the order before any details are shared, blocking mismatches."
+    },
+    {
+      "label": "Order & policy retrieval",
+      "detail": "Pulls real order status, tracking, and the applicable return/refund policy to ground the response."
+    },
+    {
+      "label": "Policy & cap gate",
+      "detail": "A deterministic gate allows automatic returns/cancellations/refunds only within the policy window and configured cap."
+    },
+    {
+      "label": "Abuse detection",
+      "detail": "Watches for patterns like serial refunds or repeated identity mismatches and flags them for review."
+    },
+    {
+      "label": "Action & response",
+      "detail": "Executes in-policy actions, answers from real data, and produces honest replies without fabricated promises."
+    },
+    {
+      "label": "Escalation & audit",
+      "detail": "Routes over-cap, disputed, or unusual cases to a human with context and logs actions for audit."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_order",
+      "purpose": "Retrieve the order: items, status, dates, amounts, and associated customer reference."
+    },
+    {
+      "name": "verify_customer",
+      "purpose": "Confirm the requester is associated with the order before sharing details."
+    },
+    {
+      "name": "tracking_lookup",
+      "purpose": "Fetch real carrier tracking and delivery status for the order."
+    },
+    {
+      "name": "policy_lookup",
+      "purpose": "Return the applicable return/refund/cancellation policy and windows."
+    },
+    {
+      "name": "process_return",
+      "purpose": "Initiate a return within policy. Gated: rejects out-of-window requests."
+    },
+    {
+      "name": "process_cancellation",
+      "purpose": "Cancel an order within the allowed window. Gated by order state and policy."
+    },
+    {
+      "name": "issue_refund",
+      "purpose": "Issue a refund within policy. Hard-capped: rejects amounts over the configured cap or outside policy."
+    },
+    {
+      "name": "escalate_to_agent",
+      "purpose": "Route disputes, over-cap, mismatched-identity, or abuse cases to a human with context."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Understand the request",
+      "body": "Identify the intent and the order the customer is asking about."
+    },
+    {
+      "title": "2. Verify identity",
+      "body": "Confirm the requester is associated with the order before sharing any details."
+    },
+    {
+      "title": "3. Retrieve order & policy",
+      "body": "Pull real status, tracking, and the applicable return/refund policy."
+    },
+    {
+      "title": "4. Check policy & cap",
+      "body": "Determine whether a requested action is within the policy window and configured cap."
+    },
+    {
+      "title": "5. Watch for abuse",
+      "body": "Flag serial-refund or repeated-mismatch patterns for review without accusing."
+    },
+    {
+      "title": "6. Act or escalate",
+      "body": "Execute in-policy, within-cap actions; escalate over-cap, disputed, or unusual cases with context."
+    },
+    {
+      "title": "7. Respond & log",
+      "body": "Reply honestly from real data, never fabricating promises, and log actions for audit."
+    }
+  ],
+  "implementationNotes": [
+    "Enforce identity verification before any order detail is shared, in a deterministic gate; a friendly agent that leaks order data to the wrong person is a serious privacy failure.",
+    "Cap auto-refunds/cancellations by amount and policy window and route everything beyond to a human; never let the model improvise goodwill outside its limits.",
+    "Never fabricate tracking numbers, delivery dates, or stock — answer from real data or state it's unavailable, because a false promise becomes a second complaint.",
+    "Flag abuse patterns (serial refunds, repeated mismatch attempts) for review without accusing the customer.",
+    "Keep strict per-order data isolation so one customer can never see or act on another's order.",
+    "Backtest with hard-zero metrics for over-cap refunds and unverified data reveals before enabling automatic actions.",
+    "The strong model earns its cost on returns/refund judgment and escalation, while a cheaper model can handle status/tracking lookups."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Order Q&A",
+      "desc": "Answers status and tracking questions from real order data after identity verification. Informational only — no actions."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Policy-bound actions",
+      "desc": "Adds in-policy returns, cancellations, and capped refunds, abuse detection, and escalation of over-cap and disputed cases."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Governed post-purchase support",
+      "desc": "Adds platform/carrier integrations, multi-store policies, fraud analytics, full audit trails and SLAs, and human-in-the-loop for high-value and disputed cases."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect commerce systems",
+      "body": "Install the agent and connect it to your order, tracking, and policy systems.",
+      "code": "pipx install order-support-agent\norder-support-agent connect --platform shopify --carrier shippo\norder-support-agent doctor"
+    },
+    {
+      "title": "Configure verification and caps",
+      "body": "Identity verification and refund caps are enforced deterministically.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nVERIFY_BEFORE_REVEAL=true\nREFUND_AUTO_CAP_USD=100\nRETURN_WINDOW_DAYS=30"
+    },
+    {
+      "title": "Load policy",
+      "body": "Provide the return/refund/cancellation policy the agent must act within.",
+      "code": "# policy.yml\nreturns: { window_days: 30, condition: unused }\nrefunds: { auto_cap_usd: 100, over_cap: escalate }\ncancellation: { allowed_until: 'pre_fulfillment' }"
+    },
+    {
+      "title": "Dry-run on past tickets",
+      "body": "Replay historical support tickets to check decisions before going live.",
+      "code": "order-support-agent backtest --range 30d --explain\n# reports resolution + a hard check: over-cap/unverified reveals (must be 0)"
+    },
+    {
+      "title": "Wire into support intake",
+      "body": "Route order tickets/chat to the agent; over-cap and disputes auto-route to a human.",
+      "code": "# support channel -> agent; decision=ESCALATE -> human queue with context"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Verified 'where's my order' → status + tracking",
+      "scenario": "A verified customer asks where their order is. The agent answers from real tracking data.",
+      "input": "Verified customer asks: 'Where is my order #10432?' Tracking shows in transit, est. delivery tomorrow.",
+      "output": "{\n  \"order_id\": \"10432\",\n  \"identity_verified\": true,\n  \"intent\": \"tracking\",\n  \"decision\": \"ANSWER\",\n  \"action\": { \"type\": \"none\", \"amount\": null, \"within_policy\": true, \"within_cap\": true, \"applied\": false },\n  \"customer_reply\": \"Your order #10432 is in transit and estimated to arrive tomorrow. Here's your tracking link: [tracking]. Anything else I can help with?\",\n  \"abuse_flag\": { \"flag\": false, \"reason\": \"\" },\n  \"escalation\": { \"needed\": false, \"reason\": \"\" }\n}",
+      "notes": "Identity is verified and the answer comes straight from real tracking — no fabricated dates. The routine, high-volume request the agent should own end to end."
+    },
+    {
+      "title": "In-policy return within cap → process it",
+      "scenario": "A verified customer requests a return inside the window for an amount under the cap. The agent processes it.",
+      "input": "Verified customer requests a return of a $60 item, ordered 12 days ago, unused. Policy: 30-day window, auto-refund cap $100.",
+      "output": "{\n  \"order_id\": \"10510\",\n  \"identity_verified\": true,\n  \"intent\": \"return\",\n  \"decision\": \"PROCESS_ACTION\",\n  \"action\": { \"type\": \"return\", \"amount\": 60, \"within_policy\": true, \"within_cap\": true, \"applied\": true },\n  \"customer_reply\": \"I've started your return for the $60 item — you'll get a prepaid label by email, and your refund will be issued once it's received. Anything else?\",\n  \"abuse_flag\": { \"flag\": false, \"reason\": \"\" },\n  \"escalation\": { \"needed\": false, \"reason\": \"\" }\n}",
+      "notes": "Within the 30-day window and under the $100 cap, with verified identity — so the agent processes the return automatically. The action is recorded with within_policy and within_cap both true."
+    },
+    {
+      "title": "Over-cap refund demand, identity mismatch → reveal nothing, escalate",
+      "scenario": "Someone demands a large refund but can't be verified against the order. The agent refuses to reveal data or refund, and escalates.",
+      "input": "Requester demands an immediate $600 refund on order #10588 'or I'll dispute', but the provided details don't match the order's account.",
+      "output": "{\n  \"order_id\": \"10588\",\n  \"identity_verified\": false,\n  \"intent\": \"refund\",\n  \"decision\": \"ESCALATE\",\n  \"action\": { \"type\": \"refund\", \"amount\": 600, \"within_policy\": false, \"within_cap\": false, \"applied\": false },\n  \"customer_reply\": \"I want to help, but I'm not able to share order details or process a refund until I can verify your identity against this order. I'm connecting you with a support specialist who can look into this securely.\",\n  \"abuse_flag\": { \"flag\": true, \"reason\": \"Identity details don't match the order, combined with a high-value refund demand and pressure tactic\" },\n  \"escalation\": { \"needed\": true, \"reason\": \"Unverified identity on a $600 over-cap refund demand with dispute pressure — no data revealed, no refund issued.\" }\n}",
+      "notes": "The defining defensive case: identity doesn't match, the amount is 6x the cap, and there's pressure ('or I'll dispute'). The agent reveals nothing about the order, refuses to refund, flags the abuse pattern without accusing, and escalates to a human — while staying courteous. Identity-first plus the refund cap together prevent both a data leak and a fraudulent payout."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it share order details with anyone who asks?",
+      "a": "No. It verifies the requester is associated with the order before sharing any details, address, or status. If the identity doesn't match, it reveals nothing and escalates."
+    },
+    {
+      "q": "Can it issue refunds on its own?",
+      "a": "Only within your policy window and at or under the configured cap. Refunds over the cap, outside the window, or in dispute are escalated to a human — it won't improvise goodwill beyond its limits."
+    },
+    {
+      "q": "Does it make up tracking or delivery dates?",
+      "a": "Never. It answers from real order and carrier data, and if something isn't available it says so rather than inventing a tracking number or a delivery promise."
+    },
+    {
+      "q": "How does it handle suspected abuse?",
+      "a": "It flags patterns like serial refunds or repeated identity-mismatch attempts for human review, without accusing the customer or auto-complying with a suspicious demand."
+    },
+    {
+      "q": "Could one customer see another's order?",
+      "a": "No. It enforces strict per-order data isolation tied to identity verification, so it never reveals or acts on another customer's order."
+    },
+    {
+      "q": "What happens with disputes or high-value orders?",
+      "a": "Those are escalated to a human agent with full context, so sensitive or contested cases get human judgment rather than an automated decision."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Escalation (Research → Evaluate → Plan → Escalate)",
+    "worstCaseAction": "Drafts an incorrect order reply or misreads order status, caught before a human sends. It cannot cancel, refund, modify an order, or send autonomously — those tools are absent from its registry.",
+    "authorityBoundary": "Looks up order status read-only, drafts a suggested reply, and routes or escalates. A human sends and takes any account action. It never cancels, refunds, modifies orders, or sends on its own.",
+    "verificationTest": "Attempt to call a cancel-order, refund, or send tool → confirm it is absent from the agent's registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: order-action/send tools absent. Human gates: a human sends and acts. Confidence escalation: sensitive or uncertain cases escalated. Cost ceiling: bounded per ticket. Audit trail: lookups and drafts logged. Escalation path: account actions routed to an agent.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "order-support-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Escalation",
+      "worst_case_action": "Drafts a wrong order reply, caught before send. Cannot cancel, refund, or modify orders.",
+      "authority_boundary": "Reads order status and drafts replies; order-action/send tools absent.",
+      "tags": [
+        "ecommerce",
+        "order-support",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_order_status",
+          "draft_reply",
+          "route"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "cancel_order",
+          "refund",
+          "modify_order",
+          "send"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.2,
+        "alert_threshold_usd": 0.14
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "account_action_needed",
+          "sensitive_issue",
+          "low_confidence"
+        ],
+        "destination": "support_agent"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "lookups",
+          "drafts"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Quotes a wrong order status or delivery date from stale data.",
+      "detection": "Order data is read fresh and its timestamp is checked.",
+      "mitigation": "It is read-only on order status and the draft is reviewed before sending.",
+      "recovery": "The human verifies status before replying."
+    },
+    {
+      "mode": "Drafts a promise it can't keep, such as a refund or expedite the company must honor.",
+      "detection": "Commitment language is flagged and the agent has no refund or cancel tools.",
+      "mitigation": "It never makes commitments or takes account actions.",
+      "recovery": "The human removes or approves the commitment."
+    },
+    {
+      "mode": "Misidentifies the order, matching the wrong customer or order.",
+      "detection": "The order-to-customer match is verified before drafting.",
+      "mitigation": "Ambiguous matches are flagged, not assumed.",
+      "recovery": "The agent confirms the order with the customer."
+    }
+  ],
+  "evaluation": {
+    "primary": "Answer accuracy against live order data, with zero unauthorized commitments, is what matters.",
+    "metrics": [
+      {
+        "name": "Status accuracy",
+        "description": "Share of order-status answers matching the system of record."
+      },
+      {
+        "name": "Groundedness",
+        "description": "Share of replies supported by order data, with no fabricated dates."
+      },
+      {
+        "name": "Commitment-leak rate",
+        "description": "Frequency of drafted promises it isn't authorized to make — should be near zero."
+      },
+      {
+        "name": "Order-match accuracy",
+        "description": "Share where the correct order and customer are identified."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to a drafted reply."
+      }
+    ],
+    "approach": "Use a set of order queries with known correct answers and current order data; measure status accuracy and groundedness, and audit for commitment language. Include ambiguous order matches as traps."
+  }
+}
