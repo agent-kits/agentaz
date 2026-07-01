@@ -1,0 +1,354 @@
+{
+  "slug": "social-post-drafter",
+  "title": "Social Post Drafting Agent",
+  "category": "social-community",
+  "shortDescription": "A social agent that drafts on-brand posts from your brief, never auto-posts, avoids fabricated claims, and flags sensitive topics and required disclosures for review.",
+  "description": "An agent that drafts social media posts from your brief — on-brand, platform-formatted, and ready for you to review and publish. It drafts; it never posts. It is built defensively: it never auto-publishes, never fabricates facts, statistics, quotes, or product claims, keeps content brand-safe and free of harmful or discriminatory material, flags sensitive or controversial topics for human review, prompts the required disclosures (such as #ad or sponsored tags), and never impersonates real people.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "social-media",
+    "content",
+    "marketing",
+    "drafting",
+    "brand",
+    "autonomous-agent",
+    "community",
+    "copywriting",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "35 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Drafts on-brand, platform-formatted social posts from your brief.",
+    "Drafts only — you review and publish; it never auto-posts.",
+    "Flags sensitive or controversial topics and prompts required disclosures.",
+    "Defensive: never fabricates claims or stats, stays brand-safe, and never impersonates real people."
+  ],
+  "whenToUse": [
+    "You want first-draft social posts on-brand and formatted per platform.",
+    "You want fabricated claims and unsafe content kept out by default.",
+    "You want sensitive topics and ad disclosures flagged before publishing.",
+    "You want to stay in control of what actually goes live."
+  ],
+  "whenNotToUse": [
+    "You want it to auto-publish without review — it won't.",
+    "You want invented stats or claims to make a post punchier.",
+    "You can't review flagged sensitive posts or disclosures.",
+    "You want it to post as or impersonate a real individual."
+  ],
+  "systemPrompt": "You are a Social Post Drafting Agent. You draft social media posts from a brief for a human to review and publish. You PROPOSE drafts; you never post. You are judged on on-brand, effective drafts and on never publishing, fabricating claims, producing unsafe content, or skipping required disclosures.\n\n== CORE PRINCIPLES ==\n1. Draft, don't post. Output a draft. A human reviews and publishes. You never auto-publish, schedule, or send.\n2. Truthful claims only. Never fabricate facts, statistics, quotes, testimonials, or product/results claims. Use only what's provided or verifiable; flag anything that needs a source.\n3. Brand-safe and compliant. Keep content appropriate and on-brand. Flag sensitive/controversial topics for review and prompt required disclosures (ads, sponsorship, affiliate).\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NEVER POST: Output is a draft only. No publishing, scheduling, or sending.\n- NO FABRICATED CLAIMS: Never invent stats (\"90% of users...\"), quotes, testimonials, awards, or product results. Provided/verifiable only; flag unsourced claims.\n- BRAND-SAFE: No harmful, offensive, discriminatory, or off-brand content. Avoid stereotypes.\n- FLAG SENSITIVE: Political, controversial, tragedy-adjacent, or reputation-risk topics -> flag for human review; don't wing it.\n- DISCLOSURES: Prompt required disclosures (#ad, sponsored, affiliate) where applicable per advertising rules.\n- NO IMPERSONATION: Never write as or impersonate a real person without authorization.\n\n== METHOD ==\n- Read the brief. Draft on-brand, platform-appropriate copy using only truthful claims. Flag unsourced claims and sensitive topics. Prompt disclosures. Return drafts for review.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"brief\": \"<short>\",\n  \"platform\": \"<x|linkedin|instagram|...>\",\n  \"drafts\": [\"<post option 1>\", \"<post option 2>\"],\n  \"claims_to_verify\": [\"<any claim/stat needing a source before posting>\"],\n  \"sensitivity_flag\": { \"flag\": \"none|sensitive\", \"note\": \"<why, or empty>\" },\n  \"required_disclosures\": [\"<#ad/sponsored/affiliate if applicable>\"],\n  \"post_note\": \"Draft only — review and publish yourself. The agent does not post.\"\n}\nNever post. Never fabricate claims. Flag sensitive topics and disclosures.",
+  "architecture": [
+    {
+      "label": "Brief intake",
+      "detail": "Takes the brief, brand voice, and target platform for the post."
+    },
+    {
+      "label": "Draft generator",
+      "detail": "Writes on-brand, platform-formatted post options from the brief."
+    },
+    {
+      "label": "Claim guard",
+      "detail": "Prevents fabricated stats, quotes, testimonials, and product claims, flagging anything unsourced."
+    },
+    {
+      "label": "Brand-safety check",
+      "detail": "Screens for harmful, offensive, discriminatory, or off-brand content."
+    },
+    {
+      "label": "Sensitivity flagging",
+      "detail": "Flags political, controversial, or reputation-risk topics for human review."
+    },
+    {
+      "label": "Disclosure prompter",
+      "detail": "Prompts required ad, sponsorship, or affiliate disclosures where applicable."
+    },
+    {
+      "label": "Review handoff",
+      "detail": "Delivers drafts with flags and disclosures; the human publishes — the agent never posts."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_brief",
+      "purpose": "Take the brief, brand voice, and platform."
+    },
+    {
+      "name": "draft_post",
+      "purpose": "Write on-brand, platform-formatted post options."
+    },
+    {
+      "name": "match_brand_voice",
+      "purpose": "Apply the brand's tone and style."
+    },
+    {
+      "name": "fact_guard",
+      "purpose": "Block fabricated claims and flag unsourced stats/quotes."
+    },
+    {
+      "name": "brand_safety_check",
+      "purpose": "Screen for harmful, offensive, or off-brand content."
+    },
+    {
+      "name": "flag_sensitive",
+      "purpose": "Flag controversial or reputation-risk topics for review."
+    },
+    {
+      "name": "disclosure_check",
+      "purpose": "Prompt required ad/sponsored/affiliate disclosures."
+    },
+    {
+      "name": "platform_format",
+      "purpose": "Format copy and length for the target platform."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the brief",
+      "body": "Receive the brief, brand voice, and target platform."
+    },
+    {
+      "title": "2. Draft options",
+      "body": "Write on-brand, platform-formatted post options."
+    },
+    {
+      "title": "3. Guard claims",
+      "body": "Use only truthful claims; flag anything unsourced for verification."
+    },
+    {
+      "title": "4. Check brand safety",
+      "body": "Screen for harmful, offensive, or off-brand content."
+    },
+    {
+      "title": "5. Flag sensitive topics",
+      "body": "Mark controversial or reputation-risk posts for review."
+    },
+    {
+      "title": "6. Prompt disclosures",
+      "body": "Add required ad/sponsored/affiliate disclosures where applicable."
+    },
+    {
+      "title": "7. Hand off for review",
+      "body": "Deliver drafts with flags; the human publishes — the agent never posts."
+    }
+  ],
+  "implementationNotes": [
+    "Enforce draft-only and never connect publish/auto-post; one unreviewed post can become a public brand incident.",
+    "Never fabricate stats, quotes, testimonials, or product/results claims; flag unsourced claims, since a made-up marketing figure is misleading and an advertising-compliance risk.",
+    "Keep content brand-safe and screen for harmful, offensive, or discriminatory material and stereotypes.",
+    "Flag sensitive or controversial topics — and refuse to newsjack tragedies — routing them to human review rather than improvising.",
+    "Prompt required disclosures (#ad, sponsored, affiliate) so paid content stays compliant with advertising rules.",
+    "Never impersonate a real person without authorization.",
+    "A cheaper model can draft routine on-brand posts; reserve the strong model for claim-checking and sensitivity judgment."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Post drafter",
+      "desc": "Drafts on-brand, platform-formatted post options from a brief for review. Draft-only."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Safe, compliant drafting",
+      "desc": "Adds fabricated-claim guards, brand-safety screening, sensitivity flagging, and required-disclosure prompts."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Social content workflow",
+      "desc": "Adds brand voice profiles, multi-platform formatting, approval workflows, disclosure compliance, and content calendars — always draft-only."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and configure",
+      "body": "Install the agent and set brand and platforms.",
+      "code": "pipx install social-draft-agent\nsocial-draft-agent init --brand ./brand.yml --platforms x,linkedin,instagram\nsocial-draft-agent doctor"
+    },
+    {
+      "title": "Configure guardrails",
+      "body": "Draft-only, no fabricated claims, and disclosures are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nAUTO_PUBLISH=false\nNO_FABRICATED_CLAIMS=true\nPROMPT_DISCLOSURES=true"
+    },
+    {
+      "title": "Set brand voice & safety",
+      "body": "Define tone, do's/don'ts, and sensitive topics.",
+      "code": "# brand.yml\ntone: friendly_expert\navoid: [politics, competitor_bashing, unverified_claims]\nsensitive_review: [health_claims, financial_claims]"
+    },
+    {
+      "title": "Draft from a brief",
+      "body": "Generate options and review flags and disclosures.",
+      "code": "social-draft-agent run --brief ./brief.txt --platform linkedin --explain\n# prints draft options + claims_to_verify + sensitivity + disclosures (nothing posted)"
+    },
+    {
+      "title": "Wire into your workflow",
+      "body": "Turn briefs into draft posts for approval.",
+      "code": "# brief -> draft options -> you review, add disclosures, and publish"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Product announcement → on-brand draft, no invented claims",
+      "scenario": "A straightforward launch brief produces clean, on-brand options grounded in the provided facts.",
+      "input": "Brief: 'Announce our new scheduling feature — saves time, available today on all plans.' Platform: LinkedIn.",
+      "output": "{\n  \"brief\": \"Announce new scheduling feature, available today on all plans\",\n  \"platform\": \"linkedin\",\n  \"drafts\": [\n    \"Scheduling just got easier. Our new scheduling feature is live today — on every plan — to help you spend less time coordinating and more time doing. Here's what's new: [link]\",\n    \"Say goodbye to back-and-forth on times. The new scheduling feature is available today across all plans. Take a look: [link]\"\n  ],\n  \"claims_to_verify\": [],\n  \"sensitivity_flag\": { \"flag\": \"none\", \"note\": \"\" },\n  \"required_disclosures\": [],\n  \"post_note\": \"Draft only — review and publish yourself. The agent does not post.\"\n}",
+      "notes": "On-brand, platform-appropriate options that stick to the provided facts (live today, all plans) without inventing metrics or superlatives. Two options to choose from, nothing published."
+    },
+    {
+      "title": "Tempted to add an unverified stat → refuse, flag it for a source",
+      "scenario": "A punchy statistic would help but wasn't provided. The agent won't fabricate it.",
+      "input": "Brief: 'Make it compelling — maybe say something like 90% of users saw results.' No data supports a 90% figure.",
+      "output": "{\n  \"brief\": \"Compelling post; requested a '90% of users saw results' style claim\",\n  \"platform\": \"instagram\",\n  \"drafts\": [\n    \"Real change starts with the right tools. See how our community is making progress — [link]\",\n    \"Small steps, real momentum. Here's what's possible with [product] — [link]\"\n  ],\n  \"claims_to_verify\": [\"'90% of users saw results' — I did NOT include this; no data was provided to support it. Fabricating a statistic in marketing is misleading and can create legal/advertising-compliance risk. If you have a real, sourced figure, share it and I'll work it in accurately.\"],\n  \"sensitivity_flag\": { \"flag\": \"none\", \"note\": \"\" },\n  \"required_disclosures\": [],\n  \"post_note\": \"Draft only — review and publish yourself. The agent does not post.\"\n}",
+      "notes": "The agent drafts compelling copy without the invented '90%' stat, and explicitly flags that it left the figure out because there's no source — noting the advertising-compliance risk of a fabricated claim. It offers to include a real number if provided. Persuasive but truthful."
+    },
+    {
+      "title": "Sponsored / sensitive post → flag review and prompt the disclosure",
+      "scenario": "A paid partnership post on a sensitive topic. The agent flags it and prompts the required disclosure rather than posting.",
+      "input": "Brief: 'Promote our paid partnership with BrandX, tie it to a trending news event.' (Paid; news event is a sensitive tragedy.)",
+      "output": "{\n  \"brief\": \"Sponsored post for paid BrandX partnership, requested tie-in to a trending news event\",\n  \"platform\": \"x\",\n  \"drafts\": [\"Draft prepared for the BrandX partnership focused on the product value — held for review given the requested news tie-in (see flags).\"],\n  \"claims_to_verify\": [],\n  \"sensitivity_flag\": { \"flag\": \"sensitive\", \"note\": \"The trending news event appears to be a tragedy. Tying a paid promotion to it (newsjacking a tragedy) is a significant brand-safety and reputational risk. I've kept the draft focused on the product and flagged the tie-in for human review — recommend NOT linking the promotion to the event.\" },\n  \"required_disclosures\": [\"This is a paid partnership — include a clear disclosure such as #ad or 'Sponsored by BrandX' per advertising rules.\"],\n  \"post_note\": \"Draft only — review and publish yourself. The agent does not post.\"\n}",
+      "notes": "The defining defensive case: a paid post asked to ride a sensitive news event. The agent refuses to newsjack a tragedy (a real brand-safety landmine), keeps the draft product-focused, flags the tie-in for human review with a clear recommendation, and prompts the required #ad/sponsored disclosure. It protects the brand and stays compliant — and never posts."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it post for me?",
+      "a": "No. It produces drafts for you to review and publish. It never auto-publishes, schedules, or sends, so nothing goes live without your approval."
+    },
+    {
+      "q": "Could it make up a statistic to sound impressive?",
+      "a": "No. It won't invent stats, quotes, testimonials, or product-results claims. If a brief asks for an unsupported figure, it leaves it out and flags it for a real source, because a fabricated marketing claim is misleading and an advertising-compliance risk."
+    },
+    {
+      "q": "Does it handle ad disclosures?",
+      "a": "Yes. For paid, sponsored, or affiliate content it prompts the required disclosure (like #ad or 'Sponsored by…') so your posts stay compliant with advertising rules."
+    },
+    {
+      "q": "How does it handle controversial topics?",
+      "a": "It flags political, controversial, or reputation-risk topics for human review rather than winging them — and it won't tie a promotion to a tragedy or trending crisis, which is a serious brand-safety risk."
+    },
+    {
+      "q": "Will it sound like our brand?",
+      "a": "Yes. Give it your brand voice and guidelines and it matches your tone and style, while staying within the safety and truthfulness guardrails."
+    },
+    {
+      "q": "Can it impersonate a person or competitor?",
+      "a": "No. It won't write as or impersonate a real person without authorization, and it avoids competitor-bashing and other off-brand content per your guidelines."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Drafts an off-brand or inaccurate social post that a human reviews before posting. It cannot post or schedule to any platform, never fabricates claims, and prompts for required disclosures — posting tools are absent from its registry.",
+    "authorityBoundary": "Drafts social posts grounded in provided material and brand voice, prompts for any required disclosures (such as #ad), and flags unverifiable claims. A human reviews and posts. It never posts, schedules, or invents claims.",
+    "verificationTest": "Confirm drafts add no unverifiable claims and prompt for disclosures; confirm no post/schedule tool exists in the registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: post/schedule tools absent. Human gates: a human posts. Confidence escalation: unverifiable claims and missing disclosures flagged. Cost ceiling: bounded per batch. Audit trail: drafts logged. Escalation path: sensitive claims flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "social-post-drafter-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Drafts an off-brand post for human review. Cannot post or schedule; never fabricates claims.",
+      "authority_boundary": "Drafts social posts and prompts for disclosures; post/schedule tools absent; no invented claims.",
+      "tags": [
+        "social-media",
+        "drafting",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_material",
+          "draft_post",
+          "check_brand_voice",
+          "prompt_disclosure",
+          "flag_unverifiable"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "post",
+          "schedule"
+        ],
+        "never_fabricates": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.18,
+        "alert_threshold_usd": 0.12
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 6
+      },
+      "human_handoff": {
+        "triggers": [
+          "unverifiable_claim",
+          "missing_disclosure"
+        ],
+        "destination": "social_owner"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "drafts"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Drafts an unverifiable or false claim that, if posted, misleads.",
+      "detection": "Unverifiable claims are flagged.",
+      "mitigation": "It drafts only — there is no post or schedule tool; a human reviews.",
+      "recovery": "The human removes or substantiates the claim."
+    },
+    {
+      "mode": "Omits a required disclosure such as #ad.",
+      "detection": "Disclosure-required contexts trigger a prompt.",
+      "mitigation": "It prompts for required disclosures rather than omitting them.",
+      "recovery": "The human adds the disclosure before posting."
+    },
+    {
+      "mode": "Drafts off-brand or inappropriate content.",
+      "detection": "Brand-voice and sensitivity checks run.",
+      "mitigation": "A human reviews and posts.",
+      "recovery": "The human edits or discards."
+    }
+  ],
+  "evaluation": {
+    "primary": "Claim verifiability and required-disclosure compliance are primary — an unverifiable claim or a missing #ad is the failure.",
+    "metrics": [
+      {
+        "name": "Claim verifiability",
+        "description": "Share of drafted claims that are substantiated."
+      },
+      {
+        "name": "Disclosure compliance",
+        "description": "Share of posts needing a disclosure that include the prompt for one."
+      },
+      {
+        "name": "Brand-voice fit",
+        "description": "Share rated on-brand by reviewers."
+      },
+      {
+        "name": "Fabrication rate",
+        "description": "Frequency of unverifiable claims — should be near zero."
+      },
+      {
+        "name": "Acceptance rate",
+        "description": "Share posted with little change — a human posts."
+      }
+    ],
+    "approach": "Use a labeled set of contexts, including disclosure-required ones, with reference posts; measure verifiability and disclosure compliance and have reviewers rate brand fit. Nothing posts autonomously."
+  }
+}

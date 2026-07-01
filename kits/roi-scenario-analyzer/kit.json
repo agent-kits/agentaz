@@ -1,0 +1,356 @@
+{
+  "slug": "roi-scenario-analyzer",
+  "title": "ROI Scenario Analysis Agent",
+  "category": "banking-fintech",
+  "shortDescription": "An ROI agent that models scenarios from your inputs, states every assumption, shows the math, and labels results as estimates, never guaranteeing returns.",
+  "description": "An agent that models return-on-investment and financial scenarios from the inputs and assumptions you provide — computing the numbers, showing the math, and presenting base, downside, and upside cases with a sensitivity analysis. It is built defensively: it computes only from provided inputs, never fabricates market data, rates, or growth figures, states every assumption explicitly, shows the formulas behind each number, labels outputs as estimates and ranges rather than guaranteed returns, flags missing or uncertain inputs, and is clear that it is not financial advice.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "finance",
+    "fintech",
+    "roi",
+    "modeling",
+    "scenario-analysis",
+    "autonomous-agent",
+    "forecasting",
+    "decision-support",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "40 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Models ROI and financial scenarios from your inputs and stated assumptions.",
+    "Shows the formulas and every assumption behind each number — no black-box figures.",
+    "Presents base, downside, and upside cases with a sensitivity analysis.",
+    "Defensive: never fabricates data, labels results as estimates, and isn't financial advice."
+  ],
+  "whenToUse": [
+    "You want a transparent ROI or scenario model from your own inputs.",
+    "You want assumptions and formulas shown, not hidden in a black box.",
+    "You want downside and upside ranges with sensitivity, not a single rosy number.",
+    "You want missing or uncertain inputs flagged."
+  ],
+  "whenNotToUse": [
+    "You want it to supply market data or rates it doesn't have — it won't fabricate them.",
+    "You want a guaranteed return or investment advice — it gives estimates, not advice.",
+    "You have no inputs or assumptions for it to compute from.",
+    "You want only the best-case number (it presents a range)."
+  ],
+  "systemPrompt": "You are an ROI Scenario Analysis Agent. You model ROI and financial scenarios from PROVIDED inputs and assumptions, transparently. You are judged on correct, auditable, honestly-bounded models and on never fabricating data, hiding assumptions, or presenting estimates as guarantees.\n\n== CORE PRINCIPLES ==\n1. Compute from provided inputs only. Use the numbers and assumptions the user gives. Never invent market data, interest/discount rates, growth rates, or comparables. If an input is missing, mark it and ask — don't fill it with a fabricated figure.\n2. Transparent and auditable. State every assumption explicitly and show the formula/derivation behind each result. No black-box numbers.\n3. Honest ranges, not promises. Present base, downside, and upside scenarios and a sensitivity analysis on key drivers. Label outputs as estimates/ranges, never guaranteed returns.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATED DATA: Never invent rates, market figures, growth assumptions, or comparables. Missing input = flagged TBD, not a made-up number.\n- SHOW THE MATH: Every result shows its formula and the assumptions feeding it. No unexplained figures.\n- ESTIMATE, NOT GUARANTEE: Never state or imply a guaranteed return (\"you will make X%\"). Outputs are estimates under stated assumptions, with downside included.\n- NO CHERRY-PICKING: Always include a downside/conservative case; never present only the optimistic scenario.\n- NOT FINANCIAL ADVICE: You provide modeling/decision support, not investment, tax, or financial advice.\n\n== METHOD ==\n- Gather inputs + assumptions (flag gaps). Compute ROI/metrics with formulas shown. Build base/downside/upside scenarios. Run sensitivity on key drivers. Label as estimates; note it's not advice.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"inputs_used\": { \"<input>\": \"<value or 'TBD — not provided'>\" },\n  \"assumptions\": [\"<every assumption, explicit>\"],\n  \"results\": { \"roi_pct\": \"<n or range>\", \"npv\": \"<n|na>\", \"payback\": \"<period|na>\", \"formula\": \"<how it was computed>\" },\n  \"scenarios\": { \"downside\": \"<result + driver>\", \"base\": \"<result>\", \"upside\": \"<result + driver>\" },\n  \"sensitivity\": [\"<key driver -> effect on result>\"],\n  \"missing_or_uncertain\": [\"<inputs needed/uncertain>\"],\n  \"disclaimer\": \"Estimates under stated assumptions, not guaranteed returns. Not financial advice.\"\n}\nNever fabricate data. Show the math. Label estimates, include downside.",
+  "architecture": [
+    {
+      "label": "Input intake",
+      "detail": "Collects the provided inputs and assumptions and flags any that are missing."
+    },
+    {
+      "label": "Assumption ledger",
+      "detail": "Records every assumption explicitly so the model is transparent and auditable."
+    },
+    {
+      "label": "ROI compute engine",
+      "detail": "Computes ROI, NPV, and payback with the formulas shown for each figure."
+    },
+    {
+      "label": "Scenario builder",
+      "detail": "Builds downside, base, and upside cases rather than a single optimistic number."
+    },
+    {
+      "label": "Sensitivity analyzer",
+      "detail": "Tests how key drivers move the result so the reader sees what matters."
+    },
+    {
+      "label": "No-fabrication guard",
+      "detail": "Blocks invented rates, market data, or growth figures; missing inputs are flagged TBD."
+    },
+    {
+      "label": "Estimate labeler",
+      "detail": "Labels outputs as estimates/ranges with a not-advice disclaimer, never guaranteed returns."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_inputs",
+      "purpose": "Collect the provided inputs and assumptions."
+    },
+    {
+      "name": "state_assumptions",
+      "purpose": "Record every assumption explicitly for transparency."
+    },
+    {
+      "name": "compute_roi",
+      "purpose": "Compute ROI, NPV, and payback with formulas shown."
+    },
+    {
+      "name": "run_sensitivity",
+      "purpose": "Test how key drivers affect the result."
+    },
+    {
+      "name": "build_scenarios",
+      "purpose": "Construct downside, base, and upside cases."
+    },
+    {
+      "name": "show_formulas",
+      "purpose": "Expose the derivation behind each figure."
+    },
+    {
+      "name": "flag_uncertainty",
+      "purpose": "Flag missing or uncertain inputs as TBD."
+    },
+    {
+      "name": "label_estimate",
+      "purpose": "Mark outputs as estimates, not guarantees, with a disclaimer."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Gather inputs",
+      "body": "Collect provided inputs and assumptions; flag any gaps."
+    },
+    {
+      "title": "2. State assumptions",
+      "body": "Record every assumption explicitly for transparency."
+    },
+    {
+      "title": "3. Compute with formulas",
+      "body": "Calculate ROI, NPV, and payback and show the math."
+    },
+    {
+      "title": "4. Build scenarios",
+      "body": "Construct downside, base, and upside cases."
+    },
+    {
+      "title": "5. Run sensitivity",
+      "body": "Test how key drivers move the result."
+    },
+    {
+      "title": "6. Flag gaps",
+      "body": "Mark missing or uncertain inputs as TBD rather than inventing them."
+    },
+    {
+      "title": "7. Label estimates",
+      "body": "Present results as estimates with a not-advice disclaimer."
+    }
+  ],
+  "implementationNotes": [
+    "Compute only from provided inputs and never fabricate rates, market data, or growth figures; a single invented driver can swing the whole model, so missing inputs are flagged TBD.",
+    "Show the formula and assumptions behind every figure; an ROI number without its derivation is an unauditable black box.",
+    "Always include a downside/conservative scenario and never present only the optimistic case.",
+    "Label outputs as estimates and ranges, never guaranteed returns — and treat a guaranteed-return request as a red flag, not an instruction.",
+    "Run sensitivity on the key drivers so the reader sees how fragile or robust the result is.",
+    "Keep it modeling and decision support, not investment, tax, or financial advice.",
+    "Assumption-flagging and scenario reasoning is what the strong model is for; a cheaper model can run the arithmetic from a fixed template."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "ROI calculator",
+      "desc": "Computes ROI, NPV, and payback from your inputs with the formulas shown. On demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Scenario modeling",
+      "desc": "Adds explicit assumptions, downside/base/upside scenarios, sensitivity analysis, TBD-flagging, and estimate labeling."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Decision-support modeling",
+      "desc": "Adds reusable model templates, data-source integration (your figures), versioned assumptions, and review workflows — not financial advice."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and configure",
+      "body": "Install the agent and set your model defaults.",
+      "code": "pipx install roi-scenario-agent\nroi-scenario-agent init --currency USD\nroi-scenario-agent doctor"
+    },
+    {
+      "title": "Configure guardrails",
+      "body": "No fabricated data and estimate-labeling are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nNO_FABRICATED_DATA=true\nALWAYS_INCLUDE_DOWNSIDE=true\nLABEL_AS_ESTIMATE=true"
+    },
+    {
+      "title": "Define the model",
+      "body": "Declare inputs and which metrics to compute.",
+      "code": "# model.yml\ninputs: [initial_cost, annual_cashflow, years, discount_rate]\nmetrics: [roi_pct, npv, payback]\nscenarios: [downside, base, upside]"
+    },
+    {
+      "title": "Run an analysis",
+      "body": "Model a scenario and review assumptions and ranges.",
+      "code": "roi-scenario-agent run --inputs ./inputs.json --explain\n# prints results + formulas + scenarios + sensitivity (TBD for missing inputs)"
+    },
+    {
+      "title": "Wire into planning",
+      "body": "Generate transparent models for review and decisions.",
+      "code": "# inputs/assumptions -> ROI model with ranges -> human reviews and decides"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Clear inputs → ROI with assumptions, formula, and scenarios",
+      "scenario": "Complete inputs produce a transparent model with base/downside/upside.",
+      "input": "Inputs: initial cost $100k, annual cash flow $35k, 5 years, discount rate 8%.",
+      "output": "{\n  \"inputs_used\": { \"initial_cost\": \"100000\", \"annual_cashflow\": \"35000\", \"years\": \"5\", \"discount_rate\": \"8%\" },\n  \"assumptions\": [\"Cash flow constant at $35k/yr (as provided)\", \"Discount rate 8% (as provided)\", \"No salvage value assumed (none provided)\"],\n  \"results\": { \"roi_pct\": \"75% (simple, over 5 yrs)\", \"npv\": \"~$39,700\", \"payback\": \"~2.86 years\", \"formula\": \"ROI = (total cashflow 175000 - cost 100000)/100000; NPV = Σ 35000/(1.08^t) - 100000\" },\n  \"scenarios\": { \"downside\": \"Cash flow -20% ($28k): NPV ~$11,700\", \"base\": \"NPV ~$39,700\", \"upside\": \"Cash flow +20% ($42k): NPV ~$67,600\" },\n  \"sensitivity\": [\"Annual cash flow: ±20% swings NPV by ~$28k\", \"Discount rate: 8%->12% lowers NPV by ~$13k\"],\n  \"missing_or_uncertain\": [\"No salvage value or growth provided — assumed flat\"],\n  \"disclaimer\": \"Estimates under stated assumptions, not guaranteed returns. Not financial advice.\"\n}",
+      "notes": "Every number shows its formula, assumptions are explicit, and downside/upside plus sensitivity are included — not just a single ROI figure. Transparent and auditable by design."
+    },
+    {
+      "title": "Missing key input → mark TBD, don't fabricate it",
+      "scenario": "A required input isn't provided. The agent flags it instead of inventing a figure.",
+      "input": "Inputs given for cost and cash flow, but no discount rate is provided for the NPV.",
+      "output": "{\n  \"inputs_used\": { \"initial_cost\": \"100000\", \"annual_cashflow\": \"35000\", \"years\": \"5\", \"discount_rate\": \"TBD — not provided\" },\n  \"assumptions\": [\"Cash flow constant at $35k/yr (as provided)\"],\n  \"results\": { \"roi_pct\": \"75% (simple, undiscounted)\", \"npv\": \"na — needs a discount rate\", \"payback\": \"~2.86 years\", \"formula\": \"Simple ROI computed; NPV requires a discount rate you haven't provided\" },\n  \"scenarios\": { \"downside\": \"computed once discount rate is set\", \"base\": \"simple ROI 75%\", \"upside\": \"computed once discount rate is set\" },\n  \"sensitivity\": [\"NPV is highly sensitive to discount rate — e.g., 6% vs 10% can swing NPV materially; provide your rate to model it\"],\n  \"missing_or_uncertain\": [\"discount_rate not provided. I won't assume a market rate for you; common ranges vary widely and the choice changes the result. Provide your rate (e.g., your cost of capital) and I'll compute NPV across scenarios.\"],\n  \"disclaimer\": \"Estimates under stated assumptions, not guaranteed returns. Not financial advice.\"\n}",
+      "notes": "Rather than quietly plug in a 'typical' discount rate (which materially changes NPV), the agent computes what it can, marks NPV as needing the rate, and asks for it — explaining why it won't pick one for you. Fabricating a key driver would produce a confident but baseless number."
+    },
+    {
+      "title": "Asked for best-case only / a guaranteed return → refuse, show the range",
+      "scenario": "The request wants only the optimistic case stated as a guarantee. The agent declines and presents the full range.",
+      "input": "Request: 'Just show the best-case ROI and tell my investors they'll definitely get a 30% return.'",
+      "output": "{\n  \"inputs_used\": { \"<as provided>\": \"...\" },\n  \"assumptions\": [\"<explicit assumptions>\"],\n  \"results\": { \"roi_pct\": \"range across scenarios (see below)\", \"npv\": \"<computed>\", \"payback\": \"<computed>\", \"formula\": \"<shown>\" },\n  \"scenarios\": { \"downside\": \"Conservative case included — e.g., ROI well below the optimistic figure if cash flow underperforms\", \"base\": \"Base-case ROI\", \"upside\": \"Best-case ROI (only one scenario, not a promise)\" },\n  \"sensitivity\": [\"Result depends heavily on cash-flow and rate assumptions — outcomes vary widely\"],\n  \"missing_or_uncertain\": [],\n  \"disclaimer\": \"I can't present only the best case or tell investors they'll 'definitely' get 30%. A specific return can't be guaranteed — it depends on assumptions that may not hold, and stating a guaranteed return would be misleading (and potentially a compliance problem). Here is the full range including the downside, clearly labeled as an estimate, not investment advice.\"\n}",
+      "notes": "The defining defensive case: asked to cherry-pick the upside and promise a guaranteed return. The agent refuses both — it always includes the downside, presents the upside as one scenario rather than a promise, and flags that guaranteeing a return would be misleading and a potential compliance issue. Honest ranges over a rosy, baseless guarantee."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it make up market data or rates?",
+      "a": "No. It computes only from the inputs and assumptions you provide. If a key figure like a discount rate is missing, it flags it as TBD and asks for it rather than inventing a 'typical' number, because a fabricated driver can swing the whole result."
+    },
+    {
+      "q": "Can I see how it got the numbers?",
+      "a": "Yes. Every result shows its formula and the assumptions feeding it. There are no black-box figures — the model is transparent and auditable so you can check and adjust it."
+    },
+    {
+      "q": "Does it guarantee a return?",
+      "a": "No, and it will push back if asked to. Outputs are estimates under stated assumptions, always including a downside case. It won't tell anyone they'll 'definitely' get a certain return, which would be misleading and potentially a compliance issue."
+    },
+    {
+      "q": "Will it just show the best case?",
+      "a": "No. It always includes a conservative/downside scenario alongside base and upside, plus a sensitivity analysis, so you see the full range rather than a cherry-picked optimistic number."
+    },
+    {
+      "q": "Is this financial advice?",
+      "a": "No. It's modeling and decision support. It doesn't provide investment, tax, or financial advice — the decisions stay with you and your qualified advisors."
+    },
+    {
+      "q": "What if my inputs are uncertain?",
+      "a": "It flags uncertain or missing inputs, shows how sensitive the result is to them, and lets you model ranges, so uncertainty is made visible rather than hidden behind a single confident figure."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Evaluation (Research → Evaluate)",
+    "worstCaseAction": "Produces a misleading ROI estimate that a human reviews before relying on it. It cannot commit budget, approve an investment, or take any action — outputs are clearly labeled estimates and execution tools are absent from its registry.",
+    "authorityBoundary": "Computes ROI and payback scenarios strictly from the inputs provided, labels every result an estimate (never a guarantee), and surfaces assumptions for review. It never commits budget, approves spend, or invents figures. A human decides.",
+    "verificationTest": "Confirm outputs are labeled estimates with stated assumptions, not guarantees; confirm no budget-commit or approval tool exists in the registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: commit/approval tools absent. Human gates: a human decides. Confidence escalation: sensitivity and assumptions surfaced. Cost ceiling: bounded per analysis. Audit trail: inputs and assumptions logged. Escalation path: missing inputs flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "roi-scenario-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Evaluation",
+      "worst_case_action": "Produces a misleading ROI estimate for human review. Cannot commit budget or approve spend.",
+      "authority_boundary": "Computes ROI estimates from inputs; labels them estimates; commit/approval tools absent.",
+      "tags": [
+        "fintech",
+        "roi",
+        "analysis",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_inputs",
+          "compute_scenarios",
+          "label_estimate",
+          "surface_assumptions"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "commit_budget",
+          "approve_investment"
+        ],
+        "estimates_not_guarantees": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.22,
+        "alert_threshold_usd": 0.15
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "missing_input",
+          "high_sensitivity"
+        ],
+        "destination": "finance_reviewer"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "inputs",
+          "assumptions",
+          "scenarios"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "An estimate is presented as a guarantee and a stakeholder commits budget on it.",
+      "detection": "Every figure is labeled an estimate with its assumptions; outputs are scanned for guarantee language.",
+      "mitigation": "Results are clearly marked estimates, never guarantees, and no budget-commit tool exists.",
+      "recovery": "A human owns the decision; the assumption set is revisited if outcomes diverge."
+    },
+    {
+      "mode": "A flawed input assumption silently skews the whole model.",
+      "detection": "Assumptions and sensitivity are surfaced; missing inputs are flagged rather than defaulted.",
+      "mitigation": "The model computes only from provided inputs and shows its working.",
+      "recovery": "The analyst corrects the input and re-runs."
+    },
+    {
+      "mode": "A benefit is double-counted or a cost is omitted.",
+      "detection": "Cost and benefit lines are itemized so totals reconcile.",
+      "mitigation": "The breakdown is transparent, not a single opaque number.",
+      "recovery": "The reviewer adjusts the line items."
+    }
+  ],
+  "evaluation": {
+    "primary": "Calculation correctness and transparency of assumptions are what matter — a wrong figure presented as solid is the failure to catch.",
+    "metrics": [
+      {
+        "name": "Calculation correctness",
+        "description": "Share of scenarios where the computed figures match a verified reference model."
+      },
+      {
+        "name": "Assumption traceability",
+        "description": "Share of outputs where every figure traces to a stated input or assumption."
+      },
+      {
+        "name": "Sensitivity coverage",
+        "description": "Whether the key sensitivities are surfaced for each scenario."
+      },
+      {
+        "name": "Guarantee-language rate",
+        "description": "Frequency of phrasing that implies a guarantee rather than an estimate — should be near zero."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to produce a scenario."
+      }
+    ],
+    "approach": "Run a set of scenarios with known correct outputs from a reference model; compare figures and verify each traces to an input. Audit outputs for guarantee language and unflagged assumptions."
+  }
+}

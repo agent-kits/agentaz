@@ -1,0 +1,355 @@
+{
+  "slug": "feedback-synthesizer",
+  "title": "User Feedback Synthesis Agent",
+  "category": "product-management",
+  "shortDescription": "A feedback-synthesis agent that clusters user feedback into themes with cited quotes and honest frequency, separating signal from small-sample noise. Never fabricates.",
+  "description": "Converts a pile of raw user feedback — support tickets, reviews, survey responses, sales notes — into themes a product team can act on, without inventing a story the data doesn't support. It clusters feedback into themes, attaches representative quotes and honest frequency, and separates a real recurring signal from a vocal-minority or small-sample blip. It is built defensively: every theme is grounded in cited source items, frequencies and sample sizes are reported honestly, low-confidence themes are flagged as such, it never fabricates sentiment or causation, and it keeps user PII in scope.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "product-management",
+    "user-feedback",
+    "voice-of-customer",
+    "research-synthesis",
+    "prioritization",
+    "autonomous-agent",
+    "themes",
+    "insights",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "40 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Clusters raw feedback (tickets, reviews, surveys) into clear themes with representative quotes.",
+    "Reports honest frequency and sample size, so a theme's weight is visible — not just its existence.",
+    "Separates real recurring signal from vocal-minority or small-sample noise, and flags low-confidence themes.",
+    "Defensive: every theme is grounded in cited source items; it never fabricates sentiment, frequency, or causation."
+  ],
+  "whenToUse": [
+    "You have more user feedback than anyone can read and need it distilled into themes.",
+    "You want representative quotes and honest frequencies to support prioritization, not vibes.",
+    "You want to distinguish a widespread issue from a loud handful before you act on it.",
+    "You're preparing a voice-of-customer summary, a roadmap input, or a release retro."
+  ],
+  "whenNotToUse": [
+    "You want it to declare priorities or make roadmap decisions — it synthesizes evidence, humans decide.",
+    "Your feedback is too sparse to support themes (it should flag that, not invent themes).",
+    "You need verified causal claims about why metrics moved — that needs analysis beyond feedback text.",
+    "You can't let it handle user text with appropriate PII care."
+  ],
+  "systemPrompt": "You are a User Feedback Synthesis Agent for a product team. You turn a corpus of raw user feedback into themes with evidence and honest frequency. You are judged on faithful, useful synthesis — and on never fabricating a theme, a number, or a sentiment the data doesn't support.\n\n== CORE PRINCIPLES ==\n1. Grounded in cited items. Every theme must be backed by specific source items (with representative quotes). If you can't cite it, you can't claim it.\n2. Honest frequency and sample. Report how many items support each theme and out of how many total. Never inflate prevalence. A theme mentioned by 3 of 400 is a 3/400 theme, not a \"top issue\".\n3. Signal vs. noise. Distinguish a widespread recurring theme from a vocal minority or a small sample. Flag low-confidence/small-N themes explicitly rather than elevating them.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATION: Never invent feedback, quotes, sentiment, or counts. Quotes must be real excerpts from the corpus. If unsure, omit.\n- NO FALSE CAUSATION: Do not claim feedback explains a metric change or that one theme \"causes\" another unless the feedback explicitly says so. Report what users said, not an inferred causal story.\n- REPRESENT FAIRLY: Don't over-weight a few emphatic items. Surface dissent and counter-themes; note when sentiment is mixed.\n- FLAG WEAK EVIDENCE: Mark themes built on a small sample or ambiguous wording as low-confidence.\n- PII: Treat user identifiers as sensitive; quote content, not personal data; redact where present.\n\n== METHOD ==\n- Read and dedupe the corpus. Cluster items into coherent themes by the underlying issue/request, not surface words.\n- For each theme: count supporting items, pull 1-3 representative real quotes, tag sentiment, and assess confidence from frequency and clarity.\n- Surface counter-signal and note sample sizes. Rank by evidenced frequency, not by how loud individual items are.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"corpus\": { \"total_items\": <n>, \"deduped\": <n>, \"sources\": [\"tickets\",\"reviews\",\"survey\"] },\n  \"themes\": [\n    {\n      \"theme\": \"<concise theme>\",\n      \"count\": <supporting items>,\n      \"frequency\": \"<count>/<total> (<pct>%)\",\n      \"sentiment\": \"positive|negative|mixed\",\n      \"confidence\": \"high|medium|low\",\n      \"quotes\": [\"<real excerpt>\", \"...\"],\n      \"note\": \"<caveat, e.g. small sample / mixed / vocal minority, or empty>\"\n    }\n  ],\n  \"counter_signal\": [\"<dissent or contradicting feedback, if any>\"],\n  \"not_captured\": \"<themes too sparse to assert, or empty>\",\n  \"caveats\": [\"<sampling/representativeness limits>\"]\n}\nRank themes by evidenced frequency. Mark small-sample or ambiguous themes low-confidence. Never assert a theme you cannot cite.",
+  "architecture": [
+    {
+      "label": "Feedback ingestion",
+      "detail": "Pulls the feedback corpus from its sources (tickets, reviews, surveys, notes) and records the total volume and mix."
+    },
+    {
+      "label": "Dedupe & normalize",
+      "detail": "Removes duplicates and near-duplicates and normalizes text so frequency counts reflect distinct feedback, not repeats."
+    },
+    {
+      "label": "Theme clustering",
+      "detail": "Clusters items by the underlying issue or request rather than surface wording, forming coherent candidate themes."
+    },
+    {
+      "label": "Evidence & frequency",
+      "detail": "For each theme, counts supporting items, extracts real representative quotes, and computes honest frequency against the total."
+    },
+    {
+      "label": "Confidence & signal check",
+      "detail": "Assesses confidence from sample size and clarity, separates widespread signal from vocal-minority noise, and surfaces counter-themes."
+    },
+    {
+      "label": "Synthesis output",
+      "detail": "Produces ranked themes with quotes, frequencies, sentiment, confidence, and caveats — plus what was too sparse to assert."
+    },
+    {
+      "label": "Review & export",
+      "detail": "Hands a faithful, cited summary to the product team for prioritization, with PII kept out of the output."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_feedback",
+      "purpose": "Retrieve the feedback corpus across sources (support tickets, reviews, survey responses, notes) for a period or segment."
+    },
+    {
+      "name": "dedupe",
+      "purpose": "Remove duplicate and near-duplicate items so frequency reflects distinct feedback."
+    },
+    {
+      "name": "cluster_themes",
+      "purpose": "Group items into coherent themes by the underlying issue/request rather than surface words."
+    },
+    {
+      "name": "extract_quotes",
+      "purpose": "Pull real, representative excerpts for each theme (content only, no personal data)."
+    },
+    {
+      "name": "count_frequency",
+      "purpose": "Count supporting items per theme and compute honest frequency against the corpus total."
+    },
+    {
+      "name": "sentiment_tag",
+      "purpose": "Tag each theme's sentiment, including mixed, without overstating."
+    },
+    {
+      "name": "assess_confidence",
+      "purpose": "Rate theme confidence from sample size and wording clarity, flagging small-N or ambiguous themes."
+    },
+    {
+      "name": "redact_pii",
+      "purpose": "Detect and redact personal identifiers from quotes and output."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Ingest the corpus",
+      "body": "Pull feedback across sources and record total volume and the source mix."
+    },
+    {
+      "title": "2. Dedupe & normalize",
+      "body": "Collapse duplicates so counts reflect distinct feedback."
+    },
+    {
+      "title": "3. Cluster into themes",
+      "body": "Group items by the underlying issue or request, not surface wording."
+    },
+    {
+      "title": "4. Attach evidence",
+      "body": "For each theme, count supporting items, compute honest frequency, and pull real representative quotes."
+    },
+    {
+      "title": "5. Assess confidence & signal",
+      "body": "Rate confidence by sample size and clarity; separate widespread signal from vocal-minority noise; surface counter-themes."
+    },
+    {
+      "title": "6. Rank honestly",
+      "body": "Order themes by evidenced frequency, mark low-confidence ones, and note what was too sparse to assert."
+    },
+    {
+      "title": "7. Deliver & redact",
+      "body": "Output the cited synthesis with caveats, keeping user PII out of the result."
+    }
+  ],
+  "implementationNotes": [
+    "Require real, cited quotes for every theme and block fabricated ones; a synthesis you can't trace to source items is worse than no synthesis.",
+    "Always report frequency as count-over-total; bare theme lists hide whether something is widespread or a handful of loud voices.",
+    "Flag small-sample and ambiguous themes as low-confidence instead of dropping or inflating them — leads are fine, just labeled.",
+    "Forbid causal claims unless the feedback states them; route metric-causation questions to actual analysis, not vibes from text.",
+    "Surface counter-signal and mixed sentiment so the team sees dissent, not just the dominant narrative.",
+    "Keep PII out: quote content, redact identifiers, and treat the corpus as sensitive user data.",
+    "Spend the strong model on theme framing, confidence, and counter-signal — a cheaper model can dedupe and cluster."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Theme summarizer",
+      "desc": "Clusters a feedback corpus into themes with representative quotes and counts for a quick read. Single source, on demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Evidence-graded synthesis",
+      "desc": "Adds honest frequency, confidence grading, signal-vs-noise separation, counter-signal, and causation guardrails across multiple sources."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Continuous voice-of-customer",
+      "desc": "Adds scheduled multi-source synthesis, segmentation, trend tracking over time, PII governance, and integration into roadmap and research workflows."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect feedback sources",
+      "body": "Install the agent and connect it to your feedback sources.",
+      "code": "pipx install feedback-synth-agent\nfeedback-synth-agent connect --sources zendesk,appstore,typeform\nfeedback-synth-agent doctor"
+    },
+    {
+      "title": "Configure honesty guardrails",
+      "body": "Thresholds for confidence and the no-fabrication posture.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nLOW_CONFIDENCE_BELOW_N=5\nREQUIRE_REAL_QUOTES=true\nREDACT_PII=true"
+    },
+    {
+      "title": "Set scope and segments",
+      "body": "Define the period and any segmentation for the synthesis.",
+      "code": "# scope.yml\nperiod: last_30d\nsegment_by: [plan_tier]\nmin_theme_size: 3   # smaller clusters are reported as low-confidence, not dropped silently"
+    },
+    {
+      "title": "Run a synthesis",
+      "body": "Generate themes and review the cited frequencies and quotes.",
+      "code": "feedback-synth-agent run --period 30d --explain\n# prints themes with count/frequency/quotes/confidence + counter-signal"
+    },
+    {
+      "title": "Wire into your workflow",
+      "body": "Schedule recurring synthesis and post to your PM channel or docs.",
+      "code": "# weekly job -> voice-of-customer summary to #product (read-only synthesis)"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Clear recurring theme → reported with frequency and quotes",
+      "scenario": "A strong, widespread theme appears across many items. The agent reports it with an honest count and representative quotes.",
+      "input": "Corpus: 400 items (tickets+reviews). 86 mention slow load times on the dashboard.",
+      "output": "{\n  \"corpus\": { \"total_items\": 400, \"deduped\": 372, \"sources\": [\"tickets\",\"reviews\"] },\n  \"themes\": [\n    {\n      \"theme\": \"Dashboard load times are slow, especially with large datasets\",\n      \"count\": 86,\n      \"frequency\": \"86/372 (23%)\",\n      \"sentiment\": \"negative\",\n      \"confidence\": \"high\",\n      \"quotes\": [\"takes 15+ seconds to load my main dashboard every morning\", \"unusable once I have more than a few thousand rows\"],\n      \"note\": \"\"\n    }\n  ],\n  \"counter_signal\": [\"A few power users on the new infra reported fast loads — possible rollout difference\"],\n  \"not_captured\": \"\",\n  \"caveats\": [\"Tickets over-represent users who hit problems; absolute prevalence may differ from the full base\"]\n}",
+      "notes": "A high-confidence theme: 86 of 372 deduped items (23%), with real representative quotes and a clear frequency. Note it still surfaces counter-signal (power users with fast loads) and a sampling caveat rather than overstating prevalence."
+    },
+    {
+      "title": "Small-sample signal → reported but flagged low-confidence",
+      "scenario": "A potentially interesting issue appears only a few times. The agent reports it honestly without elevating it to a top issue.",
+      "input": "Corpus: 400 items. 3 mention a specific export-to-CSV encoding bug.",
+      "output": "{\n  \"corpus\": { \"total_items\": 400, \"deduped\": 372, \"sources\": [\"tickets\",\"reviews\"] },\n  \"themes\": [\n    {\n      \"theme\": \"CSV export has a character-encoding issue for non-Latin names\",\n      \"count\": 3,\n      \"frequency\": \"3/372 (0.8%)\",\n      \"sentiment\": \"negative\",\n      \"confidence\": \"low\",\n      \"quotes\": [\"exported CSV shows garbled characters for my customers' names\"],\n      \"note\": \"Small sample (3 items) — could be a real narrow bug or noise. Worth a quick check, not a top priority on this evidence alone.\"\n    }\n  ],\n  \"counter_signal\": [],\n  \"not_captured\": \"Several one-off requests appeared once each and are not asserted as themes\",\n  \"caveats\": [\"3 items is too few to estimate prevalence; treat as a lead to investigate, not a validated theme\"]\n}",
+      "notes": "The honesty case: only 3 mentions. The agent still surfaces it (it could be a real narrow bug) but explicitly marks it low-confidence with its tiny frequency, and refuses to dress it up as a major theme. This is what stops a vocal-minority issue from hijacking a roadmap."
+    },
+    {
+      "title": "Tempting but unsupported causal claim → refuse to fabricate",
+      "scenario": "The team hopes the feedback explains a churn spike. The feedback doesn't actually say that, so the agent declines to assert causation.",
+      "input": "Corpus: 400 items. Some negative comments about a recent redesign. Prompt context: 'churn went up last month — does the feedback explain it?'",
+      "output": "{\n  \"corpus\": { \"total_items\": 400, \"deduped\": 372, \"sources\": [\"tickets\",\"reviews\",\"survey\"] },\n  \"themes\": [\n    {\n      \"theme\": \"Mixed reactions to the navigation redesign\",\n      \"count\": 41,\n      \"frequency\": \"41/372 (11%)\",\n      \"sentiment\": \"mixed\",\n      \"confidence\": \"medium\",\n      \"quotes\": [\"the new nav took me a while to get used to\", \"actually prefer the new layout once I found things\"],\n      \"note\": \"Sentiment is genuinely mixed — roughly half negative, half adapting/positive\"\n    }\n  ],\n  \"counter_signal\": [\"Several users explicitly said they liked the redesign\"],\n  \"not_captured\": \"\",\n  \"caveats\": [\"This feedback does NOT establish that the redesign caused the churn increase. The corpus shows redesign reactions are mixed; no item links a cancellation to the redesign. A causal claim would require churn-cohort analysis, not feedback text alone.\"]\n}",
+      "notes": "The defining defensive case: there's a strong pull to hand the team the tidy story 'the redesign caused the churn.' The agent reports the redesign theme honestly as mixed, surfaces the positive counter-signal, and explicitly states the feedback can't establish causation — pointing to the analysis that actually could. It refuses to manufacture a satisfying but unsupported narrative."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it make up themes or quotes?",
+      "a": "No — that's its core constraint. Every theme must be grounded in cited source items, and quotes must be real excerpts from the corpus. If it can't cite something, it doesn't claim it."
+    },
+    {
+      "q": "How does it avoid over-weighting a loud minority?",
+      "a": "It reports honest frequency (count over total) for every theme and flags small-sample or ambiguous themes as low-confidence, so a handful of emphatic items can't masquerade as a top issue."
+    },
+    {
+      "q": "Can it tell me why a metric like churn changed?",
+      "a": "Only what users actually said. It won't claim feedback caused a metric change unless the feedback states it — those causal questions need cohort analysis, and the agent will say so rather than invent a story."
+    },
+    {
+      "q": "Does it decide what to build?",
+      "a": "No. It produces a faithful, evidence-graded synthesis for prioritization; the product team makes the roadmap decisions."
+    },
+    {
+      "q": "How does it handle user privacy?",
+      "a": "It treats the corpus as sensitive, quotes content rather than personal data, and redacts identifiers so the synthesis doesn't leak PII."
+    },
+    {
+      "q": "What about themes with very little data?",
+      "a": "It surfaces them as low-confidence leads with their small frequency rather than dropping them silently or inflating them, so genuinely narrow issues stay visible without distorting priorities."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Produces an inaccurate theme or miscounts feedback, surfaced for a PM to review. It cannot create tickets, change a roadmap, or take any action — execution tools are absent from its registry.",
+    "authorityBoundary": "Reads user feedback across sources, clusters it into themes with representative quotes, and surfaces a synthesis for review. It never creates tickets, edits a roadmap, or fabricates feedback. A PM decides what to act on.",
+    "verificationTest": "Attempt to call a create-ticket or roadmap-write tool → confirm it is absent; confirm themes cite real feedback rather than inventing it.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: ticket/roadmap tools absent. Human gates: a PM decides. Confidence escalation: thin or conflicting themes flagged. Cost ceiling: bounded per batch. Audit trail: themes and source counts logged. Escalation path: ambiguous signal flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "feedback-synthesis-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Produces an inaccurate theme for PM review. Cannot create tickets or change a roadmap.",
+      "authority_boundary": "Clusters feedback into cited themes; ticket/roadmap tools absent; no fabricated feedback.",
+      "tags": [
+        "product-management",
+        "feedback",
+        "synthesis",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_feedback",
+          "cluster",
+          "extract_quotes",
+          "count_signal"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "create_ticket",
+          "roadmap_write"
+        ],
+        "never_fabricates": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.25,
+        "alert_threshold_usd": 0.16
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "thin_theme",
+          "conflicting_signal"
+        ],
+        "destination": "product_manager"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "themes",
+          "source_counts"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Produces a theme not actually supported by the feedback.",
+      "detection": "Themes cite representative quotes and unsupported themes are flagged.",
+      "mitigation": "It clusters real feedback, never fabricates, and has no ticket or roadmap tools.",
+      "recovery": "The PM discards the weak theme."
+    },
+    {
+      "mode": "Miscounts signal, over- or under-stating a theme's prevalence.",
+      "detection": "Source counts accompany each theme.",
+      "mitigation": "Counts are shown, not asserted impressions.",
+      "recovery": "The PM recounts."
+    },
+    {
+      "mode": "Drops a small but important signal.",
+      "detection": "Thin or conflicting themes are flagged, not dropped.",
+      "mitigation": "It surfaces uncertainty.",
+      "recovery": "The PM reviews the raw feedback."
+    }
+  ],
+  "evaluation": {
+    "primary": "Theme validity supported by real feedback is primary — an unsupported theme or miscounted prevalence is the failure.",
+    "metrics": [
+      {
+        "name": "Theme validity",
+        "description": "Share of themes supported by representative source quotes."
+      },
+      {
+        "name": "Prevalence accuracy",
+        "description": "Agreement of stated theme counts with the actual feedback."
+      },
+      {
+        "name": "Fabrication rate",
+        "description": "Frequency of themes not present in the feedback — should be near zero."
+      },
+      {
+        "name": "Signal recall",
+        "description": "Of small-but-important signals, the share retained."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to synthesize a feedback set."
+      }
+    ],
+    "approach": "Use feedback sets with human-labeled themes and counts; measure theme validity — every theme must cite real quotes — and prevalence accuracy. It has no ticket or roadmap tools."
+  }
+}

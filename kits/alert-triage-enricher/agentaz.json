@@ -1,0 +1,58 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "alert-triage-enrichment-agent",
+  "trust_level": "A3",
+  "dna_pattern": "Escalation",
+  "worst_case_action": "Stages an inappropriate remediation for human approval, or mis-prioritizes an alert. Cannot auto-execute remediation.",
+  "authority_boundary": "Enriches and triages alerts; stages verified low-risk remediation for approval. No autonomous execution.",
+  "tags": [
+    "security",
+    "soc",
+    "alert-triage",
+    "human-approval"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "enrich_alert",
+      "dedupe",
+      "prioritize",
+      "stage_remediation"
+    ],
+    "approval_required_tools": [
+      "apply_remediation"
+    ],
+    "execution_tools_absent": false
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_without_approval": [
+      "apply_remediation"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.3,
+    "alert_threshold_usd": 0.2
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 10
+  },
+  "human_handoff": {
+    "triggers": [
+      "high_severity",
+      "remediation_proposed",
+      "low_confidence"
+    ],
+    "destination": "soc_oncall"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "enrichment",
+      "priority",
+      "staged_actions",
+      "approvals"
+    ]
+  }
+}

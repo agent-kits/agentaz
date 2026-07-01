@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://www.agent-kits.com/agentaz/agentaz-v1.0.schema.json",
+  "title": "AgentAz Specification",
+  "description": "AgentAz v1.0 — an open, design-time governance specification for AI agents. Frozen, semantically versioned. Code & schema: Apache-2.0. Specification text: CC-BY-4.0. 'AgentAz' is a trademark of AgentKits.",
+  "x-agentaz-version": "1.0.0",
+  "x-license": "Apache-2.0",
+  "type": "object",
+  "required": [
+    "agent_id",
+    "version",
+    "trust_level",
+    "worst_case_action",
+    "authority_boundary",
+    "tool_boundary",
+    "last_reviewed"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "agent_id": { "type": "string", "description": "Stable identifier for the agent." },
+    "version": { "type": "string", "description": "Spec instance version for this agent." },
+    "trust_level": {
+      "type": "string",
+      "enum": ["A0", "A1", "A2", "A3", "A4", "A5"],
+      "description": "Authority class by worst-case action (A0 none → A5 full autonomy)."
+    },
+    "dna_pattern": {
+      "type": "string",
+      "enum": ["Research", "Evaluation", "Extraction", "Planning", "Synthesis", "Execution", "Escalation", "Delegation", "Autonomous"]
+    },
+    "worst_case_action": { "type": "string", "description": "The single most consequential action the agent can take." },
+    "authority_boundary": { "type": "string", "description": "What the agent is and is not authorized to do." },
+    "last_reviewed": { "type": "string", "format": "date" },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "tool_boundary": { "type": "object", "description": "Allowed tools, execution gating, and approval-required actions." },
+    "output_boundary": { "type": "object" },
+    "cost_boundary": { "type": "object", "description": "Per-loop cost ceiling." },
+    "loop_boundary": { "type": "object", "description": "Maximum reasoning turns." },
+    "human_handoff": { "type": "object", "description": "Escalation triggers and destination." },
+    "audit": { "type": "object", "description": "Append-only logging requirements." }
+  },
+  "additionalProperties": true
+}

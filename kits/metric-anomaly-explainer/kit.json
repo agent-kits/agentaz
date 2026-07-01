@@ -1,0 +1,354 @@
+{
+  "slug": "metric-anomaly-explainer",
+  "title": "Metric Anomaly Investigation Agent",
+  "category": "data-analysis",
+  "shortDescription": "An analytics agent that confirms a metric anomaly is real, localizes it by segment, and ranks evidence-backed hypotheses — correlation vs. causation, data-quality aware.",
+  "description": "An agent that investigates when a KPI moves unexpectedly: it first confirms the anomaly is real rather than a data-quality artifact or seasonality, localizes it to the segments and cohorts driving it, correlates it with deploys, campaigns, and external events, and reports ranked, evidence-backed hypotheses. It is built to be honest about uncertainty: it separates correlation from causation explicitly, never fabricates a cause, states its confidence, runs read-only and cost-guarded queries, and escalates when the data simply isn't enough to explain the move.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "analytics",
+    "anomaly-detection",
+    "root-cause",
+    "kpi",
+    "data-analysis",
+    "autonomous-agent",
+    "observability",
+    "bi",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Validate → localize → correlate → hypothesize: turns 'why did this metric move?' into ranked, evidence-backed explanations.",
+    "Data-quality first: it checks whether the anomaly is even real (double-counts, pipeline gaps, seasonality) before trying to explain it.",
+    "Honest about causation: it localizes the move and correlates it with events, but labels correlation as correlation and never invents a cause.",
+    "Safe and bounded: read-only, cost-guarded queries, no PII exposure, and escalation when the data can't support a conclusion."
+  ],
+  "whenToUse": [
+    "Your team gets paged on KPI moves (revenue, signups, conversion, latency-driven metrics) and burns time on manual root-cause digging.",
+    "You have queryable metrics with useful dimensions (segment, region, platform, cohort) and an events/deploy log to correlate against.",
+    "You want ranked hypotheses with evidence and explicit confidence — not a confident-sounding single 'cause.'",
+    "You want a first-pass investigation that flags data-quality issues and tells you what to check next."
+  ],
+  "whenNotToUse": [
+    "You expect a definitive causal verdict; observational data usually supports ranked hypotheses, not proof.",
+    "You have no dimensional data or event log to localize and correlate against.",
+    "You can't provide read-only, cost-bounded query access.",
+    "The metric is too noisy or sparse to distinguish signal from noise — it should say so, not invent a story."
+  ],
+  "systemPrompt": "You are a Metric Anomaly Investigation Agent. When a KPI moves unexpectedly, you investigate why and report ranked, evidence-backed hypotheses to a human. You are judged on correctly localizing real anomalies, honesty about causation and uncertainty, and never inventing a cause or running unsafe queries.\n\n== CORE PRINCIPLES ==\n1. Is it even real? Before explaining a move, check for data-quality issues (pipeline gaps, double-counting, late-arriving data, definition changes) and known seasonality. If the 'anomaly' is an artifact, say so and stop — do not explain a non-event.\n2. Localize before theorizing. Decompose by dimensions (segment, region, platform, cohort, channel) to find WHERE the change concentrates. A localized change is the strongest clue to the cause.\n3. Correlation is not causation. You work with observational data. State associations as associations, rank hypotheses by evidence strength, and never assert a single cause you can't support. Label confidence explicitly.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- READ-ONLY & COST-BOUNDED: Run only read-only queries, each bounded (filters/limits). Validate plan/cost where possible; never run an unbounded scan. If a query exceeds budget, narrow it or report what you have.\n- NO FABRICATION: Never invent a cause, a number, or a correlation. Every claim ties to a query result you ran. If the data can't explain the move, say that.\n- DATA-QUALITY GATE: If data-quality problems could explain the anomaly, surface them FIRST and do not present a behavioral 'explanation' as if the anomaly were confirmed real.\n- NO PII: Work at aggregate/segment level. Do not surface individual records or sensitive fields.\n- STAY HONEST ON CAUSATION: Present ranked hypotheses with evidence and confidence; recommend what to check to confirm. Do not overstate.\n\n== METHOD ==\n- Confirm the anomaly: compare to expected range/seasonality; check data freshness and integrity.\n- Localize: decompose across dimensions; identify the segment(s) driving the move and how much each contributes.\n- Correlate: line up the change against deploys, releases, flags, campaigns, pricing, and known external events in the same window.\n- Hypothesize: produce ranked candidate explanations, each with supporting evidence, contribution estimate, and confidence; note what would confirm or refute each.\n\n== DECISION ==\n- REPORT: anomaly confirmed real, localized, with ranked hypotheses and confidence.\n- DATA_QUALITY: the move is likely a data artifact — report that instead of a behavioral cause.\n- INSUFFICIENT: real but under-determined (too noisy/sparse, or no correlating signal). Present what you found, ranked hypotheses if any, and what data/experiment would resolve it. Escalate.\n\n== COST CONTROL ==\nQuery only what you need to localize and correlate; start broad, then drill into the driving segment. Reuse results. Cap tool calls; if exceeded, report current findings.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"metric\": \"<name>\",\n  \"anomaly_confirmed\": <true|false>,\n  \"decision\": \"REPORT|DATA_QUALITY|INSUFFICIENT\",\n  \"magnitude\": \"<size/direction vs. expected>\",\n  \"localization\": \"<segment(s) driving it + approximate contribution>\",\n  \"hypotheses\": [ { \"explanation\": \"<candidate cause>\", \"evidence\": \"<query-based support>\", \"type\": \"correlation|likely_causal|data_quality\", \"confidence\": <0.0-1.0>, \"to_confirm\": \"<what would verify it>\" } ],\n  \"data_quality_notes\": \"<integrity/seasonality checks, or empty>\",\n  \"recommendation\": \"<what a human should check/do next>\",\n  \"escalation\": { \"needed\": <bool>, \"reason\": \"<insufficient data, or empty>\" }\n}\nIf anomaly_confirmed is false, set decision to DATA_QUALITY and do not present behavioral causes as confirmed.",
+  "architecture": [
+    {
+      "label": "Anomaly intake",
+      "detail": "Receives the metric, the time window, and the observed move (from an alert or a user question) and pulls the relevant series."
+    },
+    {
+      "label": "Validation & seasonality",
+      "detail": "Compares the move to the expected range and seasonality and checks data freshness/integrity to decide whether the anomaly is real before anything else."
+    },
+    {
+      "label": "Segmentation engine",
+      "detail": "Decomposes the metric across dimensions to localize where the change concentrates and how much each segment contributes."
+    },
+    {
+      "label": "Event correlation",
+      "detail": "Lines the change up against deploys, feature flags, campaigns, pricing changes, and known external events in the same window."
+    },
+    {
+      "label": "Hypothesis ranking",
+      "detail": "The model assembles candidate explanations, each tagged correlation / likely-causal / data-quality, with evidence, a contribution estimate, and a confidence."
+    },
+    {
+      "label": "Safety & cost gate",
+      "detail": "A deterministic layer keeps queries read-only and bounded, blocks unbounded scans, and keeps analysis at aggregate level (no PII)."
+    },
+    {
+      "label": "Report & escalation",
+      "detail": "Produces a ranked, honest report with what-to-check-next, and escalates when the data is insufficient to explain the move."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_metric_series",
+      "purpose": "Retrieve the metric's time series for the window, with expected range/seasonality baselines."
+    },
+    {
+      "name": "validate_data_quality",
+      "purpose": "Check data freshness, pipeline completeness, double-counting, and definition changes that could fake an anomaly."
+    },
+    {
+      "name": "decompose_segments",
+      "purpose": "Break the metric down by dimensions (segment, region, platform, cohort, channel) to localize the change."
+    },
+    {
+      "name": "detect_change_points",
+      "purpose": "Identify when the shift began, to align it precisely with potential triggers."
+    },
+    {
+      "name": "correlate_events",
+      "purpose": "Pull deploys, feature-flag flips, campaigns, pricing changes, and external events in the window to test associations."
+    },
+    {
+      "name": "query_dimension",
+      "purpose": "Run a bounded, read-only drill-down query into a specific segment to quantify its contribution."
+    },
+    {
+      "name": "rank_hypotheses",
+      "purpose": "Score candidate explanations by evidence strength and contribution, tagging correlation vs. likely-causal."
+    },
+    {
+      "name": "summarize_findings",
+      "purpose": "Assemble the localized, evidence-backed, confidence-rated report with recommended next checks."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Intake the move",
+      "body": "Capture the metric, window, and observed change from the alert or question, and pull the series."
+    },
+    {
+      "title": "2. Confirm it's real",
+      "body": "Compare to expected range/seasonality and check data integrity. If it's a data artifact, report that and stop."
+    },
+    {
+      "title": "3. Localize it",
+      "body": "Decompose across dimensions to find the segment(s) driving the move and estimate each one's contribution."
+    },
+    {
+      "title": "4. Find the change point",
+      "body": "Pinpoint when the shift began so it can be aligned precisely with potential triggers."
+    },
+    {
+      "title": "5. Correlate events",
+      "body": "Line the change up against deploys, flags, campaigns, pricing, and external events in the same window."
+    },
+    {
+      "title": "6. Rank hypotheses honestly",
+      "body": "Produce ranked explanations with evidence, contribution, and confidence, labeling correlation vs. likely-causal — never a fabricated single cause."
+    },
+    {
+      "title": "7. Report or escalate",
+      "body": "Deliver the report with what to check next; if the data can't support a conclusion, say so and escalate."
+    }
+  ],
+  "implementationNotes": [
+    "Always run the data-quality and seasonality check first; explaining an anomaly that isn't real (or is a double-count) is worse than saying 'this is a data artifact.'",
+    "Lead with localization — decomposing to the driving segment is the highest-signal step and usually points straight at the cause.",
+    "Label every hypothesis as correlation / likely-causal / data-quality with a confidence and a way to confirm; never let observational correlation be reported as proven causation.",
+    "Keep queries read-only and bounded, validate cost, and stay at aggregate level so no PII is exposed.",
+    "When the data is insufficient, say so and recommend the experiment or extra data that would resolve it — a confident wrong answer is the failure mode to avoid.",
+    "Encode each metric's definition, dimensions, and seasonality; the quality of those inputs largely determines investigation quality.",
+    "Spend the strong model on hypothesis ranking and the honesty calls — a cheaper model can run validation and segmentation queries."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Anomaly investigator",
+      "desc": "Confirms an anomaly, localizes it by segment, and returns ranked hypotheses with evidence and confidence for an analyst. Read-only and cost-bounded."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Event-correlating root-cause assistant",
+      "desc": "Adds deploy/flag/campaign/external-event correlation, change-point detection, and a data-quality gate, with honest correlation-vs-causation labeling and next-check recommendations."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Governed analytics investigator",
+      "desc": "Adds a warehouse-wide metric/semantic layer, broad event integrations, cost governance, PII-safe aggregation, and tuning of seasonality/baselines from feedback at scale."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect read-only",
+      "body": "Install the agent and connect it to your warehouse/metrics with a read-only role and to your events/deploy log.",
+      "code": "pipx install anomaly-agent\nanomaly-agent connect --warehouse bigquery --events launchdarkly,github\nanomaly-agent doctor   # verifies read-only access"
+    },
+    {
+      "title": "Configure guardrails",
+      "body": "Cost and safety limits are enforced by the gate, not the model.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nREAD_ONLY=true\nMAX_SCAN_ROWS=20000000\nQUERY_TIMEOUT_S=30\nMAX_TOOL_CALLS=10"
+    },
+    {
+      "title": "Define metrics, dimensions, seasonality",
+      "body": "Tell it how each KPI is defined, which dimensions to decompose by, and known seasonality.",
+      "code": "# metrics/checkout_conversion.yml\ndefinition: \"paid_orders / checkout_sessions\"\ndimensions: [region, platform, payment_method, plan]\nseasonality: \"weekly (weekend dip), monthly billing spike\"\nexpected_range: \"0.28–0.34\""
+    },
+    {
+      "title": "Investigate from the CLI",
+      "body": "Point it at a metric and window and review the localized, ranked findings.",
+      "code": "anomaly-agent investigate --metric checkout_conversion --window 2026-06-18:2026-06-20 --explain\n# prints anomaly_confirmed, localization, ranked hypotheses + confidence, next checks"
+    },
+    {
+      "title": "Wire to alerts",
+      "body": "Trigger an investigation when a metric alert fires; the report posts to the channel for a human.",
+      "code": "# metric alert -> POST https://your-host/anomaly/investigate (HMAC)\n# posts ranked hypotheses + recommended checks to #analytics"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Conversion drop localized to one segment after a deploy → ranked hypothesis",
+      "scenario": "Checkout conversion fell. The agent confirms it's real, localizes it to one platform + payment method, and correlates with a deploy — labeling it a strong association, not proven cause.",
+      "input": "Metric: checkout_conversion dropped from 0.31 to 0.22 on 2026-06-19. Investigate.",
+      "output": "{\n  \"metric\": \"checkout_conversion\",\n  \"anomaly_confirmed\": true,\n  \"decision\": \"REPORT\",\n  \"magnitude\": \"-29% (0.31 -> 0.22), well below the 0.28–0.34 expected range\",\n  \"localization\": \"Almost entirely iOS + 'Apple Pay' checkouts (that segment fell 0.30 -> 0.08 and accounts for ~85% of the total drop); web and card checkouts are normal.\",\n  \"hypotheses\": [\n    { \"explanation\": \"A regression in the Apple Pay flow introduced by mobile deploy v5.12\", \"evidence\": \"change_point at 14:10 on 06-19 aligns within minutes of v5.12 rollout; drop is confined to iOS+Apple Pay; error logs show a spike in 'payment_sheet_init_failed' on iOS post-deploy\", \"type\": \"likely_causal\", \"confidence\": 0.8, \"to_confirm\": \"Roll back v5.12 in a canary or check the Apple Pay init error rate before/after\" },\n    { \"explanation\": \"Apple Pay outage (external)\", \"evidence\": \"no corresponding Apple system-status incident found in the window\", \"type\": \"correlation\", \"confidence\": 0.15, \"to_confirm\": \"Check Apple PassKit status / third-party reports\" }\n  ],\n  \"data_quality_notes\": \"Data fresh and complete; not seasonality (weekday, within normal traffic).\",\n  \"recommendation\": \"Treat v5.12 Apple Pay regression as the leading hypothesis: check the iOS payment-sheet error and consider a rollback/canary to confirm.\",\n  \"escalation\": { \"needed\": false, \"reason\": \"\" }\n}",
+      "notes": "Strong investigation: it confirms the drop is real (not seasonality/data quality), localizes ~85% of it to iOS+Apple Pay, and ties the change point to a deploy with corroborating error logs. Crucially, even the leading hypothesis is labeled 'likely_causal' at 0.8 with a concrete way to confirm — it doesn't declare proof from observational data."
+    },
+    {
+      "title": "'Spike' is a double-count → flag data quality, don't explain a non-event",
+      "scenario": "Signups appear to spike. Before theorizing about a viral moment, the agent catches a pipeline double-count and reports that instead.",
+      "input": "Metric: daily_signups spiked from ~1,200 to ~2,400 on 2026-06-20. Explain the growth.",
+      "output": "{\n  \"metric\": \"daily_signups\",\n  \"anomaly_confirmed\": false,\n  \"decision\": \"DATA_QUALITY\",\n  \"magnitude\": \"Apparent +100% (1,200 -> 2,400)\",\n  \"localization\": \"The 'extra' signups are exact duplicates: each user_id appears twice on 06-20 with identical timestamps from two pipeline sources.\",\n  \"hypotheses\": [\n    { \"explanation\": \"Double-counting from a duplicate event stream after the 06-20 ingestion change\", \"evidence\": \"100% of the surplus rows are duplicate (user_id, timestamp) pairs; distinct user_ids = ~1,210, in line with normal\", \"type\": \"data_quality\", \"confidence\": 0.95, \"to_confirm\": \"De-duplicate on user_id; check the 06-20 ingestion/pipeline change\" }\n  ],\n  \"data_quality_notes\": \"Likely caused by a duplicate ingestion path introduced 06-20; distinct-user count is normal (~1,210). The 'spike' is not real growth.\",\n  \"recommendation\": \"Do not celebrate growth — fix the duplicate ingestion and de-dupe. True signups are ~1,210, consistent with prior days.\",\n  \"escalation\": { \"needed\": false, \"reason\": \"\" }\n}",
+      "notes": "The discipline that makes this trustworthy: before explaining a 'doubling' with some exciting narrative, the agent checks integrity and finds the surplus is exact duplicates. It reports a data-quality issue and explicitly says the spike isn't real — preventing a celebratory but false conclusion."
+    },
+    {
+      "title": "Real drop, but under-determined → ranked hypotheses + honest 'insufficient'",
+      "scenario": "A metric genuinely dropped, but nothing correlates cleanly and the segment data is noisy. The agent refuses to manufacture a single cause.",
+      "input": "Metric: weekly_active_users down 6% week-over-week. No deploys, no campaign changes, drop is spread across all segments. Explain it.",
+      "output": "{\n  \"metric\": \"weekly_active_users\",\n  \"anomaly_confirmed\": true,\n  \"decision\": \"INSUFFICIENT\",\n  \"magnitude\": \"-6% WoW, modestly outside normal weekly variance\",\n  \"localization\": \"Broad-based: the decline is spread roughly evenly across regions, platforms, and cohorts — no single segment drives it.\",\n  \"hypotheses\": [\n    { \"explanation\": \"Normal variance / a soft week (holiday-adjacent)\", \"evidence\": \"drop is broad and within ~2x typical weekly swing; a regional holiday overlapped part of the week\", \"type\": \"correlation\", \"confidence\": 0.4, \"to_confirm\": \"Compare to the same week last year and holiday-adjusted baseline\" },\n    { \"explanation\": \"Early sign of engagement decay\", \"evidence\": \"no event correlates, but prior 2 weeks were flat-to-down\", \"type\": \"correlation\", \"confidence\": 0.3, \"to_confirm\": \"Watch next 1–2 weeks; check retention curves by cohort\" }\n  ],\n  \"data_quality_notes\": \"Data complete; no integrity issues found.\",\n  \"recommendation\": \"No single cause is supported by the data. Most likely a soft/holiday-adjacent week; monitor next week and compare to a holiday-adjusted YoY baseline before treating it as a trend.\",\n  \"escalation\": { \"needed\": true, \"reason\": \"Real but under-determined — no correlating event and a broad-based drop; needs more time/data to distinguish noise from trend.\" }\n}",
+      "notes": "The epistemic-humility example: the drop is real but broad-based with nothing correlating. Instead of inventing a tidy cause, the agent offers two low-confidence hypotheses, declines to pick a single explanation, and escalates with exactly what would resolve it. Knowing when NOT to claim a cause is what separates a trustworthy analyst from a plausible-sounding one."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it tell me the definitive cause of a metric change?",
+      "a": "It gives ranked, evidence-backed hypotheses with explicit confidence and labels them correlation vs. likely-causal. Observational data rarely proves a single cause, so it's honest about that and tells you what would confirm each hypothesis."
+    },
+    {
+      "q": "How does it avoid 'explaining' a fake anomaly?",
+      "a": "It checks data quality and seasonality first — pipeline gaps, double-counting, definition changes, known cycles. If the move is a data artifact, it reports that instead of inventing a behavioral explanation."
+    },
+    {
+      "q": "Is it safe to run against our warehouse?",
+      "a": "Yes. It runs read-only, cost-bounded queries (no unbounded scans), validates query cost where possible, and works at aggregate/segment level so it doesn't surface PII."
+    },
+    {
+      "q": "What does it do when nothing correlates?",
+      "a": "It says so. It presents any low-confidence hypotheses, declines to manufacture a single cause, and escalates with the specific data or experiment that would resolve the question."
+    },
+    {
+      "q": "How does it find where the change came from?",
+      "a": "It decomposes the metric across your dimensions (region, platform, cohort, channel) to localize the move, then correlates the change point with deploys, feature flags, campaigns, and external events in the same window."
+    },
+    {
+      "q": "How accurate is it?",
+      "a": "Accuracy depends heavily on good metric definitions, dimensions, and seasonality baselines — those are the biggest levers. It also shows its evidence and confidence so you can verify each hypothesis rather than trust a black box."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Proposes a wrong explanation for a metric movement that an analyst reviews before acting on. It runs read-only analysis only and cannot change data, dashboards, or take action — write tools are absent from its registry.",
+    "authorityBoundary": "Investigates a metric anomaly across read-only data, forms and ranks likely explanations with supporting evidence, and flags uncertainty. It never asserts a single cause as fact, changes data, or takes action. An analyst confirms.",
+    "verificationTest": "Confirm explanations are ranked hypotheses with evidence, not asserted certainties; confirm no data-write tool exists in the registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: read-only; write tools absent. Human gates: an analyst confirms. Confidence escalation: competing hypotheses surfaced. Cost ceiling: bounded per investigation. Audit trail: hypotheses and evidence logged. Escalation path: inconclusive cases flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "metric-anomaly-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Proposes a wrong explanation for analyst review. Read-only; cannot change data.",
+      "authority_boundary": "Investigates anomalies read-only and ranks hypotheses; write tools absent.",
+      "tags": [
+        "data-analysis",
+        "anomaly",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_metrics",
+          "slice_dimensions",
+          "form_hypotheses",
+          "rank_evidence"
+        ],
+        "execution_tools_absent": true,
+        "read_only": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "data_write",
+          "dashboard_change"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.25,
+        "alert_threshold_usd": 0.16
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 10
+      },
+      "human_handoff": {
+        "triggers": [
+          "competing_hypotheses",
+          "inconclusive"
+        ],
+        "destination": "data_analyst"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "hypotheses",
+          "evidence"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Asserts a single wrong root cause with false confidence.",
+      "detection": "Output is ranked hypotheses with evidence, never one certainty.",
+      "mitigation": "Read-only; competing hypotheses are always surfaced.",
+      "recovery": "The analyst confirms against ground truth; inconclusive cases are flagged."
+    },
+    {
+      "mode": "Presents a spurious correlation as causation.",
+      "detection": "Each hypothesis must carry supporting evidence; correlation-not-causation is flagged.",
+      "mitigation": "Confidence qualifiers accompany every explanation.",
+      "recovery": "The analyst discards it — no action is taken on the explanation."
+    },
+    {
+      "mode": "The anomaly is a data-pipeline artifact, not a real movement.",
+      "detection": "Data-freshness and null checks run before analysis.",
+      "mitigation": "Suspected data issues are flagged separately from business causes.",
+      "recovery": "The case is routed to data engineering; no business conclusion is drawn."
+    }
+  ],
+  "evaluation": {
+    "primary": "Root-cause hit rate within the top hypotheses matters more than any single guess — does the true cause appear in its ranked list?",
+    "metrics": [
+      {
+        "name": "Top-k hypothesis accuracy",
+        "description": "Share of anomalies where the true cause appears in the top-k ranked hypotheses."
+      },
+      {
+        "name": "Confidence calibration",
+        "description": "Whether stated confidence matches observed correctness across cases."
+      },
+      {
+        "name": "Data-artifact detection",
+        "description": "Share of pipeline or data-quality artifacts it correctly flags as not a real movement."
+      },
+      {
+        "name": "Inconclusive rate",
+        "description": "How often it correctly declines to assert a cause rather than guessing."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to produce a ranked explanation."
+      }
+    ],
+    "approach": "Curate anomalies with known root causes, including data-pipeline artifacts, and measure whether the true cause appears in the ranked hypotheses and whether confidence is calibrated. Never reward a confident single wrong cause."
+  }
+}

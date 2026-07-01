@@ -1,0 +1,53 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "email-reply-drafter",
+  "trust_level": "A2",
+  "dna_pattern": "Evaluation",
+  "worst_case_action": "Drafts a wrong reply caught before send. Cannot send email.",
+  "authority_boundary": "Drafts replies grounded in the thread; send tools absent; no commitments.",
+  "tags": [
+    "email",
+    "drafting",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_thread",
+      "draft_reply",
+      "check_tone",
+      "ground_in_context"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "send_email",
+      "commitment"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.2,
+    "alert_threshold_usd": 0.14
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "sensitive_topic",
+      "commitment_implied",
+      "low_confidence"
+    ],
+    "destination": "user"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "drafts"
+    ]
+  }
+}

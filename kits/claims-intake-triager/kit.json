@@ -1,0 +1,358 @@
+{
+  "slug": "claims-intake-triager",
+  "title": "Insurance Claims Intake & Triage Agent",
+  "category": "insurance",
+  "shortDescription": "An administrative claims-intake agent: validates FNOL completeness, screens coverage, flags fraud indicators for SIU, and routes. No coverage decisions.",
+  "description": "An agent that handles the first stage of an insurance claim: it validates that the first notice of loss is complete, classifies the claim type and severity, screens coverage administratively, flags potential fraud indicators for SIU, and routes the claim to the right queue — fast-track, complex, or special investigations. It is built for a regulated setting: it is administrative triage only, it does not make coverage determinations or decide liability, it flags fraud indicators rather than accusing, it grounds every decision in policy and claim data, and it escalates injury, large, or ambiguous claims to a human adjuster.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "insurance",
+    "claims",
+    "fnol",
+    "triage",
+    "insurtech",
+    "fraud-detection",
+    "autonomous-agent",
+    "intake",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "50 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Intake → validate → classify → screen → route: turns a first notice of loss into a complete, correctly-routed claim.",
+    "Administrative only: it checks completeness and coverage applicability and routes — it does not approve, deny, or decide liability.",
+    "Catches gaps and fraud signals early: missing documents are requested precisely, and fraud indicators are flagged for SIU as indicators, not accusations.",
+    "Escalates by design: injury, large-value, or ambiguous claims go to a human adjuster with the context."
+  ],
+  "whenToUse": [
+    "You process high claim volume and intake/triage (completeness, classification, routing) consumes adjuster time.",
+    "You have policy data and routing rules, and access to claim/FNOL details.",
+    "You want consistent, documented triage with early fraud-indicator flagging and accurate routing.",
+    "You want to fast-track simple complete claims and route complex, injury, or suspicious ones to the right humans."
+  ],
+  "whenNotToUse": [
+    "You expect it to determine coverage, decide liability, or approve/deny claims — those are adjuster/insurer decisions it must never make.",
+    "You can't provide policy and claim data for grounded triage.",
+    "The claim clearly needs a human from the start (serious injury, litigation).",
+    "You can't support regulatory/PII handling of claimant data."
+  ],
+  "systemPrompt": "You are an Insurance Claims Intake & Triage Agent. Your job is administrative: take a first notice of loss (FNOL), make sure it is complete, classify and route it, and screen coverage applicability for routing purposes. You do NOT adjudicate. You never determine coverage, decide liability, or approve/deny a claim. You are judged on complete, correctly-routed intake, early and fair fraud-indicator flagging, and never overstepping into adjudication.\n\n== ABSOLUTE BOUNDARIES (NON-NEGOTIABLE) ==\n- NO ADJUDICATION. You never approve, deny, or recommend approval/denial of a claim, never determine that a loss is or isn't covered, and never decide liability or fault. Coverage 'screening' here is administrative (is the policy active? is this peril the kind the policy lists?) to ROUTE the claim — not a coverage determination.\n- FRAUD = INDICATORS, NOT ACCUSATIONS. If you detect potential fraud indicators, flag them for SIU (Special Investigations) with the evidence. Never assert that a claimant committed fraud. Most flags have innocent explanations.\n- ESCALATE THE SERIOUS. Bodily injury, fatalities, large/complex losses, litigation, or ambiguous facts go to a human adjuster — do not fast-track them.\n- GROUNDED & NO FABRICATION. Base everything on the policy and claim data provided; cite it. Never invent facts, coverage, or a police report that isn't there. Missing info is requested, not assumed.\n- PII / REGULATORY. Treat claimant data as sensitive PII; keep it in scope; follow fair-claims-handling norms and treat claimants neutrally.\n\n== METHOD ==\n- Validate completeness against the FNOL checklist for the claim type (e.g. date/location of loss, description, photos, police/incident report where required, third-party info).\n- Classify claim type and a severity/complexity level.\n- Administratively screen coverage for routing: is the policy active on the loss date, and is the reported peril within the policy's listed perils? (Routing signal only — not a coverage decision.)\n- Scan for fraud indicators (late reporting, inconsistent details, prior pattern, staged-loss markers) as indicators for SIU.\n- Route to the correct queue and request any missing information.\n\n== DECISION POLICY ==\n- FAST_TRACK: simple, complete, low-severity claim with policy active and peril plainly within scope. Route to the fast-track queue (still adjuster-owned).\n- ROUTE_STANDARD: complete but standard-complexity → standard adjuster queue.\n- REQUEST_INFO: incomplete → list exactly what's missing and hold.\n- ESCALATE: injury/fatality, large/complex/ambiguous loss, possible non-coverage situation, or fraud indicators → senior adjuster and/or SIU.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"claim_id\": \"<id>\",\n  \"claim_type\": \"<auto|property|liability|...>\",\n  \"severity\": \"low|moderate|high\",\n  \"completeness\": \"complete|incomplete\",\n  \"missing\": [\"<exact items needed, or empty>\"],\n  \"coverage_screen\": \"policy_active_and_peril_listed|policy_inactive|peril_not_listed|unclear (ADMINISTRATIVE routing signal only, NOT a determination)\",\n  \"fraud_indicators\": [\"<evidence-based indicator for SIU, or empty>\"],\n  \"decision\": \"FAST_TRACK|ROUTE_STANDARD|REQUEST_INFO|ESCALATE\",\n  \"route_to\": \"<queue: fast_track|standard|senior_adjuster|SIU>\",\n  \"claimant_note\": \"<neutral, supportive; no coverage promise or denial>\",\n  \"escalation\": { \"needed\": <bool>, \"to\": \"adjuster|SIU|none\", \"reason\": \"<why, or empty>\" },\n  \"disclaimer\": \"Administrative intake & routing only — not a coverage, liability, or claim decision.\"\n}\nNever output a coverage or liability decision. If injury, large loss, ambiguity, or fraud indicators are present, ESCALATE.",
+  "architecture": [
+    {
+      "label": "FNOL intake",
+      "detail": "Receives the first notice of loss (claimant, policy number, date/location, description, attachments) from the channel and normalizes it into a structured claim."
+    },
+    {
+      "label": "Completeness validation",
+      "detail": "Checks the claim against the FNOL checklist for its type and identifies exactly which required items are missing."
+    },
+    {
+      "label": "Classification",
+      "detail": "Determines claim type and a severity/complexity level to drive routing — without judging the merits of the claim."
+    },
+    {
+      "label": "Administrative coverage screen",
+      "detail": "Checks policy active-on-date and whether the reported peril is among the policy's listed perils — a routing signal only, explicitly not a coverage determination."
+    },
+    {
+      "label": "Fraud-indicator scan",
+      "detail": "Surfaces evidence-based indicators (late reporting, inconsistencies, prior patterns) for SIU as indicators, never as accusations."
+    },
+    {
+      "label": "Routing & escalation gate",
+      "detail": "A deterministic gate routes injury/large/ambiguous claims and fraud-indicator cases to humans/SIU and never fast-tracks them."
+    },
+    {
+      "label": "Comms & audit",
+      "detail": "Requests missing info, sends a neutral acknowledgement, and logs the triage with cited data for regulatory auditability."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_claim",
+      "purpose": "Retrieve the FNOL: claimant, policy number, date/location of loss, description, and attachments."
+    },
+    {
+      "name": "policy_lookup",
+      "purpose": "Return policy status (active on the loss date), coverage type, and the listed perils for administrative screening."
+    },
+    {
+      "name": "completeness_check",
+      "purpose": "Validate the claim against the FNOL checklist for its type and list missing required items."
+    },
+    {
+      "name": "coverage_screen",
+      "purpose": "Administratively check policy-active and peril-listed status as a routing signal (not a coverage determination)."
+    },
+    {
+      "name": "fraud_indicator_scan",
+      "purpose": "Detect evidence-based fraud indicators (late report, inconsistencies, prior patterns) to flag for SIU."
+    },
+    {
+      "name": "severity_classify",
+      "purpose": "Classify claim type and severity/complexity to drive routing."
+    },
+    {
+      "name": "route_to_queue",
+      "purpose": "Route the claim to the correct queue (fast-track, standard, senior adjuster, SIU)."
+    },
+    {
+      "name": "escalate_to_adjuster",
+      "purpose": "Escalate injury/large/ambiguous claims and SIU referrals to the appropriate human with context."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Intake the FNOL",
+      "body": "Normalize the claimant, policy, loss details, and attachments into a structured claim."
+    },
+    {
+      "title": "2. Validate completeness",
+      "body": "Check against the FNOL checklist for the claim type and list exactly what's missing."
+    },
+    {
+      "title": "3. Classify",
+      "body": "Determine claim type and severity/complexity to drive routing, without judging the merits."
+    },
+    {
+      "title": "4. Screen coverage (administratively)",
+      "body": "Check policy active-on-date and whether the peril is listed — a routing signal only, never a coverage decision."
+    },
+    {
+      "title": "5. Scan for fraud indicators",
+      "body": "Surface evidence-based indicators for SIU as indicators, not accusations, with innocent explanations possible."
+    },
+    {
+      "title": "6. Route or request info",
+      "body": "Fast-track simple complete claims, route standard ones, request missing info, and escalate injury/large/ambiguous/fraud cases to humans."
+    },
+    {
+      "title": "7. Acknowledge & log",
+      "body": "Send a neutral acknowledgement, request any missing items, and log the triage with cited data for regulatory audit."
+    }
+  ],
+  "implementationNotes": [
+    "Lock 'no adjudication' in configuration and the prompt: the agent never approves, denies, or decides coverage/liability. 'Coverage screening' is strictly an administrative routing signal.",
+    "Treat fraud detection as indicator-flagging for SIU with evidence, never as accusation — most indicators have innocent explanations and fair-claims handling requires neutrality.",
+    "Force escalation for bodily injury, fatalities, large/complex/ambiguous losses, and litigation; these must never be fast-tracked.",
+    "Request missing information precisely against a per-claim-type checklist; routing incomplete claims or assuming missing facts causes downstream delays and unfairness.",
+    "Keep claimant communications neutral and supportive — never imply approval or denial during intake.",
+    "Handle claimant data as regulated PII, keep it in scope, and log triage decisions with cited data for fair-claims and regulatory audit.",
+    "A cheaper model is usually enough to validate completeness and classify, so keep the strong model for ambiguity, fraud-indicator judgment, and escalation framing."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Intake & completeness assistant",
+      "desc": "Validates FNOL completeness, classifies the claim, and suggests a route for an adjuster. Administrative only — no coverage screening or auto-routing."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Triage & routing with fraud flags",
+      "desc": "Adds administrative coverage screening, fraud-indicator flagging for SIU, severity-based routing, and missing-info requests — with mandatory escalation for injury/large/ambiguous claims."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Governed claims intake",
+      "desc": "Adds claims-system integration, multi-line FNOL checklists, SIU workflows, full regulatory audit trails and fair-claims controls, and routing tuning from outcomes — humans retain all claim decisions."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect claims systems",
+      "body": "Install the agent and connect it to your claims/policy systems under appropriate access.",
+      "code": "pipx install claims-triage-agent\nclaims-triage-agent connect --claims guidewire --policy core\nclaims-triage-agent doctor   # checks PII handling + audit logging"
+    },
+    {
+      "title": "Configure boundaries and routing",
+      "body": "Lock the agent to administrative triage. Adjudication is impossible by config.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nADJUDICATION=false        # never approves/denies or decides coverage\nESCALATE: [\"bodily_injury\", \"fatality\", \"large_loss\", \"litigation\", \"fraud_indicator\"]\nSIU_QUEUE=special_investigations"
+    },
+    {
+      "title": "Define FNOL checklists & routing rules",
+      "body": "Provide the required-items checklist per claim type and the queue routing rules.",
+      "code": "# claims.yml\nauto_glass: { required: [date, location, photos, policy_number], severity: low }\ntheft: { required: [date, location, police_report, item_list], severity: moderate }\nbodily_injury: { always_escalate: true }"
+    },
+    {
+      "title": "Dry-run on past FNOLs",
+      "body": "Replay historical claims to check classification and routing before going live.",
+      "code": "claims-triage-agent backtest --range 60d --explain\n# reports completeness/classification/routing accuracy and any mis-routes"
+    },
+    {
+      "title": "Wire into intake",
+      "body": "Route new FNOLs to the agent for triage; injury/large/fraud cases auto-route to humans/SIU.",
+      "code": "# FNOL channel -> POST https://your-host/claims/intake (HMAC)\n# decision=ESCALATE auto-assigns to senior adjuster / SIU"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Simple complete auto-glass claim → fast-track",
+      "scenario": "A low-severity windshield claim with everything attached and an active policy listing the peril. Routes to fast-track (still adjuster-owned).",
+      "input": "FNOL CLM-7781: windshield crack, policy active, comprehensive coverage. Provided: date, location, photos, policy number. No injuries.",
+      "output": "{\n  \"claim_id\": \"CLM-7781\",\n  \"claim_type\": \"auto_glass\",\n  \"severity\": \"low\",\n  \"completeness\": \"complete\",\n  \"missing\": [],\n  \"coverage_screen\": \"policy_active_and_peril_listed\",\n  \"fraud_indicators\": [],\n  \"decision\": \"FAST_TRACK\",\n  \"route_to\": \"fast_track\",\n  \"claimant_note\": \"Thanks for reporting your windshield damage. Your claim CLM-7781 is complete and has been sent to our fast-track team; they'll be in touch with next steps.\",\n  \"escalation\": { \"needed\": false, \"to\": \"none\", \"reason\": \"\" },\n  \"disclaimer\": \"Administrative intake & routing only — not a coverage, liability, or claim decision.\"\n}",
+      "notes": "Note the careful coverage language: 'policy_active_and_peril_listed' is an administrative routing signal, and the claimant note promises next steps, not approval. Complete + low-severity + peril listed → fast-track queue, where a human still owns the claim."
+    },
+    {
+      "title": "Theft claim missing the police report → request info, hold",
+      "scenario": "A theft claim is missing a required document. The agent requests exactly what's needed instead of routing an incomplete claim.",
+      "input": "FNOL CLM-7820: laptop theft from vehicle. Provided: date, location, item list, policy number. Missing: police report (required for theft).",
+      "output": "{\n  \"claim_id\": \"CLM-7820\",\n  \"claim_type\": \"theft\",\n  \"severity\": \"moderate\",\n  \"completeness\": \"incomplete\",\n  \"missing\": [\"Police/incident report number (required for theft claims)\"],\n  \"coverage_screen\": \"policy_active_and_peril_listed\",\n  \"fraud_indicators\": [],\n  \"decision\": \"REQUEST_INFO\",\n  \"route_to\": \"standard\",\n  \"claimant_note\": \"Thanks for reporting the theft (CLM-7820). To proceed we need the police report or incident number for the theft. Once you add it, we'll continue processing your claim.\",\n  \"escalation\": { \"needed\": false, \"to\": \"none\", \"reason\": \"\" },\n  \"disclaimer\": \"Administrative intake & routing only — not a coverage, liability, or claim decision.\"\n}",
+      "notes": "Rather than routing an incomplete claim (which stalls later) or assuming the report exists, the agent names the exact missing item, holds, and asks the claimant for it in neutral language. Precise gap-chasing is the core intake time-saver."
+    },
+    {
+      "title": "Injury + fraud indicators → escalate to adjuster & SIU, no decision",
+      "scenario": "A claim involves bodily injury, was reported late, and has inconsistencies plus a prior pattern. The agent escalates and flags indicators — without deciding coverage or accusing anyone.",
+      "input": "FNOL CLM-7905: auto accident with claimed neck injury. Reported 28 days after the loss; the described damage is inconsistent with the photos; claimant has 3 similar soft-tissue claims in 18 months.",
+      "output": "{\n  \"claim_id\": \"CLM-7905\",\n  \"claim_type\": \"auto_bodily_injury\",\n  \"severity\": \"high\",\n  \"completeness\": \"complete\",\n  \"missing\": [],\n  \"coverage_screen\": \"policy_active_and_peril_listed\",\n  \"fraud_indicators\": [\"Reported 28 days post-loss (late)\", \"Described damage inconsistent with submitted photos\", \"3 similar soft-tissue claims in 18 months\"],\n  \"decision\": \"ESCALATE\",\n  \"route_to\": \"senior_adjuster\",\n  \"claimant_note\": \"Thank you for reporting your claim (CLM-7905). It has been assigned to an adjuster who will review the details and contact you.\",\n  \"escalation\": { \"needed\": true, \"to\": \"SIU\", \"reason\": \"Bodily injury claim with fraud indicators (late report, photo inconsistency, prior pattern) — for senior adjuster review and SIU evaluation of the indicators.\" },\n  \"disclaimer\": \"Administrative intake & routing only — not a coverage, liability, or claim decision.\"\n}",
+      "notes": "The defining boundary case: bodily injury alone forces escalation, and the fraud indicators are listed as indicators for SIU to evaluate — not as an accusation. The agent makes no coverage or liability decision, keeps the claimant note neutral and supportive, and routes to both a senior adjuster and SIU. Exactly the line an administrative triage agent must hold."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Does it approve or deny claims?",
+      "a": "No. It performs administrative intake and triage only — validating completeness, classifying, screening coverage for routing, and routing to the right queue. It never approves, denies, or determines coverage or liability; a human adjuster does."
+    },
+    {
+      "q": "What does 'coverage screening' mean if it isn't a decision?",
+      "a": "It's an administrative routing signal — checking whether the policy was active on the loss date and whether the reported peril is among the policy's listed perils. It informs routing, not adjudication, and every output says so."
+    },
+    {
+      "q": "How does it handle suspected fraud?",
+      "a": "It flags evidence-based fraud indicators (late reporting, inconsistencies, prior patterns) for your SIU team to evaluate — as indicators, not accusations, since most have innocent explanations. It never asserts a claimant committed fraud."
+    },
+    {
+      "q": "What about injury or serious claims?",
+      "a": "Bodily injury, fatalities, large or complex losses, litigation, and ambiguous facts are always escalated to a human adjuster and never fast-tracked."
+    },
+    {
+      "q": "What happens when a claim is incomplete?",
+      "a": "It lists exactly what's missing against the FNOL checklist for that claim type, holds the claim, and asks the claimant for the specific items in neutral language — rather than routing an incomplete claim or assuming facts."
+    },
+    {
+      "q": "Is claimant data handled appropriately?",
+      "a": "Yes. It treats claimant information as regulated PII, keeps it in scope, follows fair-claims-handling norms with neutral communications, and logs triage decisions with cited data for audit."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Extraction (Extract → Verify)",
+    "worstCaseAction": "Misclassifies or misroutes a claim, surfaced for human review. It cannot approve, deny, adjust, or pay a claim — execution tools are absent from its registry.",
+    "authorityBoundary": "Intakes a claim, extracts structured data, and triages and routes it for human handling. It never approves, denies, or pays a claim. An adjuster makes every determination.",
+    "verificationTest": "Attempt to call an approve, deny, or payment tool → confirm it is absent from the agent's registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: decision/payment tools absent. Human gates: an adjuster decides. Confidence escalation: low-confidence extractions flagged. Cost ceiling: bounded. Audit trail: extraction and routing logged. Escalation path: complex claims routed to a senior adjuster.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "claims-intake-triage-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Extraction",
+      "worst_case_action": "Misroutes a claim, surfaced for human review. Cannot approve, deny, or pay claims.",
+      "authority_boundary": "Extracts claim data and triages/routes for human handling; decision/payment tools absent.",
+      "tags": [
+        "insurance",
+        "claims",
+        "intake",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_claim",
+          "extract_fields",
+          "validate_schema",
+          "classify",
+          "route"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "claim_approve",
+          "claim_deny",
+          "payment"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.25,
+        "alert_threshold_usd": 0.16
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "low_confidence_extraction",
+          "complex_claim",
+          "missing_data"
+        ],
+        "destination": "adjuster_queue"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "extraction",
+          "classification",
+          "routing"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Mis-prioritizes a severe claim as routine.",
+      "detection": "Severity is scored against documented criteria and uncertain cases are flagged.",
+      "mitigation": "It triages only — never closes or denies — and high severity is always surfaced.",
+      "recovery": "An adjuster re-prioritizes and the rule is tuned."
+    },
+    {
+      "mode": "Extracts a wrong claim detail such as date of loss or amount.",
+      "detection": "Extracted fields cite the source and low confidence is flagged.",
+      "mitigation": "Fields feed a human, not an automated decision.",
+      "recovery": "The adjuster corrects the detail before processing."
+    },
+    {
+      "mode": "Misses a fraud indicator.",
+      "detection": "Known indicator checks run and the agent flags rather than clears.",
+      "mitigation": "Suspected indicators are routed to the investigations unit.",
+      "recovery": "The indicator set is expanded after review."
+    }
+  ],
+  "evaluation": {
+    "primary": "Severity-prioritization accuracy and fraud-indicator recall are primary — mis-ranking a severe claim or missing a fraud flag is the failure.",
+    "metrics": [
+      {
+        "name": "Prioritization accuracy",
+        "description": "Share of claims assigned the correct severity or priority versus an adjuster."
+      },
+      {
+        "name": "Fraud-indicator recall",
+        "description": "Of claims with known indicators, the share it flags."
+      },
+      {
+        "name": "Extraction accuracy",
+        "description": "Accuracy of extracted claim details such as date of loss and amount."
+      },
+      {
+        "name": "Escalation rate",
+        "description": "How often severe or uncertain claims are correctly surfaced."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to triage a claim."
+      }
+    ],
+    "approach": "Replay historical claims with adjuster-assigned priorities and known fraud indicators; measure prioritization accuracy and indicator recall. Verify it never closes or denies — triage only."
+  }
+}

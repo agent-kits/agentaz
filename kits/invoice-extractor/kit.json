@@ -1,0 +1,355 @@
+{
+  "slug": "invoice-extractor",
+  "title": "Invoice Data Extraction Agent",
+  "category": "document-processing",
+  "shortDescription": "An invoice-extraction agent that parses invoices into validated JSON with per-field confidence, validates totals, and flags illegible or mismatched fields for review.",
+  "description": "An agent that turns invoices — clean PDFs or messy scans — into validated, structured JSON your systems can trust: vendor, number, date, line items, tax, and totals. It attaches a confidence to every field, checks that the math reconciles, and flags anything illegible or inconsistent for a human instead of guessing. It is defensive by design: it never fabricates a value for a missing or unreadable field, never silently 'fixes' totals that don't add up, attaches per-field confidence, routes low-confidence extractions to review, and keeps financial data in scope.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "document-processing",
+    "invoice",
+    "ocr",
+    "data-extraction",
+    "accounts-payable",
+    "autonomous-agent",
+    "structured-data",
+    "idp",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "40 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Extracts invoices into validated JSON: vendor, number, date, line items, tax, and totals.",
+    "Attaches a confidence to every field and validates that line items reconcile to the stated total.",
+    "Flags illegible fields and math mismatches for human review instead of guessing or silently correcting.",
+    "Defensive: never fabricates a missing value, never auto-fixes a discrepancy, and keeps financial data in scope."
+  ],
+  "whenToUse": [
+    "You process many invoices and want them turned into structured data automatically.",
+    "You need per-field confidence and validation, not just raw OCR text.",
+    "You want low-confidence or inconsistent documents routed to a human rather than passed through.",
+    "You're feeding an AP, ERP, or bookkeeping system that needs clean, validated fields."
+  ],
+  "whenNotToUse": [
+    "You want a value filled in for every field regardless of legibility — it won't guess.",
+    "You expect it to silently reconcile totals that don't add up.",
+    "You can't route low-confidence extractions to human review.",
+    "You can't handle invoice data with appropriate confidentiality."
+  ],
+  "systemPrompt": "You are an Invoice Data Extraction Agent. You convert ONE invoice document into validated, structured JSON with per-field confidence. You are judged on accurate extraction and on never fabricating a value or hiding an inconsistency.\n\n== CORE PRINCIPLES ==\n1. Extract, don't invent. Pull only what is actually on the document. If a field is missing, illegible, or ambiguous, return null with low confidence and a flag — never a guessed value.\n2. Confidence on everything. Attach a confidence (0.0-1.0) to each field based on legibility and clarity. Low-confidence fields are flagged for human review.\n3. Validate, don't 'fix'. Check that line items, tax, and totals reconcile. If they don't, do NOT silently adjust numbers — extract what's printed, flag the discrepancy, and route for review.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATION: Never produce a value for a field you can't read or that isn't present. Missing/illegible = null + low confidence + flag.\n- NO SILENT CORRECTION: If the math doesn't add up, report both the printed values and the discrepancy. Never overwrite a number to make it reconcile.\n- ROUTE LOW CONFIDENCE: If overall or key-field confidence is below threshold, mark the document for human review rather than passing it through as clean.\n- PRESERVE PRINTED VALUES: Report amounts/dates exactly as printed (normalize format, not value). Note the currency.\n- DATA: Treat invoice contents as confidential financial data; keep in scope.\n\n== METHOD ==\n- OCR/parse the document. Extract header fields (vendor, invoice #, dates, currency), line items (desc, qty, unit price, amount), and totals (subtotal, tax, total).\n- Score confidence per field. Validate: line items sum to subtotal; subtotal + tax = total. Flag mismatches and low-confidence fields.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"vendor\": { \"value\": \"<v|null>\", \"confidence\": <0.0-1.0> },\n  \"invoice_number\": { \"value\": \"<v|null>\", \"confidence\": <0.0-1.0> },\n  \"invoice_date\": { \"value\": \"<ISO|null>\", \"confidence\": <0.0-1.0> },\n  \"currency\": \"<code|null>\",\n  \"line_items\": [ { \"description\": \"<v>\", \"qty\": <n|null>, \"unit_price\": <n|null>, \"amount\": <n|null>, \"confidence\": <0.0-1.0> } ],\n  \"subtotal\": { \"value\": <n|null>, \"confidence\": <0.0-1.0> },\n  \"tax\": { \"value\": <n|null>, \"confidence\": <0.0-1.0> },\n  \"total\": { \"value\": <n|null>, \"confidence\": <0.0-1.0> },\n  \"validation\": { \"math_ok\": <bool>, \"issues\": [\"<e.g. line items sum 980 != subtotal 1080>\"] },\n  \"overall_confidence\": <0.0-1.0>,\n  \"needs_review\": <bool>,\n  \"review_reasons\": [\"<illegible fields / math mismatch / low confidence>\"]\n}\nSet needs_review=true on any math mismatch, illegible key field, or low overall confidence. Never emit a fabricated value.",
+  "architecture": [
+    {
+      "label": "Document intake",
+      "detail": "Receives the invoice (PDF, image, or scan) under confidential handling and prepares it for extraction."
+    },
+    {
+      "label": "OCR / parse layer",
+      "detail": "Extracts text and layout from digital or scanned documents, preserving positions that help locate fields."
+    },
+    {
+      "label": "Field extraction",
+      "detail": "Identifies header fields, line items, and totals, capturing the printed values without inventing absent ones."
+    },
+    {
+      "label": "Confidence scoring",
+      "detail": "Assigns a confidence to each field from legibility and clarity, so weak extractions are visible rather than hidden."
+    },
+    {
+      "label": "Validation engine",
+      "detail": "Checks that line items, tax, and totals reconcile and records any discrepancy instead of adjusting numbers."
+    },
+    {
+      "label": "Review gate",
+      "detail": "A deterministic gate routes documents with low confidence, illegible key fields, or math mismatches to human review."
+    },
+    {
+      "label": "Structured output",
+      "detail": "Emits validated JSON with per-field confidence and review flags for downstream AP/ERP systems."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_document",
+      "purpose": "Fetch the invoice document (PDF/image/scan) for extraction under confidential handling."
+    },
+    {
+      "name": "ocr_extract",
+      "purpose": "Run OCR/parsing to obtain text and layout from digital or scanned invoices."
+    },
+    {
+      "name": "parse_fields",
+      "purpose": "Identify header fields, line items, and totals from the parsed content."
+    },
+    {
+      "name": "confidence_score",
+      "purpose": "Assign a confidence to each extracted field based on legibility and clarity."
+    },
+    {
+      "name": "validate_totals",
+      "purpose": "Check that line items sum to subtotal and subtotal + tax = total, recording discrepancies."
+    },
+    {
+      "name": "currency_normalize",
+      "purpose": "Normalize date and amount formats and capture the currency without altering values."
+    },
+    {
+      "name": "emit_json",
+      "purpose": "Produce the validated structured JSON with per-field confidence."
+    },
+    {
+      "name": "flag_for_review",
+      "purpose": "Mark the document for human review on low confidence, illegible key fields, or math mismatch."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Intake the document",
+      "body": "Load the invoice under confidential handling and prepare it for extraction."
+    },
+    {
+      "title": "2. OCR / parse",
+      "body": "Extract text and layout from the digital or scanned document."
+    },
+    {
+      "title": "3. Extract fields",
+      "body": "Capture header fields, line items, and totals as printed, leaving missing/illegible ones null."
+    },
+    {
+      "title": "4. Score confidence",
+      "body": "Assign a confidence to each field so weak reads are visible."
+    },
+    {
+      "title": "5. Validate the math",
+      "body": "Check line items, tax, and totals reconcile; record any discrepancy without altering values."
+    },
+    {
+      "title": "6. Gate for review",
+      "body": "Route low-confidence, illegible-key-field, or mismatched documents to human review."
+    },
+    {
+      "title": "7. Emit structured JSON",
+      "body": "Output validated JSON with per-field confidence and review flags for downstream systems."
+    }
+  ],
+  "implementationNotes": [
+    "Never emit a fabricated value: a missing or illegible field must be null with low confidence and a flag, because a guessed invoice number or amount corrupts everything downstream.",
+    "Report printed values exactly and never silently reconcile mismatched totals; a discrepancy is a signal (missing line, OCR error, vendor mistake), not something to paper over.",
+    "Attach per-field confidence and route low-confidence or illegible-key-field documents to human review rather than passing them through as clean.",
+    "Validate the arithmetic (line items → subtotal → total) and surface the exact issue, which catches both extraction errors and genuine invoice problems.",
+    "Normalize format (dates, number formatting, currency) without altering the underlying value.",
+    "Backtest against labeled invoices with field accuracy and a hard-zero fabricated-value metric before automating downstream posting.",
+    "A cheaper OCR/parse pass handles clean digital invoices, so the strong model is reserved for messy scans and validation reasoning."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Extract to JSON",
+      "desc": "Extracts invoice fields and line items into structured JSON with per-field confidence. Single document, on demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Validated extraction",
+      "desc": "Adds total/tax validation, no-guess null handling, confidence thresholds, and automatic routing of low-confidence or mismatched documents to review."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Document pipeline at scale",
+      "desc": "Adds batch processing, multi-format and multi-language support, ERP/AP integration, human-in-the-loop review queues, and accuracy monitoring over time."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect intake/output",
+      "body": "Install the agent and connect its document source and structured-output destination.",
+      "code": "pipx install invoice-extract-agent\ninvoice-extract-agent connect --intake email,upload --out erp\ninvoice-extract-agent doctor"
+    },
+    {
+      "title": "Configure confidence & review thresholds",
+      "body": "Review routing and the no-guess posture are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nREVIEW_BELOW_CONFIDENCE=0.8\nNEVER_GUESS_MISSING=true\nROUTE_MATH_MISMATCH_TO_REVIEW=true"
+    },
+    {
+      "title": "Define the field schema",
+      "body": "Specify the fields and validation rules you need.",
+      "code": "# schema.yml\nheader: [vendor, invoice_number, invoice_date, currency]\nline_items: [description, qty, unit_price, amount]\ntotals: [subtotal, tax, total]\nvalidate: [line_items_sum_to_subtotal, subtotal_plus_tax_equals_total]"
+    },
+    {
+      "title": "Backtest on labeled invoices",
+      "body": "Replay invoices with known-correct values to measure field accuracy before going live.",
+      "code": "invoice-extract-agent backtest --set ./labeled --explain\n# reports per-field accuracy + fabricated-value count (must be 0)"
+    },
+    {
+      "title": "Wire into AP intake",
+      "body": "Route incoming invoices through extraction; low-confidence ones go to a review queue.",
+      "code": "# invoice intake -> extract -> validated JSON to ERP; needs_review=true -> review queue"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Clean digital invoice → full validated JSON",
+      "scenario": "A crisp PDF invoice. The agent extracts all fields at high confidence and the math reconciles.",
+      "input": "Digital PDF: Vendor 'Acme Supply', Invoice INV-204, 2026-05-10, 2 lines: 10 @ $40 = $400, 5 @ $20 = $100; subtotal $500, tax $40, total $540.",
+      "output": "{\n  \"vendor\": { \"value\": \"Acme Supply\", \"confidence\": 0.99 },\n  \"invoice_number\": { \"value\": \"INV-204\", \"confidence\": 0.99 },\n  \"invoice_date\": { \"value\": \"2026-05-10\", \"confidence\": 0.98 },\n  \"currency\": \"USD\",\n  \"line_items\": [\n    { \"description\": \"Widget A\", \"qty\": 10, \"unit_price\": 40, \"amount\": 400, \"confidence\": 0.97 },\n    { \"description\": \"Widget B\", \"qty\": 5, \"unit_price\": 20, \"amount\": 100, \"confidence\": 0.97 }\n  ],\n  \"subtotal\": { \"value\": 500, \"confidence\": 0.98 },\n  \"tax\": { \"value\": 40, \"confidence\": 0.97 },\n  \"total\": { \"value\": 540, \"confidence\": 0.99 },\n  \"validation\": { \"math_ok\": true, \"issues\": [] },\n  \"overall_confidence\": 0.98,\n  \"needs_review\": false,\n  \"review_reasons\": []\n}",
+      "notes": "The clean case: a digital invoice yields high per-field confidence and the validation confirms line items sum to subtotal and subtotal + tax = total. It passes through without review — the volume that should be automatic."
+    },
+    {
+      "title": "Low-quality scan, illegible field → null + flag, don't guess",
+      "scenario": "A faxed scan where the invoice number is unreadable. The agent extracts what it can and refuses to guess the rest.",
+      "input": "Scanned/faxed invoice: vendor readable, line items and totals readable, but the invoice number is smudged/illegible.",
+      "output": "{\n  \"vendor\": { \"value\": \"Globex Industrial\", \"confidence\": 0.9 },\n  \"invoice_number\": { \"value\": null, \"confidence\": 0.2 },\n  \"invoice_date\": { \"value\": \"2026-04-22\", \"confidence\": 0.85 },\n  \"currency\": \"USD\",\n  \"line_items\": [\n    { \"description\": \"Maintenance service\", \"qty\": 1, \"unit_price\": 1200, \"amount\": 1200, \"confidence\": 0.88 }\n  ],\n  \"subtotal\": { \"value\": 1200, \"confidence\": 0.9 },\n  \"tax\": { \"value\": 96, \"confidence\": 0.85 },\n  \"total\": { \"value\": 1296, \"confidence\": 0.9 },\n  \"validation\": { \"math_ok\": true, \"issues\": [] },\n  \"overall_confidence\": 0.78,\n  \"needs_review\": true,\n  \"review_reasons\": [\"Invoice number illegible (confidence 0.2) — left null rather than guessed\"]\n}",
+      "notes": "The math is fine, but the invoice number is unreadable. Critically, the agent returns null with low confidence for that field and flags it for review — it does NOT invent a plausible-looking invoice number. A guessed identifier would corrupt downstream matching and payment."
+    },
+    {
+      "title": "Totals don't reconcile → flag the discrepancy, never silently fix",
+      "scenario": "The line items don't sum to the printed total. The agent reports both and routes to review instead of 'correcting' the numbers.",
+      "input": "Invoice: line items sum to $980, but the printed total is $1,080 (subtotal $1,000, tax $80). The $20 line-item gap doesn't reconcile.",
+      "output": "{\n  \"vendor\": { \"value\": \"Northstar Parts\", \"confidence\": 0.95 },\n  \"invoice_number\": { \"value\": \"NS-7741\", \"confidence\": 0.96 },\n  \"invoice_date\": { \"value\": \"2026-05-02\", \"confidence\": 0.95 },\n  \"currency\": \"USD\",\n  \"line_items\": [\n    { \"description\": \"Part X\", \"qty\": 20, \"unit_price\": 24, \"amount\": 480, \"confidence\": 0.94 },\n    { \"description\": \"Part Y\", \"qty\": 10, \"unit_price\": 50, \"amount\": 500, \"confidence\": 0.94 }\n  ],\n  \"subtotal\": { \"value\": 1000, \"confidence\": 0.9 },\n  \"tax\": { \"value\": 80, \"confidence\": 0.92 },\n  \"total\": { \"value\": 1080, \"confidence\": 0.95 },\n  \"validation\": { \"math_ok\": false, \"issues\": [\"Line items sum to 980 but subtotal is printed as 1000 (gap 20)\", \"subtotal 1000 + tax 80 = 1080 matches printed total, but line-item sum is inconsistent\"] },\n  \"overall_confidence\": 0.9,\n  \"needs_review\": true,\n  \"review_reasons\": [\"Line items (980) do not reconcile to subtotal (1000) — discrepancy of 20; not auto-adjusted\"]\n}",
+      "notes": "The defining defensive case: the line items don't sum to the subtotal. A naive extractor might quietly change a number to make it balance. This agent reports the printed values exactly, records the specific discrepancy, and routes to review — surfacing a real data problem (a missing line, an OCR error, or a vendor mistake) instead of masking it."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Does it guess values it can't read?",
+      "a": "No — that's its core constraint. A missing, illegible, or ambiguous field is returned as null with low confidence and flagged for review, never filled with a plausible-looking guess that would corrupt downstream processing."
+    },
+    {
+      "q": "What happens when the totals don't add up?",
+      "a": "It reports the printed values exactly and records the specific discrepancy (for example, line items summing to less than the subtotal), then routes the document to review. It never silently changes a number to make the math balance."
+    },
+    {
+      "q": "How do I know which fields to trust?",
+      "a": "Every field carries a confidence score based on legibility and clarity, and the document gets an overall confidence with explicit review reasons, so weak extractions are visible rather than hidden."
+    },
+    {
+      "q": "What about low-quality scans?",
+      "a": "It extracts what's clearly legible at appropriate confidence and flags the rest for review, rather than forcing a full extraction from an unreadable image."
+    },
+    {
+      "q": "Can it feed our ERP/AP system automatically?",
+      "a": "Yes for high-confidence, validated invoices. Low-confidence or mismatched documents are routed to a review queue first, so only clean, validated data flows through automatically."
+    },
+    {
+      "q": "Is invoice data handled securely?",
+      "a": "Yes. It treats invoice contents as confidential financial data and keeps them in scope throughout extraction and output."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Extraction (Extract → Verify)",
+    "worstCaseAction": "Extracts an incorrect field value, surfaced with a low-confidence flag for human review. It cannot post, pay, or write invoice data to any financial system — execution tools are absent from its registry.",
+    "authorityBoundary": "Reads an invoice, extracts structured fields, validates them against a schema, and flags low-confidence values for review. It never posts to a ledger, pays, or writes to financial systems. A human verifies before any downstream use.",
+    "verificationTest": "Attempt to call a ledger-write, payment, or post tool → confirm it is absent from the agent's registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: payment/post tools absent. Human gates: a human verifies before use. Confidence escalation: low-confidence fields flagged. Cost ceiling: bounded per document. Audit trail: extracted fields and confidence logged. Escalation path: low-confidence extractions routed to review.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "invoice-extraction-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Extraction",
+      "worst_case_action": "Extracts a wrong field for human review. Cannot post, pay, or write to financial systems.",
+      "authority_boundary": "Extracts and validates invoice fields; payment/post tools absent.",
+      "tags": [
+        "document-processing",
+        "invoice",
+        "extraction",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_document",
+          "extract_fields",
+          "validate_schema",
+          "flag_low_confidence"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "ledger_write",
+          "payment",
+          "post"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.2,
+        "alert_threshold_usd": 0.14
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "low_confidence_field",
+          "missing_required_field"
+        ],
+        "destination": "ap_review"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "fields",
+          "confidence"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Misreads a total or tax field, producing a wrong figure.",
+      "detection": "Low-confidence fields are flagged and arithmetic checks (line items vs total) run.",
+      "mitigation": "Extraction only — no posting or payment; a human verifies.",
+      "recovery": "The reviewer corrects the field before any downstream use."
+    },
+    {
+      "mode": "A duplicate invoice is extracted and processed twice.",
+      "detection": "An invoice-number and vendor dedup check runs.",
+      "mitigation": "Duplicates are flagged rather than silently passed.",
+      "recovery": "The duplicate is held for review."
+    },
+    {
+      "mode": "A wrong currency or date format is parsed.",
+      "detection": "Currency and locale normalization runs with conflicts flagged.",
+      "mitigation": "Ambiguous formats are flagged rather than guessed.",
+      "recovery": "Canonical values are requested."
+    }
+  ],
+  "evaluation": {
+    "primary": "Field-level accuracy on financial fields is primary — a wrong total or tax figure flows straight into the books.",
+    "metrics": [
+      {
+        "name": "Field accuracy",
+        "description": "Share of extracted fields matching ground truth, reported per field type."
+      },
+      {
+        "name": "Financial-field accuracy",
+        "description": "Accuracy on totals, tax, and amounts specifically — weighted higher."
+      },
+      {
+        "name": "Arithmetic consistency",
+        "description": "Share where line items reconcile to the stated total."
+      },
+      {
+        "name": "Duplicate-detection recall",
+        "description": "Of duplicate invoices, the share flagged."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to extract per invoice."
+      }
+    ],
+    "approach": "Use a labeled set of invoices — clean digital plus messy scans — with known field values; report accuracy per field and separately on financial fields. Include known duplicates to test dedup recall."
+  }
+}

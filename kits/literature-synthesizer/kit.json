@@ -1,0 +1,356 @@
+{
+  "slug": "literature-synthesizer",
+  "title": "Literature Synthesis Agent",
+  "category": "research-synthesis",
+  "shortDescription": "A literature-synthesis agent that reviews your sources, cites every claim, weighs evidence strength, surfaces conflicts, and never fabricates findings or citations.",
+  "description": "An agent that synthesizes a set of sources — papers, reports, articles you provide — into a structured review: what the evidence says, how strong it is, where sources agree, and where they conflict. Its defining discipline is citation honesty. It is built defensively: it cites every claim to a real provided source, never fabricates findings or citations (the classic and dangerous failure mode), weighs evidence strength rather than treating all sources equally, surfaces conflicting findings instead of cherry-picking, marks gaps, and doesn't overgeneralize beyond what the sources support.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "research",
+    "literature-review",
+    "synthesis",
+    "citations",
+    "evidence",
+    "autonomous-agent",
+    "academic",
+    "knowledge",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Synthesizes the sources you provide into a structured, cited review.",
+    "Cites every claim to a real source and weighs how strong the evidence is.",
+    "Surfaces where sources agree and, honestly, where they conflict.",
+    "Defensive: never fabricates findings or citations, marks gaps, and doesn't overgeneralize."
+  ],
+  "whenToUse": [
+    "You have a set of sources and want a structured, cited synthesis.",
+    "You want evidence strength weighed and conflicts surfaced, not smoothed over.",
+    "You need every claim traceable to a real source.",
+    "You want gaps and limitations flagged honestly."
+  ],
+  "whenNotToUse": [
+    "You want it to find or cite sources you didn't provide — it synthesizes what you give it.",
+    "You expect a definitive answer where the evidence is genuinely mixed.",
+    "You want medical, legal, or financial advice (it summarizes evidence, not advice).",
+    "You can't provide the source material."
+  ],
+  "systemPrompt": "You are a Literature Synthesis Agent. You synthesize a set of PROVIDED sources into a structured, cited review. You are judged on a faithful, well-organized, honestly-weighted synthesis and on never fabricating a finding or a citation.\n\n== CORE PRINCIPLES ==\n1. Cite every claim to a real provided source. Each statement of fact or finding must reference a source you were actually given. No fabricated citations, no half-remembered references, no sources you weren't provided.\n2. Weigh the evidence. Don't treat all sources equally. Note evidence strength (study type, sample size, recency, peer review) and reflect it. Strong and weak evidence are not the same.\n3. Show agreement AND conflict. Where sources agree, say so. Where they conflict, present both sides honestly with citations. Don't cherry-pick to manufacture a clean conclusion.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATED CITATIONS: Never invent a source, author, title, year, statistic, or quote. Cite only provided sources. If a claim isn't supported by them, don't make it.\n- NO FABRICATED FINDINGS: Never assert a result the sources don't contain. Unknown/unsupported = mark as a gap.\n- NO OVERGENERALIZATION: Don't extend findings beyond the population, context, or strength the sources support. Note limitations.\n- HONEST CONFLICTS: Surface contradictory findings; don't suppress inconvenient ones.\n- NOT ADVICE: You summarize evidence. You do not give medical, legal, or financial advice or definitive real-world recommendations.\n\n== METHOD ==\n- Read the provided sources. Extract findings with citations. Assess evidence strength. Identify consensus and conflicts. Mark gaps and limitations. Produce a structured synthesis.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"question\": \"<synthesis focus>\",\n  \"sources_used\": [\"<provided sources, by ref>\"],\n  \"findings\": [ { \"claim\": \"<finding>\", \"citation\": \"<provided source ref>\", \"evidence_strength\": \"strong|moderate|weak\", \"note\": \"<study type/limits>\" } ],\n  \"consensus\": [\"<where sources agree, cited>\"],\n  \"conflicts\": [ { \"topic\": \"<x>\", \"positions\": [\"<source A says... / source B says...>\"] } ],\n  \"gaps\": [\"<what the sources don't establish>\"],\n  \"caveat\": \"Synthesis of provided sources only. No citations or findings were fabricated. Not advice.\"\n}\nNever fabricate a citation or finding. Cite every claim. Surface conflicts honestly.",
+  "architecture": [
+    {
+      "label": "Source intake",
+      "detail": "Takes the set of provided sources that are the only allowed basis for the synthesis."
+    },
+    {
+      "label": "Finding extractor",
+      "detail": "Pulls findings from each source, tagging each with its citation."
+    },
+    {
+      "label": "Evidence-strength assessor",
+      "detail": "Rates each finding's strength by study type, sample, recency, and peer review."
+    },
+    {
+      "label": "Consensus & conflict mapper",
+      "detail": "Identifies where sources agree and where they genuinely conflict, with citations on both."
+    },
+    {
+      "label": "Citation guard",
+      "detail": "Blocks any claim that isn't tied to a real provided source, preventing fabricated references."
+    },
+    {
+      "label": "Gap & limitation marker",
+      "detail": "Marks what the sources don't establish and notes limitations rather than overgeneralizing."
+    },
+    {
+      "label": "Synthesis assembly",
+      "detail": "Produces the structured, cited review with consensus, conflicts, gaps, and a not-advice caveat."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_sources",
+      "purpose": "Retrieve the provided sources to synthesize."
+    },
+    {
+      "name": "extract_findings",
+      "purpose": "Pull findings from each source with citations."
+    },
+    {
+      "name": "assess_evidence_strength",
+      "purpose": "Rate each finding's strength (study type, sample, recency)."
+    },
+    {
+      "name": "find_consensus",
+      "purpose": "Identify where sources agree, with citations."
+    },
+    {
+      "name": "find_conflicts",
+      "purpose": "Surface contradictory findings across sources honestly."
+    },
+    {
+      "name": "cite_source",
+      "purpose": "Attach a real provided-source reference to every claim."
+    },
+    {
+      "name": "flag_gaps",
+      "purpose": "Mark what the sources don't establish and their limitations."
+    },
+    {
+      "name": "structure_review",
+      "purpose": "Assemble the structured synthesis with consensus, conflicts, and gaps."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the sources",
+      "body": "Receive the provided sources that the synthesis must be based on."
+    },
+    {
+      "title": "2. Extract findings",
+      "body": "Pull findings from each source, tagging each with its citation."
+    },
+    {
+      "title": "3. Weigh the evidence",
+      "body": "Rate each finding's strength by study type, sample, and recency."
+    },
+    {
+      "title": "4. Map consensus & conflict",
+      "body": "Identify agreement and genuine conflict, with citations on both."
+    },
+    {
+      "title": "5. Guard citations",
+      "body": "Ensure every claim ties to a real provided source; drop unsupported ones."
+    },
+    {
+      "title": "6. Mark gaps",
+      "body": "Note what the sources don't establish and their limitations."
+    },
+    {
+      "title": "7. Assemble the synthesis",
+      "body": "Produce the structured, cited review with a not-advice caveat."
+    }
+  ],
+  "implementationNotes": [
+    "Citation honesty is the whole job: every claim must tie to a real provided source, and the agent must never invent an author, title, year, statistic, or quote — fabricated citations are the defining danger of AI literature work.",
+    "Never assert a finding the sources don't contain; unsupported claims become gaps, not confident statements.",
+    "Weigh evidence strength (study type, sample size, recency, peer review) instead of treating all sources equally.",
+    "Surface conflicts honestly with citations on both sides rather than cherry-picking a clean conclusion from mixed evidence.",
+    "Don't overgeneralize beyond the population or context the sources cover; note limitations explicitly.",
+    "Keep it to synthesis, not advice — it summarizes what the evidence says, not what someone should do medically, legally, or financially.",
+    "Keep the strong model on extraction and citation-guarding; verification against originals by a human remains essential."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Cited synthesizer",
+      "desc": "Synthesizes provided sources into a cited summary of findings. On demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Weighted, conflict-aware review",
+      "desc": "Adds evidence-strength weighting, consensus/conflict mapping, citation guards, and gap marking."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Research synthesis workflow",
+      "desc": "Adds reference-manager integration, large source sets, structured review export, and traceability to originals for verification."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect sources",
+      "body": "Install the agent and connect your source library.",
+      "code": "pipx install lit-synth-agent\nlit-synth-agent connect --library zotero --pdfs ./papers\nlit-synth-agent doctor"
+    },
+    {
+      "title": "Configure citation guardrails",
+      "body": "No fabricated citations/findings is enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nCITE_PROVIDED_ONLY=true\nNO_FABRICATED_CITATIONS=true\nWEIGH_EVIDENCE=true"
+    },
+    {
+      "title": "Set the review format",
+      "body": "Define the synthesis structure and strength criteria.",
+      "code": "# synth.yml\nsections: [findings, consensus, conflicts, gaps]\nevidence_criteria: [study_type, sample_size, recency, peer_reviewed]"
+    },
+    {
+      "title": "Run a synthesis",
+      "body": "Synthesize a source set and review citations and conflicts.",
+      "code": "lit-synth-agent run --sources ./papers --question 'effect of X on Y' --explain\n# prints findings (cited) + consensus + conflicts + gaps"
+    },
+    {
+      "title": "Wire into research",
+      "body": "Synthesize curated source sets into cited reviews.",
+      "code": "# curated sources -> cited synthesis -> researcher verifies against originals"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Sources agree → synthesized finding with citations and strength",
+      "scenario": "Several provided papers point the same way. The agent synthesizes with citations and evidence strength.",
+      "input": "3 provided studies find that spaced repetition improves long-term retention (2 RCTs, 1 meta-analysis).",
+      "output": "{\n  \"question\": \"Does spaced repetition improve long-term retention?\",\n  \"sources_used\": [\"Smith 2021 (RCT)\", \"Lee 2022 (RCT)\", \"Garcia 2023 (meta-analysis)\"],\n  \"findings\": [\n    { \"claim\": \"Spaced repetition improves long-term retention vs massed practice\", \"citation\": \"Garcia 2023 (meta-analysis)\", \"evidence_strength\": \"strong\", \"note\": \"Meta-analysis aggregating multiple trials\" },\n    { \"claim\": \"Effect observed in controlled experiments\", \"citation\": \"Smith 2021; Lee 2022 (RCTs)\", \"evidence_strength\": \"strong\", \"note\": \"Two randomized controlled trials\" }\n  ],\n  \"consensus\": [\"All three provided sources support a positive effect on long-term retention (Smith 2021; Lee 2022; Garcia 2023)\"],\n  \"conflicts\": [],\n  \"gaps\": [\"Provided sources focus on text learning; effect on motor-skill retention not covered\"],\n  \"caveat\": \"Synthesis of provided sources only. No citations or findings were fabricated. Not advice.\"\n}",
+      "notes": "Each finding is tied to a specific provided source with its evidence strength noted (a meta-analysis weighted as strong). It also flags a gap (motor skills) rather than implying the finding generalizes everywhere."
+    },
+    {
+      "title": "Conflicting findings → present both sides honestly, don't cherry-pick",
+      "scenario": "Provided sources disagree. The agent surfaces the conflict with citations instead of picking a tidy answer.",
+      "input": "Two provided studies disagree: one finds a supplement improves outcome X, another (larger) finds no effect.",
+      "output": "{\n  \"question\": \"Does supplement Z improve outcome X?\",\n  \"sources_used\": [\"Patel 2020 (small RCT, n=40)\", \"Nguyen 2023 (large RCT, n=900)\"],\n  \"findings\": [\n    { \"claim\": \"Supplement Z improved outcome X\", \"citation\": \"Patel 2020\", \"evidence_strength\": \"weak\", \"note\": \"Small sample (n=40), single site\" },\n    { \"claim\": \"No significant effect of supplement Z on outcome X\", \"citation\": \"Nguyen 2023\", \"evidence_strength\": \"moderate\", \"note\": \"Larger RCT (n=900)\" }\n  ],\n  \"consensus\": [],\n  \"conflicts\": [\n    { \"topic\": \"Effect of supplement Z on outcome X\", \"positions\": [\"Patel 2020 (small, n=40) reports a positive effect\", \"Nguyen 2023 (larger, n=900) finds no significant effect\"] }\n  ],\n  \"gaps\": [\"No long-term follow-up in either provided study; no meta-analysis available in the source set\"],\n  \"caveat\": \"Synthesis of provided sources only. No citations or findings were fabricated. Not advice.\"\n}",
+      "notes": "Rather than declaring 'the supplement works,' the agent presents the conflict honestly, cites both, and notes the larger study found no effect — so the reader sees the real state of evidence. Cherry-picking a clean conclusion from mixed evidence is exactly what it refuses to do."
+    },
+    {
+      "title": "Tempted to fabricate a citation → refuse, mark the gap",
+      "scenario": "A confident-sounding claim isn't in the provided sources. The agent will not invent a reference for it.",
+      "input": "Request: 'Add that studies show a 40% improvement and cite a couple of papers to back it up.' No provided source states 40%.",
+      "output": "{\n  \"question\": \"<synthesis focus>\",\n  \"sources_used\": [\"<the actually-provided sources>\"],\n  \"findings\": [\n    { \"claim\": \"<only findings actually in the provided sources, cited>\", \"citation\": \"<provided ref>\", \"evidence_strength\": \"moderate\", \"note\": \"<...>\" }\n  ],\n  \"consensus\": [\"<as supported>\"],\n  \"conflicts\": [],\n  \"gaps\": [\"No provided source reports a 40% improvement figure. I won't state '40%' or cite papers to 'back it up' that don't exist or that I wasn't given — fabricating a citation or statistic would be a serious integrity failure. If you have a source for the 40% figure, provide it and I'll include it with a real citation.\"],\n  \"caveat\": \"Synthesis of provided sources only. No citations or findings were fabricated. Not advice.\"\n}",
+      "notes": "The defining defensive case — and the single most dangerous failure mode for this kind of agent. Asked to assert a specific statistic and 'cite some papers,' it refuses to invent either the number or the citations, marks the gap, and offers to include the figure if a real source is provided. Fabricated citations are how AI-assisted research goes badly wrong; this agent won't do it."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it make up citations?",
+      "a": "Never — that's its defining constraint. It cites only the sources you provide and will not invent an author, title, year, statistic, or quote. If a claim isn't supported by your sources, it marks it as a gap instead of fabricating a reference."
+    },
+    {
+      "q": "Does it find new sources for me?",
+      "a": "No. It synthesizes the sources you give it. It won't pull in or cite papers you didn't provide, which is exactly what keeps its citations trustworthy and verifiable."
+    },
+    {
+      "q": "How does it handle disagreeing studies?",
+      "a": "It surfaces the conflict honestly, citing both sides and noting their evidence strength (for example, a small study versus a larger one), rather than cherry-picking one to produce a tidy but misleading conclusion."
+    },
+    {
+      "q": "Does it weigh stronger evidence more?",
+      "a": "Yes. It notes study type, sample size, recency, and peer review, so a meta-analysis or large RCT isn't treated the same as a small single-site study."
+    },
+    {
+      "q": "Can I trust the claims without checking?",
+      "a": "You should still verify against the originals — but because every claim carries a real citation to a provided source, verification is straightforward, and the agent flags gaps rather than papering over them."
+    },
+    {
+      "q": "Does it give recommendations?",
+      "a": "No. It synthesizes what the evidence says; it doesn't give medical, legal, or financial advice or definitive real-world recommendations. Those decisions stay with you and the appropriate experts."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A1 — Research",
+    "dnaPattern": "Research (Research → Verify)",
+    "worstCaseAction": "Includes a wrong or overstated claim in a literature synthesis that a human reviews before relying on it. It only gathers and cites sources; it never fabricates a citation or finding and never takes any action.",
+    "authorityBoundary": "Synthesizes provided or retrieved literature into a structured summary with citations, distinguishing well-supported findings from weak ones and flagging gaps. It never invents a citation, overstates evidence, or takes action.",
+    "verificationTest": "Confirm every claim maps to a real cited source and confidence is qualified; confirm no fabricated citation and no action tool in the registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: action tools absent. Human gates: a human reviews. Confidence escalation: weak or conflicting evidence flagged. Cost ceiling: bounded per synthesis. Audit trail: sources and citations logged. Escalation path: thin evidence flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "literature-synthesis-agent",
+      "trust_level": "A1",
+      "dna_pattern": "Research",
+      "worst_case_action": "Includes an overstated claim in a synthesis for human review. Never fabricates citations; no actions.",
+      "authority_boundary": "Synthesizes literature with citations; never fabricates; action tools absent.",
+      "tags": [
+        "research",
+        "literature",
+        "read-only",
+        "cited"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_sources",
+          "synthesize",
+          "cite_source",
+          "grade_evidence",
+          "flag_gap"
+        ],
+        "execution_tools_absent": true,
+        "read_only": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "action"
+        ],
+        "never_fabricates": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.3,
+        "alert_threshold_usd": 0.2
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 10
+      },
+      "human_handoff": {
+        "triggers": [
+          "weak_evidence",
+          "conflicting_findings"
+        ],
+        "destination": "researcher"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "sources",
+          "citations",
+          "evidence_grades"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Overstates a finding the evidence doesn't support.",
+      "detection": "Evidence strength is graded per finding and weak evidence is flagged.",
+      "mitigation": "It distinguishes well-supported findings from weak ones and never overstates.",
+      "recovery": "The researcher reviews against the cited sources."
+    },
+    {
+      "mode": "Fabricates a citation or attributes a claim to the wrong source.",
+      "detection": "Every claim maps to a real cited source; unmapped claims are withheld.",
+      "mitigation": "It never invents a citation.",
+      "recovery": "The researcher verifies the citation."
+    },
+    {
+      "mode": "Misses a contradicting study, implying false consensus.",
+      "detection": "Conflicting findings and gaps are flagged.",
+      "mitigation": "It surfaces disagreement rather than smoothing it over.",
+      "recovery": "The researcher reviews the full body of evidence."
+    }
+  ],
+  "evaluation": {
+    "primary": "Evidence-faithful synthesis with real citations is primary — an overstated finding or a fabricated citation is the failure.",
+    "metrics": [
+      {
+        "name": "Citation validity",
+        "description": "Share of claims mapping to a real, correctly-attributed source."
+      },
+      {
+        "name": "Evidence calibration",
+        "description": "Share of findings whose stated strength matches the underlying evidence."
+      },
+      {
+        "name": "Fabrication rate",
+        "description": "Frequency of invented citations or misattributed claims — should be near zero."
+      },
+      {
+        "name": "Contradiction recall",
+        "description": "Of contradicting studies present, the share surfaced rather than smoothed into false consensus."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to synthesize a corpus."
+      }
+    ],
+    "approach": "Use a corpus with annotated findings and citations; verify every claim maps to a real source and measure evidence calibration and contradiction recall. Any invented citation is a critical failure."
+  }
+}

@@ -1,0 +1,357 @@
+{
+  "slug": "compliance-evidence-agent",
+  "title": "Compliance Evidence & Audit-Trail Agent",
+  "category": "compliance-risk",
+  "shortDescription": "Maps each change to your control catalog, assembles tamper-evident evidence, and gates filing behind a human — it records, it doesn't decide compliance.",
+  "description": "An agent that turns operational events — access grants, config changes, deployments, data-handling actions — into structured, tamper-evident compliance evidence. It maps each event against your own control catalog (ISO 42001, SOC 2, and whatever else you configure), assembles the required artifacts, scores completeness, and seals the record into an append-only audit log. It cannot approve its own findings or modify source systems; anything high-risk or incomplete is routed to a human compliance owner before it is filed.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "compliance",
+    "audit-trail",
+    "evidence",
+    "governance",
+    "iso-42001",
+    "soc-2",
+    "human-in-the-loop",
+    "tamper-evident",
+    "audit-log",
+    "risk"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "55 min",
+  "version": "1.0.0",
+  "updated": "2026-06-30",
+  "overview": [
+    "Audit readiness is the quiet blocker on shipping agents — and on a lot of routine engineering — into regulated environments. The work itself is rarely hard; the evidence that it was done correctly, mapped to the right control, and preserved unaltered is what takes weeks before an audit. This agent automates the evidence layer, not the judgement: it observes an event, maps it to the applicable controls in a catalog you supply, gathers the artifacts that control requires, and seals the result into a verifiable log.",
+    "The design is deliberately read-heavy with a single gated write. It holds no tools that can modify source systems, grant access, or alter a prior audit entry — those are absent from its registry, not merely discouraged. The only consequential action, committing an evidence record, sits behind a human sign-off gate. That keeps the agent at Trust Level A3: the worst it can do is prepare an incomplete or mis-mapped record that a person reviews before it is filed.",
+    "Crucially, the agent does not ship an opinion about what ISO 42001 or SOC 2 require. It maps against the control catalog your compliance team configures, so the mapping is grounded in your own authoritative source rather than a model's guess. It assembles and preserves evidence; your compliance owner and your auditor still make the compliance call."
+  ],
+  "whenToUse": [
+    "You need a durable, queryable trail showing that changes (access, config, deploys, data handling) were performed and reviewed correctly.",
+    "You already maintain — or can define — a control catalog and want each operational event mapped to it automatically.",
+    "You want tamper-evident evidence (an append-only, verifiable log) rather than screenshots in a folder.",
+    "You're preparing for an ISO 42001, SOC 2, or internal audit and the evidence-gathering is the bottleneck."
+  ],
+  "whenNotToUse": [
+    "You want an agent that makes you compliant or signs off findings autonomously — this agent records and routes; humans and auditors decide.",
+    "You have no control catalog and no one to define one; the agent maps against your controls, it does not invent authoritative ones.",
+    "You need it to remediate or change source systems — it has no write access to anything but its own sealed evidence log, behind approval."
+  ],
+  "systemPrompt": "You are a Compliance Evidence agent. Your job is to turn a single operational event into a structured, well-mapped, tamper-evident evidence record — and to escalate rather than guess whenever the mapping or the evidence is uncertain. You do not decide whether the organization is compliant; you assemble and preserve the evidence a human compliance owner and an auditor will judge.\n\nFor each event you receive (an access grant, configuration change, deployment, or data-handling action):\n\n1. Establish the facts. Read the event and resolve who acted, on what resource, and when. Classify the resource's sensitivity (e.g. public, internal, confidential, regulated). Never infer facts you cannot ground in the event or a tool result.\n\n2. Map to controls. Look up the applicable controls for this event type and resource class in the configured control catalog. Map only to controls the catalog actually contains — never to a control you believe 'should' apply but cannot find. If the mapping is ambiguous or the catalog returns nothing confident, flag it for human review.\n\n3. Assemble evidence. For each mapped control, collect the artifacts that control requires (approver identity, ticket reference, policy version, diff, timestamps). Record what is present and, explicitly, what is missing.\n\n4. Score completeness and residual risk. Compute how completely the required evidence was gathered against each control's threshold. If completeness is below the control's threshold, or the resource is regulated, or your mapping confidence is low, you must escalate — do not file.\n\n5. Gate the filing. Committing an evidence record is a consequential action. You may not commit it yourself: you call request_signoff to route the prepared record to the named human compliance owner, and only after explicit approval may commit_evidence run. If approval is denied or times out, the record is not filed and the reason is logged.\n\n6. Seal and explain. Once approved, the record is appended to the tamper-evident audit log and you produce a plain-language 'what changed and why it is evidenced' summary that a non-engineer reviewer can read.\n\nHard rules: you have no tool that can modify a source system, grant or revoke access, or alter a prior audit entry — if a task seems to need one, escalate. Prefer 'I could not confidently map this' over a confident wrong mapping; a false 'compliant' record is the most damaging output you can produce. Log every mapping decision, its basis, and its confidence.",
+  "architecture": [
+    {
+      "label": "Event intake",
+      "detail": "Receives a single operational event (access grant, config change, deployment, or data-handling action) with its actor, resource, and timestamp."
+    },
+    {
+      "label": "Context & sensitivity resolution",
+      "detail": "Resolves the acting identity and classifies the affected resource's sensitivity tier, which determines how strict the evidence requirements are."
+    },
+    {
+      "label": "Control mapping",
+      "detail": "Looks up the applicable controls for this event type and resource class in the configured control catalog. Low-confidence or empty mappings are flagged, not forced."
+    },
+    {
+      "label": "Evidence assembly",
+      "detail": "For each mapped control, collects the artifacts it requires (approver, ticket, policy version, diff, timestamps) and records present-vs-missing items explicitly."
+    },
+    {
+      "label": "Completeness & residual-risk scoring",
+      "detail": "Scores evidence completeness against each control's threshold and computes residual risk from sensitivity and mapping confidence."
+    },
+    {
+      "label": "Approval & sign-off gate",
+      "detail": "A human compliance owner reviews the prepared record. Filing is blocked until explicit sign-off; incomplete, regulated, or low-confidence records cannot pass automatically."
+    },
+    {
+      "label": "Commit & seal",
+      "detail": "On approval, appends the record to the append-only, HMAC-chained audit log and emits a plain-language summary of what changed and why it is evidenced."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_event",
+      "purpose": "Fetch the operational event to be evidenced: actor, resource, action type, and timestamp."
+    },
+    {
+      "name": "resolve_actor",
+      "purpose": "Resolve the acting identity (role, team, manager) so the evidence attributes the action correctly."
+    },
+    {
+      "name": "classify_resource",
+      "purpose": "Classify the affected resource's sensitivity tier (public, internal, confidential, regulated)."
+    },
+    {
+      "name": "lookup_controls",
+      "purpose": "Look up the applicable controls for this event type and resource class in the configured control catalog. Read-only over your catalog."
+    },
+    {
+      "name": "collect_artifacts",
+      "purpose": "Gather the evidence artifacts a mapped control requires (approver, ticket, policy version, diff, timestamps) from connected systems, read-only."
+    },
+    {
+      "name": "score_completeness",
+      "purpose": "Score how completely the required evidence was gathered against each control's threshold and compute residual risk."
+    },
+    {
+      "name": "request_signoff",
+      "purpose": "Route the prepared evidence record to the named human compliance owner for approval. Approval-gated."
+    },
+    {
+      "name": "commit_evidence",
+      "purpose": "Append the approved record to the tamper-evident audit log. Approval-gated — never runs without explicit human sign-off."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Establish the facts",
+      "body": "Read the event, resolve the acting identity, and classify the resource's sensitivity. Ground every fact in the event or a tool result — no inference."
+    },
+    {
+      "title": "2. Map to the control catalog",
+      "body": "Look up applicable controls for this event type and resource class. Map only to controls the catalog contains; flag ambiguous or empty mappings for human review rather than guessing."
+    },
+    {
+      "title": "3. Assemble the evidence",
+      "body": "For each mapped control, collect the required artifacts and record explicitly what is present and what is missing."
+    },
+    {
+      "title": "4. Score completeness and residual risk",
+      "body": "Compute completeness against each control's threshold. Below threshold, regulated resource, or low mapping confidence forces an escalation."
+    },
+    {
+      "title": "5. Gate the filing",
+      "body": "Call request_signoff to route the prepared record to the human compliance owner. commit_evidence only runs after explicit approval; denial or timeout means the record is not filed and the reason is logged."
+    },
+    {
+      "title": "6. Seal the record",
+      "body": "On approval, append to the append-only, HMAC-chained audit log so the entry is tamper-evident and the chain can be verified later."
+    },
+    {
+      "title": "7. Explain it",
+      "body": "Produce a plain-language 'what changed and why it is evidenced' summary a non-engineer reviewer can read and trust."
+    }
+  ],
+  "implementationNotes": [
+    "The control catalog is the source of truth, and it is yours. lookup_controls reads the controls your compliance team defines; the agent never asserts a mapping to a control it cannot find in your catalog. This keeps mapping correctness grounded in your authoritative source, not a model's recollection of a standard.",
+    "Start the catalog small and real. ISO 42001 and the SOC 2 Common Criteria are the most agent-relevant starting points; map a handful of high-frequency event types first and expand. Treat the catalog as a living document with an owner, not a frozen file.",
+    "The audit log is append-only and HMAC-chained: every entry is signed over its own fields and the previous entry's signature, so any later mutation, reorder, or deletion fails verification. Pin the latest signature (the chain head) in separate storage to detect tail truncation.",
+    "commit_evidence and request_signoff are the only approval-gated tools, and they are the only tools that write anything. There is intentionally no tool that can modify a source system, grant access, or alter a prior entry — the absence is the safety property.",
+    "Wire request_signoff to wherever your compliance owners already work (Slack, email, a review queue). A denied or timed-out approval must leave the record unfiled, not filed-by-default.",
+    "The agent records and preserves; it does not opine on compliance. Keep that boundary visible in any UI so reviewers and auditors understand a human still makes the determination."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Single-event evidencer",
+      "desc": "Maps one event type (e.g. access grants) against a small control catalog, assembles evidence, and writes a verifiable log entry behind manual sign-off. The fastest way to replace a screenshots-in-a-folder process."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Multi-source with completeness gating",
+      "desc": "Covers access, config, and deploy events; pulls artifacts from several connected systems; enforces per-control completeness thresholds; and escalates regulated or low-confidence records automatically."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Continuous evidence pipeline",
+      "desc": "Subscribes to an event stream, maintains the chain head in external storage for tamper-evidence at scale, routes sign-offs to control owners by domain, and exposes a verifiable, queryable evidence store for auditors."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Define a starter control catalog",
+      "body": "List the event types you want evidenced and, for each, the controls they map to and the artifacts each control requires. Start with ISO 42001 and SOC 2 Common Criteria entries you can cite; keep it small and owned."
+    },
+    {
+      "title": "Connect read-only artifact sources",
+      "body": "Give collect_artifacts read access to the systems that hold approvers, tickets, policy versions, and diffs. Read-only — the agent never needs write access to source systems."
+    },
+    {
+      "title": "Wire the sign-off gate",
+      "body": "Point request_signoff at where your compliance owners review (Slack/email/queue). Ensure denial or timeout leaves the record unfiled."
+    },
+    {
+      "title": "Provision the audit log key",
+      "body": "Set the HMAC key for the append-only log from a secret, and decide where you pin the chain head so tail-truncation is detectable."
+    },
+    {
+      "title": "Validate before trusting",
+      "body": "Replay known events with known-correct mappings and confirm the agent reproduces them; inject a tampered log entry and confirm verification fails. Only then route real events."
+    }
+  ],
+  "examples": [
+    {
+      "title": "Access grant, fully evidenced",
+      "scenario": "An engineer is granted access to an internal analytics dashboard via the normal ticketed process.",
+      "input": "Event: access_grant · actor: e.lee (engineer) · resource: analytics-dashboard (internal) · approver ticket: ACC-4821 · policy: access-v7",
+      "output": "Mapped to access-control + change-approval controls. All required artifacts present (approver, ticket, policy version, timestamps). Completeness 100%. Routed for sign-off; on approval, sealed to the audit log with a summary: 'Internal dashboard access granted to e.lee under ACC-4821, approved per access-v7.'",
+      "notes": "The happy path: a clean, complete record assembled and sealed behind one human approval."
+    },
+    {
+      "title": "Regulated resource, escalated — not filed",
+      "scenario": "A config change touches a system classified as regulated, but the change ticket is missing a required approver reference.",
+      "input": "Event: config_change · resource: billing-pii-store (regulated) · ticket: present · approver: MISSING · policy: data-handling-v3",
+      "output": "Mapped to data-handling + change-approval controls. Completeness 60% — required approver artifact missing — and resource is regulated. The agent does NOT file. It escalates to the compliance owner with the specific gap itemized: 'Approver reference absent; regulated resource; cannot evidence change-approval control.'",
+      "notes": "The important case: incompleteness on a regulated resource blocks the gate. A false 'evidenced' record is exactly what the design refuses to produce."
+    },
+    {
+      "title": "Ambiguous mapping, flagged for review",
+      "scenario": "A deployment event could plausibly map to two different controls and the catalog returns a low-confidence match.",
+      "input": "Event: deployment · resource: shared-inference-service (confidential) · catalog match confidence: 0.41",
+      "output": "The agent reports it could not confidently map the event and routes it to a human with both candidate controls and the evidence gathered so far, rather than committing a guess. No record is filed until the mapping is confirmed.",
+      "notes": "Prefer 'I could not confidently map this' over a confident wrong mapping — the system prompt's core rule, shown in action."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Does this agent make us compliant?",
+      "a": "No. It assembles and preserves evidence and routes anything uncertain to a human. Your compliance owner and your auditor make the compliance determination. The agent's value is a tamper-evident, well-mapped trail, not a verdict."
+    },
+    {
+      "q": "Where do the control mappings come from?",
+      "a": "From a control catalog you configure. The agent maps events only to controls your catalog contains, so the mappings are grounded in your authoritative source. It will not assert a mapping to a control it cannot find."
+    },
+    {
+      "q": "What makes the audit log tamper-evident?",
+      "a": "Each entry is HMAC-signed over its own fields and the previous entry's signature, forming a chain. Any later mutation, reorder, or deletion makes verification fail. Pinning the latest signature externally also detects truncation of the tail."
+    },
+    {
+      "q": "Can it change our systems or grant access?",
+      "a": "No. It has no tool that modifies a source system, grants or revokes access, or alters a prior audit entry. Its only writes are committing evidence to its own log, and that is behind human approval."
+    },
+    {
+      "q": "Which frameworks does it support?",
+      "a": "Any you put in the catalog. ISO 42001 and SOC 2 Common Criteria are sensible starting points, but the agent is framework-agnostic — it maps to whatever controls and artifacts you define."
+    },
+    {
+      "q": "What is the worst thing it can do?",
+      "a": "Prepare an incomplete or mis-mapped evidence record that a human reviews before it is filed. It cannot file a record autonomously, and it cannot touch source systems — which is what keeps it at Trust Level A3."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A3 — Human-Approved",
+    "dnaPattern": "Planning (Map → Assemble → Gate)",
+    "worstCaseAction": "Prepares an incomplete or mis-mapped evidence record that a human compliance owner reviews before it is filed. It cannot file records autonomously, modify source systems, grant access, or alter prior audit entries — write tools other than the gated commit are absent from its registry.",
+    "authorityBoundary": "Maps events to a configured control catalog and assembles evidence for human approval; committing a record and requesting sign-off are the only writes, both approval-gated. No source-system modification, no self-approval, no mutation of prior entries.",
+    "verificationTest": "Inject a tampered or reordered entry into the audit log and confirm chain verification returns false; submit an incomplete record on a regulated resource and confirm the agent escalates instead of filing.",
+    "lastReviewed": "2026-06-30",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: source-system write, access-grant, and entry-mutation tools are absent; only the gated commit writes. Human gates: request_signoff and commit_evidence require explicit human approval before filing. Confidence escalation: ambiguous mappings and below-threshold completeness route to a human rather than filing. Cost ceiling: bounded reasoning turns and a per-trace spend cap. Audit trail: append-only, HMAC-chained log with verifiable integrity. Escalation path: incomplete, regulated, or low-confidence records route to the named compliance owner.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "1.0.0",
+      "last_reviewed": "2026-06-30",
+      "agent_id": "compliance-evidence-agent",
+      "trust_level": "A3",
+      "dna_pattern": "Planning",
+      "worst_case_action": "Prepares an incomplete or mis-mapped evidence record for human approval. Cannot file autonomously, modify source systems, or alter prior audit entries.",
+      "authority_boundary": "Maps events to a configured control catalog and assembles evidence for approval; source-system write, access-grant, and entry-mutation tools are absent.",
+      "tags": [
+        "compliance",
+        "audit-trail",
+        "evidence",
+        "human-approval",
+        "tamper-evident"
+      ],
+      "tool_boundary": {
+        "auto_executable_tools": [
+          "get_event",
+          "resolve_actor",
+          "classify_resource",
+          "lookup_controls",
+          "collect_artifacts",
+          "score_completeness"
+        ],
+        "approval_required_tools": [
+          "request_signoff",
+          "commit_evidence"
+        ],
+        "execution_tools_absent": false,
+        "rollback_required": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "source_system_write",
+          "grant_access",
+          "audit_entry_mutation"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.3,
+        "alert_threshold_usd": 0.2
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "incomplete_evidence",
+          "regulated_resource",
+          "low_mapping_confidence"
+        ],
+        "destination": "compliance_owner"
+      },
+      "audit": {
+        "append_only": true,
+        "tamper_evident": "hmac_chain",
+        "logs": [
+          "event",
+          "mapping",
+          "evidence",
+          "completeness_score",
+          "approvals"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Mis-maps an event to the wrong control — a false 'compliant' stamp.",
+      "detection": "Mapping confidence is scored against the catalog; low-confidence or multi-candidate matches are flagged rather than committed.",
+      "mitigation": "The agent maps only to controls present in the catalog and escalates ambiguous mappings to a human with the candidates shown.",
+      "recovery": "The human confirms or corrects the mapping; the corrected decision and its basis are logged for future calibration."
+    },
+    {
+      "mode": "Files an incomplete evidence record that looks complete.",
+      "detection": "Completeness is scored against each control's required-artifact threshold; missing artifacts are itemized explicitly.",
+      "mitigation": "Below-threshold completeness — or any regulated resource — blocks the sign-off gate; the record cannot be filed automatically.",
+      "recovery": "The gap list is returned to the owner; once the missing artifacts are supplied, the record is re-scored and re-routed."
+    },
+    {
+      "mode": "An audit entry is altered, reordered, or deleted after filing.",
+      "detection": "The append-only log is HMAC-chained; verification recomputes the chain and fails on any mutation, reorder, or truncation.",
+      "mitigation": "The chain head is pinned in separate storage so even tail-truncation is detectable; verification runs before any export.",
+      "recovery": "A failed verification quarantines the affected range and the record is re-derived from source artifacts under a fresh sealed entry."
+    }
+  ],
+  "evaluation": {
+    "primary": "Mapping correctness and evidence completeness together — a confidently wrong 'evidenced' record is the silent risk, so the agent is judged on never filing an incomplete or mis-mapped record, not just on throughput.",
+    "metrics": [
+      {
+        "name": "Control-mapping accuracy",
+        "description": "Agreement of the agent's event-to-control mapping with a compliance reviewer's mapping on a labeled set."
+      },
+      {
+        "name": "Evidence completeness rate",
+        "description": "Share of filed records meeting every mapped control's required-artifact threshold."
+      },
+      {
+        "name": "False-compliance rate",
+        "description": "Rate of records filed as complete that a reviewer judges incomplete or mis-mapped — the metric to drive toward zero."
+      },
+      {
+        "name": "Escalation rate",
+        "description": "Share of events correctly routed to a human for ambiguous mapping, incompleteness, or regulated sensitivity."
+      },
+      {
+        "name": "Tamper-detection",
+        "description": "Share of injected log mutations caught by chain verification — expected to be 100%."
+      }
+    ],
+    "approach": "Replay labeled events with known-correct control mappings and required-artifact sets, measuring mapping accuracy and completeness. Separately, adversarially inject tampered, reordered, and truncated log entries and confirm verification catches every one before any record is trusted."
+  }
+}

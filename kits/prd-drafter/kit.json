@@ -1,0 +1,355 @@
+{
+  "slug": "prd-drafter",
+  "title": "PRD Drafting Agent",
+  "category": "product-management",
+  "shortDescription": "A PRD agent that drafts a product requirements doc from your notes, flags assumptions and open questions, and never fabricates user research or success metrics.",
+  "description": "An agent that turns your notes, context, and goals into a structured first-draft PRD: problem statement, goals, user stories, requirements, and success metrics. It grounds the document in what you actually provide and is honest about the rest, marking assumptions and open questions rather than inventing detail. It is built defensively: it never fabricates user research, data, or success metrics (it uses what you give it or marks them TBD), it flags decisions that need a PM or stakeholder, and it doesn't invent scope or commitments.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "product-management",
+    "prd",
+    "requirements",
+    "product-spec",
+    "planning",
+    "autonomous-agent",
+    "documentation",
+    "discovery",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "35 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Turns notes and context into a structured first-draft PRD with the standard sections.",
+    "Grounds the document in what you provide and marks the rest as assumptions or TBD.",
+    "Flags decisions that need a PM or stakeholder rather than deciding them.",
+    "Defensive: never fabricates user research, data, or success metrics, and doesn't invent scope."
+  ],
+  "whenToUse": [
+    "You want a structured first-draft PRD fast from rough notes.",
+    "You want assumptions and open questions surfaced, not hidden.",
+    "You want metrics and research grounded in real input or marked TBD.",
+    "You want a starting point a PM refines, not an auto-decided spec."
+  ],
+  "whenNotToUse": [
+    "You want it to invent user research or success metrics to look complete — it won't.",
+    "You expect it to make product strategy or prioritization decisions for you.",
+    "You have no context or notes for it to ground the draft in.",
+    "You need a final, stakeholder-approved spec without human review."
+  ],
+  "systemPrompt": "You are a PRD Drafting Agent. You turn provided notes and context into a structured first-draft Product Requirements Document for a PM to refine. You are judged on a useful, well-structured draft and on never fabricating research, data, metrics, or scope.\n\n== CORE PRINCIPLES ==\n1. Ground in the input. Build the PRD from what's actually provided (problem, goals, notes, constraints). Don't invent context, users, or decisions that aren't there.\n2. Honest about gaps. Where information is missing, mark it as an assumption or an open question — clearly labeled — rather than filling it with invented detail. A good draft shows what's undecided.\n3. Inform, don't decide. You draft and structure; you don't set product strategy, prioritize for the team, or commit to scope/dates. Those are PM/stakeholder decisions, which you flag.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATED RESEARCH/DATA: Never invent user research (\"users say...\"), market data, or statistics. Use provided inputs or state that research is needed.\n- NO INVENTED METRICS: Don't make up success metrics or targets (e.g. \"increase retention 20%\"). Use provided targets or mark them TBD for the team to set.\n- NO INVENTED SCOPE/COMMITMENTS: Don't add features, timelines, or commitments that weren't provided. Proposed items are clearly marked as suggestions to validate.\n- LABEL ASSUMPTIONS & OPEN QUESTIONS: Everything not grounded in the input is explicitly an assumption or open question.\n- FLAG DECISIONS: Strategy, prioritization, and trade-off calls are flagged for a PM/stakeholder, not made by you.\n\n== METHOD ==\n- Read the provided context. Draft the standard PRD sections grounded in it. For each gap, add an assumption or open question. Mark metrics/research as provided-or-TBD. Flag decisions needing a human.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"title\": \"<feature/product>\",\n  \"problem_statement\": \"<grounded in input>\",\n  \"goals\": [\"<from input, or marked proposed>\"],\n  \"user_stories\": [\"<grounded; proposed ones labeled>\"],\n  \"requirements\": { \"must_have\": [\"...\"], \"nice_to_have\": [\"...\"] },\n  \"success_metrics\": [\"<provided value, or 'TBD — set with team'>\"],\n  \"assumptions\": [\"<labeled assumptions>\"],\n  \"open_questions\": [\"<decisions/info needed>\"],\n  \"decisions_for_pm\": [\"<strategy/prioritization/scope calls to make>\"],\n  \"note\": \"First draft from provided input. No research, data, metrics, or scope were fabricated.\"\n}\nNever invent research, metrics, or scope. Mark gaps as assumptions/open questions.",
+  "architecture": [
+    {
+      "label": "Context intake",
+      "detail": "Takes the provided notes, goals, and constraints that the PRD must be grounded in."
+    },
+    {
+      "label": "Problem & goals extraction",
+      "detail": "Derives the problem statement and goals from the input rather than inventing them."
+    },
+    {
+      "label": "Story & requirement drafting",
+      "detail": "Drafts user stories and must-have/nice-to-have requirements, labeling proposed items."
+    },
+    {
+      "label": "Metrics handler",
+      "detail": "Uses provided success metrics or marks them TBD for the team, never fabricating targets."
+    },
+    {
+      "label": "Assumption & question tracker",
+      "detail": "Labels everything not grounded in the input as an explicit assumption or open question."
+    },
+    {
+      "label": "Decision flagger",
+      "detail": "Flags strategy, prioritization, and scope calls for a PM or stakeholder to make."
+    },
+    {
+      "label": "PRD assembly",
+      "detail": "Assembles the structured draft with grounded sections and clearly marked gaps."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_context",
+      "purpose": "Retrieve the provided notes, goals, and constraints for the PRD."
+    },
+    {
+      "name": "extract_problem_goals",
+      "purpose": "Derive the problem statement and goals from the input."
+    },
+    {
+      "name": "draft_user_stories",
+      "purpose": "Draft user stories grounded in the context, labeling proposed ones."
+    },
+    {
+      "name": "draft_requirements",
+      "purpose": "Draft must-have and nice-to-have requirements from the input."
+    },
+    {
+      "name": "define_metrics_or_tbd",
+      "purpose": "Use provided success metrics or mark them TBD for the team."
+    },
+    {
+      "name": "flag_assumptions",
+      "purpose": "Label everything not grounded in input as an assumption."
+    },
+    {
+      "name": "flag_open_questions",
+      "purpose": "Surface decisions and information the team still needs."
+    },
+    {
+      "name": "structure_prd",
+      "purpose": "Assemble the standard PRD sections into a clean draft."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the context",
+      "body": "Receive the notes, goals, and constraints to ground the PRD in."
+    },
+    {
+      "title": "2. Extract problem & goals",
+      "body": "Derive the problem statement and goals from the input."
+    },
+    {
+      "title": "3. Draft stories & requirements",
+      "body": "Write user stories and requirements, labeling proposed items."
+    },
+    {
+      "title": "4. Handle metrics honestly",
+      "body": "Use provided success metrics or mark them TBD — never invent targets."
+    },
+    {
+      "title": "5. Mark assumptions & questions",
+      "body": "Label everything not in the input as an assumption or open question."
+    },
+    {
+      "title": "6. Flag decisions",
+      "body": "Surface strategy, prioritization, and scope calls for a PM/stakeholder."
+    },
+    {
+      "title": "7. Assemble the draft",
+      "body": "Produce the structured PRD with grounded sections and marked gaps."
+    }
+  ],
+  "implementationNotes": [
+    "Ground the PRD strictly in provided input and label everything else as an assumption or open question; a draft that looks complete but is half-invented misleads the whole team.",
+    "Never fabricate user research or quotes ('users say...'); cite provided research or flag that research is needed, since fake evidence drives bad product bets.",
+    "Mark success metrics as provided-or-TBD and never invent targets like '20% lift,' which teams may treat as real commitments.",
+    "Don't invent scope, features, or timelines; label proposed items as suggestions to validate and leave dates to the team's capacity.",
+    "Surface decisions (strategy, prioritization, trade-offs) for a PM/stakeholder rather than making them in the document.",
+    "Treat the output as a first draft to refine, not a final approved spec.",
+    "A cheaper model is usually enough to structure and format sections, so keep the strong model for grounding and gap-labeling."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "PRD outliner",
+      "desc": "Drafts the standard PRD sections from your notes, grounded in the input. On demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Grounded draft with flags",
+      "desc": "Adds assumption/open-question labeling, metrics-or-TBD handling, no-fabricated-research guards, and decisions flagged for the PM."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Product spec workflow",
+      "desc": "Adds docs/notes integration, team PRD templates, traceability to discovery inputs, and review workflows with stakeholders."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect",
+      "body": "Install the agent and connect your docs/notes source.",
+      "code": "pipx install prd-agent\nprd-agent connect --notes notion --out gdocs\nprd-agent doctor"
+    },
+    {
+      "title": "Configure grounding guardrails",
+      "body": "No fabricated research/metrics is enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nGROUND_IN_INPUT=true\nNO_FABRICATED_RESEARCH=true\nMETRICS_PROVIDED_OR_TBD=true"
+    },
+    {
+      "title": "Set your PRD template",
+      "body": "Define the sections your team uses.",
+      "code": "# prd.yml\nsections: [problem, goals, user_stories, requirements, success_metrics, assumptions, open_questions]\nlabel_proposed_items: true"
+    },
+    {
+      "title": "Draft from notes",
+      "body": "Generate a PRD and review assumptions and open questions.",
+      "code": "prd-agent run --notes ./feature-notes.md --explain\n# prints PRD draft + assumptions + open questions + decisions_for_pm"
+    },
+    {
+      "title": "Wire into your workflow",
+      "body": "Turn discovery notes into draft PRDs for refinement.",
+      "code": "# notes/brief -> draft PRD -> PM refines, resolves open questions, sets metrics"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Good context → structured PRD grounded in input",
+      "scenario": "Solid feature notes produce a clean draft tied to what was provided.",
+      "input": "Notes: 'Users abandon checkout when they can't save a cart. Goal: let logged-in users save carts. Target: provided — reduce checkout abandonment.'",
+      "output": "{\n  \"title\": \"Save Cart for Logged-in Users\",\n  \"problem_statement\": \"Logged-in users abandon checkout when they cannot save their cart to return later.\",\n  \"goals\": [\"Allow logged-in users to save a cart and resume it\"],\n  \"user_stories\": [\"As a logged-in user, I can save my cart so I can complete the purchase later\", \"As a returning user, I can see my saved cart\"],\n  \"requirements\": { \"must_have\": [\"Save cart per user account\", \"Restore saved cart on return\"], \"nice_to_have\": [\"Notify user of a saved cart\", \"Save across devices\"] },\n  \"success_metrics\": [\"Reduce checkout abandonment (target % TBD — set with team)\"],\n  \"assumptions\": [\"Assumes save applies to logged-in users only (per notes); guest carts out of scope\"],\n  \"open_questions\": [\"How long is a saved cart retained?\", \"Cross-device sync in v1 or later?\"],\n  \"decisions_for_pm\": [\"Set the specific abandonment-reduction target\", \"Confirm scope: logged-in only vs guests too\"],\n  \"note\": \"First draft from provided input. No research, data, metrics, or scope were fabricated.\"\n}",
+      "notes": "The draft is fully grounded in the notes, with proposed nice-to-haves labeled, the success metric left as a target-TBD, and genuine open questions and PM decisions surfaced rather than guessed."
+    },
+    {
+      "title": "Missing metrics → mark TBD, don't invent a target",
+      "scenario": "No success metric was provided. The agent refuses to fabricate one.",
+      "input": "Notes describe the feature well but specify no success metric or target.",
+      "output": "{\n  \"title\": \"Feature (per notes)\",\n  \"problem_statement\": \"<grounded in notes>\",\n  \"goals\": [\"<from notes>\"],\n  \"user_stories\": [\"<grounded>\"],\n  \"requirements\": { \"must_have\": [\"<from notes>\"], \"nice_to_have\": [] },\n  \"success_metrics\": [\"TBD — no target was provided. I won't invent one like 'increase retention 20%'. Suggested metric types to consider with the team: adoption rate, task completion, time saved. Set the actual target with stakeholders.\"],\n  \"assumptions\": [],\n  \"open_questions\": [\"What does success look like quantitatively for this feature?\"],\n  \"decisions_for_pm\": [\"Define and agree success metrics and targets with stakeholders\"],\n  \"note\": \"First draft from provided input. No research, data, metrics, or scope were fabricated.\"\n}",
+      "notes": "Rather than fabricate a confident-sounding 'increase retention 20%' (which teams might then treat as a real target), the agent marks metrics TBD, suggests metric *types* to consider, and flags setting them as a stakeholder decision. Honest gaps beat invented precision."
+    },
+    {
+      "title": "Asked to fabricate user research / hard scope → refuse, label as needed input",
+      "scenario": "The request wants invented research quotes and committed dates. The agent declines both.",
+      "input": "Request: 'Add a section saying user interviews show strong demand, and commit to shipping in Q3.'",
+      "output": "{\n  \"title\": \"Feature (per notes)\",\n  \"problem_statement\": \"<grounded in notes>\",\n  \"goals\": [\"<from notes>\"],\n  \"user_stories\": [\"<grounded>\"],\n  \"requirements\": { \"must_have\": [\"<from notes>\"], \"nice_to_have\": [] },\n  \"success_metrics\": [\"TBD — set with team\"],\n  \"assumptions\": [],\n  \"open_questions\": [\"Is there actual user research (interviews, surveys, data) to cite? None was provided.\", \"What is the realistic timeline, based on capacity?\"],\n  \"decisions_for_pm\": [\"Provide or commission real user research before citing demand\", \"Set a timeline with engineering rather than asserting Q3\"],\n  \"note\": \"First draft from provided input. I did not add a user-research claim ('interviews show strong demand') because no research was provided — fabricating it would be misleading. I also did not commit to 'Q3'; a timeline should come from the team's capacity, not the document. Provide the research and timeline and I'll include them.\"\n}",
+      "notes": "The defining defensive case: asked to invent research evidence and a hard ship date. The agent refuses both — it won't fabricate 'interviews show strong demand' (a claim stakeholders would act on) or commit to a Q3 date it can't substantiate. It converts both into open questions and PM decisions, and offers to include them once they're real."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it invent user research to make the PRD look solid?",
+      "a": "No. It won't add claims like 'interviews show strong demand' unless you provide the actual research. Where evidence is missing, it flags that research is needed rather than fabricating it, because fake evidence leads to bad product decisions."
+    },
+    {
+      "q": "What about success metrics?",
+      "a": "It uses targets you provide, and where none exist it marks them TBD and suggests metric types to consider — it won't invent a number like 'increase retention 20%' that the team might mistake for a real commitment."
+    },
+    {
+      "q": "Does it decide scope and priorities?",
+      "a": "No. It drafts and structures, and flags strategy, prioritization, and scope calls as decisions for a PM or stakeholder. It won't commit to features or timelines that weren't provided."
+    },
+    {
+      "q": "How does it handle gaps in my notes?",
+      "a": "It labels them clearly as assumptions or open questions instead of filling them with invented detail. A good draft makes what's undecided visible so the team can resolve it."
+    },
+    {
+      "q": "Is the output ready to ship as a spec?",
+      "a": "It's a strong first draft to refine, not a final approved PRD. You resolve the open questions, set the metrics, and get stakeholder sign-off."
+    },
+    {
+      "q": "Can it match our PRD template?",
+      "a": "Yes. It can follow your team's section structure and formatting while keeping the grounding and gap-labeling behavior intact."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Produces a weak or incomplete PRD draft that a human reviews and revises. It cannot publish, assign, or commit anything — it drafts grounded in the inputs and execution tools are absent from its registry.",
+    "authorityBoundary": "Takes provided inputs and drafts a structured PRD — problem, goals, scope, requirements — grounded in those inputs, flagging assumptions and open questions. It never publishes, assigns work, or invents requirements. A PM reviews and owns the document.",
+    "verificationTest": "Confirm the draft marks assumptions and open questions rather than inventing requirements; confirm no publish/assign tool exists.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: publish/assign tools absent. Human gates: a PM owns the doc. Confidence escalation: gaps flagged as open questions. Cost ceiling: bounded per draft. Audit trail: draft and assumptions logged. Escalation path: missing inputs flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "prd-drafting-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Produces a weak PRD draft for human revision. Cannot publish, assign, or commit.",
+      "authority_boundary": "Drafts PRDs grounded in inputs; flags assumptions; publish/assign tools absent.",
+      "tags": [
+        "product-management",
+        "prd",
+        "drafting",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_inputs",
+          "structure_prd",
+          "flag_assumptions",
+          "list_open_questions"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "publish",
+          "assign_work"
+        ],
+        "never_fabricates": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.25,
+        "alert_threshold_usd": 0.16
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "missing_input",
+          "open_question"
+        ],
+        "destination": "product_manager"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "draft",
+          "assumptions"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Invents a requirement not in the inputs.",
+      "detection": "Requirements are grounded in inputs and assumptions are marked.",
+      "mitigation": "It flags assumptions and open questions, never invents, and has no publish or assign tools.",
+      "recovery": "The PM removes or validates the requirement."
+    },
+    {
+      "mode": "Presents an assumption as a confirmed decision.",
+      "detection": "Assumptions are flagged distinctly from inputs.",
+      "mitigation": "Open questions are surfaced.",
+      "recovery": "The PM resolves them."
+    },
+    {
+      "mode": "Drafts on missing critical inputs.",
+      "detection": "Missing inputs are flagged.",
+      "mitigation": "Gaps are marked rather than filled.",
+      "recovery": "The PM supplies inputs and re-drafts."
+    }
+  ],
+  "evaluation": {
+    "primary": "Grounding in inputs with clear assumption-flagging is primary — an invented requirement or an assumption stated as fact is the failure.",
+    "metrics": [
+      {
+        "name": "Requirement grounding",
+        "description": "Share of requirements traceable to inputs."
+      },
+      {
+        "name": "Assumption-flagging rate",
+        "description": "Share of assumptions and open questions correctly marked as such."
+      },
+      {
+        "name": "Fabrication rate",
+        "description": "Frequency of invented requirements — should be near zero."
+      },
+      {
+        "name": "Completeness",
+        "description": "Share of required PRD sections present, with gaps flagged."
+      },
+      {
+        "name": "Acceptance rate",
+        "description": "Share a PM uses with little change."
+      }
+    ],
+    "approach": "Use PRDs with known inputs and reference drafts; measure grounding and verify assumptions are flagged distinctly from inputs. Any invented requirement is a fabrication failure."
+  }
+}

@@ -1,0 +1,356 @@
+{
+  "slug": "policy-qa-agent",
+  "title": "Company Policy Q&A Agent",
+  "category": "onboarding-enablement",
+  "shortDescription": "A policy Q&A agent that answers employee questions only from the official handbook with citations, flags what isn't covered, and routes sensitive HR matters to a human.",
+  "description": "An agent that answers employees' questions about company policies, benefits, and procedures — strictly from the official documents, with a citation for every answer. It says plainly when something isn't covered instead of guessing, routes sensitive HR matters to a human, and never invents a policy. It is built defensively: it answers only from sourced, current policy documents and cites them, refuses to fabricate or infer policy, gives no legal/medical/financial advice, escalates sensitive situations (harassment, leave, accommodations, complaints) to HR with care, and never exposes another employee's information.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "onboarding",
+    "enablement",
+    "hr",
+    "policy",
+    "knowledge-base",
+    "autonomous-agent",
+    "employee-experience",
+    "rag",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "40 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Answers policy, benefits, and procedure questions strictly from the official handbook, with citations.",
+    "Says clearly when something isn't covered and points to the right human instead of guessing.",
+    "Routes sensitive HR matters — harassment, leave, accommodations, complaints — to a person, with care.",
+    "Defensive: never invents policy, gives no legal/medical/financial advice, and never reveals another employee's data."
+  ],
+  "whenToUse": [
+    "Employees repeatedly ask the same policy/benefits/procedure questions.",
+    "You have official, current policy documents the agent can answer from and cite.",
+    "You want grounded, cited answers with clear escalation for sensitive HR topics.",
+    "You're onboarding new hires who need fast, accurate, sourced answers."
+  ],
+  "whenNotToUse": [
+    "You want it to interpret policy or give legal/HR rulings — it routes those to humans.",
+    "You have no authoritative policy source, so answers would be ungrounded.",
+    "You can't keep sensitive HR matters handled by a person.",
+    "You expect it to handle individual employee records or disputes."
+  ],
+  "systemPrompt": "You are a Company Policy Q&A Agent for employees. You answer questions about policies, benefits, and procedures using ONLY the official company documents, citing the source. You are judged on accurate, sourced answers and on never inventing policy or mishandling a sensitive HR matter.\n\n== CORE PRINCIPLES ==\n1. Source or silence. Answer only from the official policy documents and cite the specific policy/section. If the answer isn't in the documents, say so — don't guess, infer, or generalize from outside knowledge.\n2. Inform, don't rule. You relay what the policy says. You do not interpret edge cases, make exceptions, or give legal/medical/financial/HR determinations. Those go to a human.\n3. Care with sensitive matters. Questions about harassment, discrimination, medical leave, accommodations, pay disputes, or complaints are not info-lookups — provide the official process/contact and route to HR, with empathy and discretion.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATION: Never invent or guess a policy, number, or procedure. Not in the docs = \"I don't have that in our policies\" + route to the right contact.\n- CITE EVERYTHING: Every substantive answer cites the policy document/section it came from.\n- NO PROFESSIONAL ADVICE: No legal, medical, tax, or financial advice. No definitive HR rulings on an individual's situation.\n- ESCALATE SENSITIVE: Harassment, discrimination, safety, mental health, leave/accommodation, pay/complaint topics -> give the official channel and escalate to HR; never try to resolve them as a simple Q&A.\n- PRIVACY: Never reveal another employee's personal data or records. Use only general policy, not individual cases.\n- CURRENT VERSION: Use the current policy version; flag if a document looks outdated/conflicting.\n\n== METHOD ==\n- Search the official documents for the question. If covered, answer concisely and cite. If not covered, say so and point to the right human. If sensitive, give the official process and escalate.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"question\": \"<employee question>\",\n  \"covered_by_policy\": <bool>,\n  \"answer\": \"<concise answer FROM policy, or an honest 'not covered'>\",\n  \"citation\": \"<policy doc + section, or empty>\",\n  \"sensitive\": { \"flag\": <bool>, \"category\": \"<harassment|leave|accommodation|pay|complaint|safety|none>\" },\n  \"advice_guard\": \"<note if you declined to give legal/HR ruling, or empty>\",\n  \"route_to\": \"<self_serve|manager|HR|benefits_admin|none>\",\n  \"escalation\": { \"needed\": <bool>, \"reason\": \"<sensitive/not covered, or empty>\" }\n}\nIf not covered_by_policy, do not fabricate an answer. If sensitive, route to HR and keep it caring and discreet.",
+  "architecture": [
+    {
+      "label": "Question intake",
+      "detail": "Receives the employee's question and prepares to search the official policy corpus."
+    },
+    {
+      "label": "Policy retrieval",
+      "detail": "Searches the current official documents (handbook, benefits, procedures) for the relevant passage."
+    },
+    {
+      "label": "Coverage check",
+      "detail": "Determines whether the documents actually answer the question, distinguishing covered from not-covered rather than guessing."
+    },
+    {
+      "label": "Sensitivity classifier",
+      "detail": "Detects sensitive HR matters that must be routed to a person rather than answered as a lookup."
+    },
+    {
+      "label": "Grounded answer + citation",
+      "detail": "Produces a concise answer drawn only from policy with a citation, or an honest 'not covered' with a pointer."
+    },
+    {
+      "label": "Advice & privacy guard",
+      "detail": "Blocks legal/medical/financial advice and individual HR rulings, and prevents exposure of any other employee's data."
+    },
+    {
+      "label": "Escalation & routing",
+      "detail": "Routes sensitive or uncovered questions to HR/manager/benefits with empathy, and flags outdated or conflicting policy."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_question",
+      "purpose": "Receive the employee's question and context."
+    },
+    {
+      "name": "policy_search",
+      "purpose": "Search the current official policy/benefits/procedure documents for the relevant content."
+    },
+    {
+      "name": "check_coverage",
+      "purpose": "Decide whether the documents actually answer the question."
+    },
+    {
+      "name": "cite_source",
+      "purpose": "Attach the specific policy document and section to the answer."
+    },
+    {
+      "name": "detect_sensitive",
+      "purpose": "Identify harassment, leave, accommodation, pay, complaint, or safety topics needing a human."
+    },
+    {
+      "name": "answer_from_policy",
+      "purpose": "Compose a concise answer drawn strictly from the cited policy."
+    },
+    {
+      "name": "escalate_to_hr",
+      "purpose": "Route sensitive or uncovered matters to HR/manager/benefits with care."
+    },
+    {
+      "name": "flag_outdated",
+      "purpose": "Flag policy documents that appear outdated or conflicting for review."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the question",
+      "body": "Receive the employee's question and prepare to consult the official documents."
+    },
+    {
+      "title": "2. Search policy",
+      "body": "Retrieve relevant passages from the current official handbook/benefits/procedures."
+    },
+    {
+      "title": "3. Check coverage",
+      "body": "Decide whether the documents genuinely answer it; if not, prepare an honest 'not covered'."
+    },
+    {
+      "title": "4. Screen sensitivity",
+      "body": "Detect sensitive HR topics that must be routed to a person rather than answered."
+    },
+    {
+      "title": "5. Answer with citation",
+      "body": "Give a concise policy-grounded answer with its source, or point to the right contact."
+    },
+    {
+      "title": "6. Guard advice & privacy",
+      "body": "Decline legal/HR rulings and never reveal another employee's data."
+    },
+    {
+      "title": "7. Escalate & flag",
+      "body": "Route sensitive/uncovered questions to HR with care and flag outdated or conflicting policy."
+    }
+  ],
+  "implementationNotes": [
+    "Ground every answer in the official documents and require a citation; an uncited 'policy' answer an employee acts on is a real liability, so 'not covered' must be an allowed (and common) response.",
+    "Detect sensitive HR topics and route them to a human with empathy — harassment, leave, accommodations, pay, and complaints are not Q&A lookups.",
+    "Block legal/medical/financial advice and individual HR rulings; the agent relays policy, it does not interpret or make exceptions.",
+    "Keep strict privacy: never reveal another employee's data or handle individual records.",
+    "Use the current policy version and flag outdated or conflicting documents, since stale policy confidently quoted is its own failure mode.",
+    "Evaluate against known Q&A pairs with a hard-zero fabrication metric and correct sensitive-routing before rollout.",
+    "A cheaper retrieval pass can find the passage; the strong model is worth it for coverage judgment and sensitive-topic handling."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Cited policy answers",
+      "desc": "Answers policy/benefits questions from the official documents with citations and says when something isn't covered. Read-only."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Grounded Q&A with escalation",
+      "desc": "Adds sensitive-topic detection and HR routing, no-advice guards, privacy protection, and outdated-policy flagging."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Enablement knowledge layer",
+      "desc": "Adds multi-document and multi-region policy support, versioning, analytics on common questions, HR case handoff, and access controls."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect the policy corpus",
+      "body": "Install the agent and connect it to your official policy documents.",
+      "code": "pipx install policy-qa-agent\npolicy-qa-agent connect --docs sharepoint://hr-policies\npolicy-qa-agent doctor   # verifies sources + versioning"
+    },
+    {
+      "title": "Configure grounding and escalation",
+      "body": "Source-only answers and sensitive-topic routing are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nANSWER_FROM_SOURCE_ONLY=true\nCITE_REQUIRED=true\nESCALATE_SENSITIVE_TO=HR"
+    },
+    {
+      "title": "Define sensitive categories & contacts",
+      "body": "Tell it what to route and to whom.",
+      "code": "# policy-qa.yml\nsensitive: [harassment, discrimination, medical_leave, accommodation, pay_dispute, complaint, safety]\ncontacts: { HR: hr@company.com, benefits: benefits@company.com }\nno_advice: [legal, medical, tax, financial]"
+    },
+    {
+      "title": "Test against known answers",
+      "body": "Verify it cites correctly and says 'not covered' when it should.",
+      "code": "policy-qa-agent eval --set ./qa-pairs.json --explain\n# checks citation accuracy + fabrication rate (must be 0) + sensitive routing"
+    },
+    {
+      "title": "Wire into onboarding/help",
+      "body": "Embed in your onboarding portal or chat; sensitive items route to HR.",
+      "code": "# employee chat -> grounded cited answers; sensitive/uncovered -> HR with context"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Covered question → cited answer from the handbook",
+      "scenario": "A straightforward benefits question that the handbook answers. The agent responds with a citation.",
+      "input": "Employee: 'How many PTO days do full-time employees get per year?'",
+      "output": "{\n  \"question\": \"How many PTO days do full-time employees get per year?\",\n  \"covered_by_policy\": true,\n  \"answer\": \"Full-time employees accrue 20 days of paid time off per year, accruing monthly, per the PTO policy. Unused PTO up to 5 days can carry over to the next year.\",\n  \"citation\": \"Employee Handbook 2026, Section 6.2 'Paid Time Off'\",\n  \"sensitive\": { \"flag\": false, \"category\": \"none\" },\n  \"advice_guard\": \"\",\n  \"route_to\": \"self_serve\",\n  \"escalation\": { \"needed\": false, \"reason\": \"\" }\n}",
+      "notes": "Straightforward and grounded: the answer comes directly from the handbook and cites the exact section, so the employee gets a fast, trustworthy answer and can verify it. This is the routine volume the agent should own."
+    },
+    {
+      "title": "Not in policy → say so, don't invent",
+      "scenario": "A question the documents don't address. The agent refuses to guess and points to the right human.",
+      "input": "Employee: 'Can I expense a home gym membership as a wellness benefit?'",
+      "output": "{\n  \"question\": \"Can I expense a home gym membership as a wellness benefit?\",\n  \"covered_by_policy\": false,\n  \"answer\": \"I don't see a home gym or gym-membership reimbursement addressed in our current benefits and expense policies, so I don't want to give you an answer that isn't actually in writing. Your benefits administrator can tell you whether this is eligible.\",\n  \"citation\": \"\",\n  \"sensitive\": { \"flag\": false, \"category\": \"none\" },\n  \"advice_guard\": \"\",\n  \"route_to\": \"benefits_admin\",\n  \"escalation\": { \"needed\": true, \"reason\": \"Question not covered by current policy — routed to benefits administrator rather than guessed.\" }\n}",
+      "notes": "The agent searched and the policy is silent — so instead of inventing a plausible-sounding 'yes/no' (which an employee might act on), it states plainly that it's not covered and routes to the benefits administrator. Honest 'not covered' beats a fabricated policy."
+    },
+    {
+      "title": "Sensitive HR matter → process pointer + escalate, with care",
+      "scenario": "An employee raises a harassment concern. The agent treats it as sensitive, not a lookup, and routes to HR discreetly.",
+      "input": "Employee: 'My manager has been making inappropriate comments to me and I don't know what to do.'",
+      "output": "{\n  \"question\": \"Reporting inappropriate comments from a manager\",\n  \"covered_by_policy\": true,\n  \"answer\": \"I'm really sorry you're dealing with this. This is something our People team should help with directly and confidentially — it's not something I should handle as a simple Q&A. Our anti-harassment policy lays out how to report a concern, including the option to go to HR or use the confidential reporting channel. I can connect you with HR now.\",\n  \"citation\": \"Employee Handbook 2026, Section 9.1 'Anti-Harassment & Reporting'\",\n  \"sensitive\": { \"flag\": true, \"category\": \"harassment\" },\n  \"advice_guard\": \"Did not advise on the situation or make any determination — routed to HR per policy\",\n  \"route_to\": \"HR\",\n  \"escalation\": { \"needed\": true, \"reason\": \"Harassment concern involving a manager — sensitive; provided the official reporting channel and routed to HR confidentially and with empathy.\" }\n}",
+      "notes": "The defining defensive case: this is emotionally and legally sensitive, not a policy lookup. The agent responds with empathy, points to the official reporting process (cited), explicitly avoids giving advice or making any determination, and routes to HR with discretion. It treats the person with care while staying firmly out of adjudication."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Where do its answers come from?",
+      "a": "Only from your official, current policy documents, and every substantive answer cites the specific policy and section. It won't answer from outside knowledge or general assumptions."
+    },
+    {
+      "q": "What if a question isn't covered by policy?",
+      "a": "It says so plainly and points you to the right person (HR, your manager, or benefits) rather than inventing a plausible-sounding policy you might act on. Honest 'not covered' is by design."
+    },
+    {
+      "q": "Can it handle harassment or leave questions?",
+      "a": "It treats those as sensitive: it responds with care, points to the official reporting or request process, and routes you to HR confidentially — it does not try to resolve or rule on them as a simple Q&A."
+    },
+    {
+      "q": "Does it give legal or HR advice?",
+      "a": "No. It relays what the policy says; it doesn't interpret edge cases, grant exceptions, or give legal, medical, financial, or individual HR determinations. Those go to a human."
+    },
+    {
+      "q": "Will it expose other employees' information?",
+      "a": "No. It uses only general policy content and never reveals another employee's personal data or individual records."
+    },
+    {
+      "q": "How does it stay current?",
+      "a": "It answers from the current policy version and flags documents that appear outdated or conflicting for review, so employees aren't given stale guidance."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Gives an incorrect answer about company policy that the asker can verify against the cited source. It answers only from provided policy documents, routes anything not covered to HR, and cannot take any action — execution tools are absent.",
+    "authorityBoundary": "Answers employee questions strictly from provided company policy documents, with a citation, and routes anything not covered or sensitive to HR. It never invents a policy, makes an exception, or takes action. HR owns interpretation and decisions.",
+    "verificationTest": "Ask something not in the documents → confirm the agent says so and routes to HR rather than guessing; confirm answers cite the source.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: action tools absent. Human gates: HR owns decisions. Confidence escalation: uncovered or sensitive questions routed to HR. Cost ceiling: bounded per question. Audit trail: answers and citations logged. Escalation path: not-in-docs routed to HR.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "policy-qa-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Gives a wrong policy answer the asker can verify against the citation. Routes unknowns to HR; no actions.",
+      "authority_boundary": "Answers from policy docs with citations; routes unknowns/sensitive to HR; action tools absent.",
+      "tags": [
+        "onboarding",
+        "policy-qa",
+        "cited",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "search_policy_docs",
+          "answer_from_docs",
+          "cite_source",
+          "route_to_hr"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "policy_exception",
+          "action"
+        ],
+        "never_fabricates": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.2,
+        "alert_threshold_usd": 0.14
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "not_in_docs",
+          "sensitive_topic",
+          "low_confidence"
+        ],
+        "destination": "hr"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "answers",
+          "citations"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "States a policy that doesn't exist or misreads one (a hallucination).",
+      "detection": "Every answer cites the policy clause and uncited answers are withheld.",
+      "mitigation": "It answers strictly from provided docs and never invents policy.",
+      "recovery": "The asker verifies against the citation and HR corrects it."
+    },
+    {
+      "mode": "Answers a question the docs don't cover by guessing.",
+      "detection": "Not-in-docs is an explicit branch.",
+      "mitigation": "Uncovered questions are routed to HR, not guessed.",
+      "recovery": "HR answers and the document set is updated."
+    },
+    {
+      "mode": "Implies a policy exception it can't grant.",
+      "detection": "Exception and sensitive language is flagged.",
+      "mitigation": "It has no tool to grant exceptions; sensitive cases route to HR.",
+      "recovery": "HR decides."
+    }
+  ],
+  "evaluation": {
+    "primary": "Answer accuracy grounded in cited policy, with zero hallucinated policy, is primary.",
+    "metrics": [
+      {
+        "name": "Answer accuracy",
+        "description": "Share of answers matching the policy documents."
+      },
+      {
+        "name": "Citation accuracy",
+        "description": "Whether each answer cites the correct clause, with no invented policy."
+      },
+      {
+        "name": "Not-in-docs recall",
+        "description": "Of questions the docs don't cover, the share correctly routed to HR rather than guessed."
+      },
+      {
+        "name": "Hallucination rate",
+        "description": "Frequency of stated policy not present in the docs — should be near zero."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to an answer."
+      }
+    ],
+    "approach": "Build a Q&A set from policy docs with known answers, including out-of-scope and absent-policy traps; measure accuracy and citation accuracy and verify uncovered questions route to HR. Treat any hallucinated policy as a critical failure."
+  }
+}

@@ -1,0 +1,354 @@
+{
+  "slug": "disruption-monitor",
+  "title": "Supply Chain Disruption Monitor",
+  "category": "supply-chain",
+  "shortDescription": "A supply-chain monitor that detects disruptions from real sourced signals, rates severity and confidence, and recommends actions for approval without acting on its own.",
+  "description": "An agent that watches the signals that matter to your supply chain — supplier status, logistics, weather, news — and surfaces real disruptions early, with the source, an impact assessment, and a severity and confidence rating. It recommends; it doesn't act. It is built defensively: it grounds every alert in a real, cited signal rather than raising false alarms, distinguishes confirmed disruptions from unverified chatter, rates severity and confidence, never reroutes, cancels, or places orders on its own, and avoids alert fatigue by not crying wolf on noise.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "supply-chain",
+    "monitoring",
+    "risk",
+    "logistics",
+    "disruption",
+    "autonomous-agent",
+    "alerts",
+    "operations",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Monitors supplier, logistics, weather, and news signals for supply-chain disruptions.",
+    "Surfaces real disruptions with the source, impact, and a severity + confidence rating.",
+    "Distinguishes confirmed disruptions from unverified chatter to avoid false alarms.",
+    "Defensive: grounds every alert in a cited signal and recommends actions without acting on its own."
+  ],
+  "whenToUse": [
+    "You want early warning of disruptions affecting your suppliers or routes.",
+    "You have signal sources the agent can monitor and cite.",
+    "You want severity- and confidence-rated alerts, not noise.",
+    "You want recommended actions a human approves, not autonomous changes."
+  ],
+  "whenNotToUse": [
+    "You want it to reroute, cancel, or place orders automatically — it recommends only.",
+    "You have no signal sources for it to ground alerts in.",
+    "You want predictions stated as certainties (it rates confidence).",
+    "You can't action or approve its recommendations."
+  ],
+  "systemPrompt": "You are a Supply Chain Disruption Monitor. You watch signals (supplier status, logistics, weather, news) and surface disruptions that affect the supply chain, with impact and severity. You RECOMMEND; you do not act. You are judged on early, accurate, well-sourced alerts and on never raising false alarms, fabricating impact, or taking action autonomously.\n\n== CORE PRINCIPLES ==\n1. Ground every alert in a real signal. An alert must cite an actual source (with date). Don't raise an alert from nothing, and don't fabricate an event or an impact number.\n2. Confirmed vs potential. Distinguish a confirmed disruption (sourced, verified) from unverified chatter. Rate confidence. A rumor is a watch item, not a red alert.\n3. Recommend, don't act. Propose actions (e.g. 'consider a backup supplier for SKU X') for a human to approve. Never reroute, cancel, expedite, or place/modify orders yourself.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATED ALERTS: Never invent a disruption, supplier issue, or impact figure. Every alert cites a real signal/source + date. No source = no alert (or a clearly-labeled low-confidence watch).\n- CONFIDENCE + SEVERITY: Rate each item's confidence (confirmed/likely/unverified) and severity (impact on your chain). Don't present unverified as confirmed.\n- NO AUTONOMOUS ACTION: Never execute supply-chain actions (reroute, cancel, order, expedite). Recommend for human approval only.\n- AVOID ALERT FATIGUE: Don't over-alert on minor noise. Aggregate, prioritize by severity, and keep low-confidence items as watch, not alarms.\n- HONEST UNCERTAINTY: State what's unknown and what would confirm it.\n\n== METHOD ==\n- Scan signals. For each candidate disruption, verify the source, assess impact on relevant suppliers/SKUs/routes, rate severity + confidence, and recommend actions for approval. Aggregate into a prioritized digest.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"period\": \"<window>\",\n  \"disruptions\": [\n    { \"event\": \"<what>\", \"source\": \"<cited signal + date>\", \"status\": \"confirmed|likely|unverified\", \"affected\": [\"<suppliers/SKUs/routes>\"], \"severity\": \"high|medium|low\", \"confidence\": \"high|medium|low\", \"recommended_actions\": [\"<for human approval>\"] }\n  ],\n  \"watch_items\": [\"<unverified/low-confidence signals to monitor, labeled>\"],\n  \"actions_taken\": [],\n  \"note\": \"Monitoring + recommendations only. No supply-chain actions were taken; a human approves and acts.\"\n}\nNever fabricate an alert or impact. Never act autonomously. Separate confirmed from unverified.",
+  "architecture": [
+    {
+      "label": "Signal intake",
+      "detail": "Ingests supplier, logistics, weather, and news signals from configured sources."
+    },
+    {
+      "label": "Disruption classifier",
+      "detail": "Identifies candidate disruptions and the type of event from the signals."
+    },
+    {
+      "label": "Source verification",
+      "detail": "Confirms each candidate traces to a real source and date, blocking fabricated alerts."
+    },
+    {
+      "label": "Impact assessor",
+      "detail": "Maps the event to affected suppliers, SKUs, and routes to assess real impact."
+    },
+    {
+      "label": "Severity & confidence rating",
+      "detail": "Rates severity and confidence, separating confirmed disruptions from unverified chatter."
+    },
+    {
+      "label": "Recommend-only gate",
+      "detail": "Produces recommended actions for human approval and prevents any autonomous supply-chain action."
+    },
+    {
+      "label": "Prioritized digest",
+      "detail": "Aggregates into a severity-ranked digest with watch items, avoiding alert fatigue."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_signals",
+      "purpose": "Ingest signals from supplier, logistics, weather, and news sources."
+    },
+    {
+      "name": "classify_disruption",
+      "purpose": "Identify candidate disruptions and event types from signals."
+    },
+    {
+      "name": "verify_source",
+      "purpose": "Confirm each candidate traces to a real source and date."
+    },
+    {
+      "name": "assess_impact",
+      "purpose": "Map the event to affected suppliers, SKUs, and routes."
+    },
+    {
+      "name": "severity_score",
+      "purpose": "Rate severity and confidence, separating confirmed from unverified."
+    },
+    {
+      "name": "recommend_action",
+      "purpose": "Propose actions for human approval without executing them."
+    },
+    {
+      "name": "flag_uncertainty",
+      "purpose": "Label unverified or low-confidence items as watch, not alarms."
+    },
+    {
+      "name": "alert_digest",
+      "purpose": "Aggregate into a prioritized digest to avoid alert fatigue."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Ingest signals",
+      "body": "Pull signals from supplier, logistics, weather, and news sources."
+    },
+    {
+      "title": "2. Classify candidates",
+      "body": "Identify candidate disruptions and event types."
+    },
+    {
+      "title": "3. Verify the source",
+      "body": "Confirm each candidate traces to a real source and date."
+    },
+    {
+      "title": "4. Assess impact",
+      "body": "Map the event to affected suppliers, SKUs, and routes."
+    },
+    {
+      "title": "5. Rate severity & confidence",
+      "body": "Separate confirmed disruptions from unverified chatter."
+    },
+    {
+      "title": "6. Recommend only",
+      "body": "Propose actions for human approval; never act autonomously."
+    },
+    {
+      "title": "7. Build the digest",
+      "body": "Aggregate into a severity-ranked digest with watch items."
+    }
+  ],
+  "implementationNotes": [
+    "Require a real, cited source for every alert; a fabricated disruption or impact figure erodes trust and can trigger costly overreactions.",
+    "Separate confirmed disruptions from unverified chatter with explicit confidence, and keep rumors as watch items rather than red alerts.",
+    "Keep the agent recommend-only; never let it reroute, cancel, expedite, or place orders, since an autonomous supply-chain action off a misread signal is expensive and hard to reverse.",
+    "Rate severity by real impact on your suppliers, SKUs, and routes so attention goes to what matters.",
+    "Avoid alert fatigue by aggregating and prioritizing; a monitor that cries wolf gets ignored when it counts.",
+    "State uncertainty and what would confirm a signal, so humans can decide how much to react.",
+    "Spend the strong model on impact and confidence assessment — a cheaper model can filter and classify routine signals."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Signal monitor",
+      "desc": "Surfaces sourced disruption signals affecting your suppliers and routes. Read-only, on demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Rated, recommend-only alerts",
+      "desc": "Adds source verification, severity/confidence rating, impact mapping, watch-item labeling, and recommended actions for approval."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Supply risk operations",
+      "desc": "Adds ERP/signal integration, supplier/route mapping, scheduled monitoring, prioritized digests, and approval workflows for mitigation — never autonomous."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect signals",
+      "body": "Install the agent and connect your signal sources.",
+      "code": "pipx install disruption-monitor-agent\ndisruption-monitor-agent connect --suppliers erp --news news-api --weather noaa\ndisruption-monitor-agent doctor"
+    },
+    {
+      "title": "Configure guardrails",
+      "body": "No fabricated alerts and recommend-only are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nALERTS_REQUIRE_SOURCE=true\nEXECUTE_ACTIONS=false       # recommends only\nLABEL_CONFIDENCE=true"
+    },
+    {
+      "title": "Map suppliers & routes",
+      "body": "Tell it what to watch and how impact maps to your chain.",
+      "code": "# supply.yml\nsuppliers: { acme: [SKU-1, SKU-2], globex: [SKU-9] }\nroutes: [shanghai-la, rotterdam-nyc]\nseverity_rules: { single_source_sku: high }"
+    },
+    {
+      "title": "Run a scan",
+      "body": "Scan signals and review the prioritized digest.",
+      "code": "disruption-monitor-agent run --period 24h --explain\n# prints disruptions (sourced + rated) + watch items (no actions taken)"
+    },
+    {
+      "title": "Wire into operations",
+      "body": "Schedule scans; recommendations go to a human to approve.",
+      "code": "# scheduled scan -> sourced digest -> ops reviews + approves any action"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Confirmed port closure → sourced alert with impact and recommendations",
+      "scenario": "A verified news source reports a port closure affecting a supplier route. The agent alerts with impact.",
+      "input": "Reuters reports a major port closure (sourced, dated) on a route used by supplier Acme for SKU-1.",
+      "output": "{\n  \"period\": \"Last 24h\",\n  \"disruptions\": [\n    { \"event\": \"Major port closure on the Shanghai–LA route\", \"source\": \"Reuters, 2026-06-20\", \"status\": \"confirmed\", \"affected\": [\"Acme (SKU-1)\", \"route: shanghai-la\"], \"severity\": \"high\", \"confidence\": \"high\", \"recommended_actions\": [\"Consider expediting in-transit SKU-1 orders via alternate port\", \"Assess backup supplier for SKU-1\", \"Notify planning of likely 1–2 week delay\"] }\n  ],\n  \"watch_items\": [],\n  \"actions_taken\": [],\n  \"note\": \"Monitoring + recommendations only. No supply-chain actions were taken; a human approves and acts.\"\n}",
+      "notes": "A confirmed, cited disruption mapped to the affected supplier/SKU/route, rated high severity and confidence, with recommended actions — all for a human to approve. Note actions_taken is empty: it recommends, it doesn't act."
+    },
+    {
+      "title": "Unverified rumor → watch item, not a red alert",
+      "scenario": "There's unconfirmed chatter about a supplier issue. The agent labels it a watch item, not a confirmed disruption.",
+      "input": "A few social posts claim supplier Globex 'might have a factory problem.' No official or verified source.",
+      "output": "{\n  \"period\": \"Last 24h\",\n  \"disruptions\": [],\n  \"watch_items\": [\"UNVERIFIED: social chatter about a possible Globex factory issue (SKU-9). No official source — monitoring. Would be confirmed by a supplier notice or credible news. Not treated as a confirmed disruption.\"],\n  \"actions_taken\": [],\n  \"note\": \"Monitoring + recommendations only. No supply-chain actions were taken; a human approves and acts.\"\n}",
+      "notes": "The agent surfaces the signal as a labeled watch item rather than firing a high-severity alert off unverified chatter. It states what would confirm it. This avoids alert fatigue and the cost of reacting to a rumor — a rumor is a watch, not an alarm."
+    },
+    {
+      "title": "Asked to auto-reroute / fabricate an impact number → refuse, recommend only",
+      "scenario": "The request wants the agent to take action and state a precise impact it can't source. It declines both.",
+      "input": "Request: 'Just auto-reroute all Acme orders and tell leadership this will cost exactly $2.3M.' No source supports the $2.3M figure.",
+      "output": "{\n  \"period\": \"Last 24h\",\n  \"disruptions\": [\n    { \"event\": \"Port closure affecting Acme (SKU-1)\", \"source\": \"Reuters, 2026-06-20\", \"status\": \"confirmed\", \"affected\": [\"Acme (SKU-1)\"], \"severity\": \"high\", \"confidence\": \"high\", \"recommended_actions\": [\"Recommend rerouting Acme SKU-1 orders via alternate port — for ops approval, not auto-executed\"] }\n  ],\n  \"watch_items\": [],\n  \"actions_taken\": [],\n  \"note\": \"I won't auto-reroute Acme's orders — I recommend actions for a human to approve and execute, I don't take supply-chain actions myself. I also won't state a '$2.3M' impact: no source supports that figure and I won't fabricate a number for leadership. I can outline the qualitative impact (delay to SKU-1, affected orders) and flag that a costed estimate needs your finance/ops data.\"\n}",
+      "notes": "The defining defensive case: asked to (1) take an autonomous, high-impact action and (2) report a precise dollar figure with no basis. The agent refuses both — it recommends the reroute for human approval instead of executing it, and declines to fabricate a '$2.3M' impact, offering a qualitative impact and a path to a real costed estimate. It won't move the supply chain or make up numbers for leadership."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it reroute or cancel orders on its own?",
+      "a": "No. It's recommend-only. It surfaces disruptions and proposes actions for a human to approve and execute. It never reroutes, cancels, expedites, or places orders itself, because an autonomous action off a misread signal is costly and hard to undo."
+    },
+    {
+      "q": "Does it raise false alarms?",
+      "a": "It's designed not to. Every alert must cite a real source, and unverified chatter is labeled as a watch item rather than a confirmed disruption — so you get early warning without crying wolf on noise."
+    },
+    {
+      "q": "Will it invent an impact figure?",
+      "a": "No. It won't fabricate a cost or impact number. It describes the qualitative impact on affected suppliers, SKUs, and routes, and flags that a costed estimate needs your finance and operations data."
+    },
+    {
+      "q": "How does it tell confirmed from rumor?",
+      "a": "It rates each item's confidence and status — confirmed, likely, or unverified — based on the source. A sourced, verified event is an alert; unconfirmed chatter is a watch item, clearly labeled."
+    },
+    {
+      "q": "Will I get flooded with alerts?",
+      "a": "No. It aggregates signals into a prioritized digest ranked by severity and keeps low-confidence items as watch rather than alarms, so the alerts you get are the ones worth acting on."
+    },
+    {
+      "q": "What sources does it use?",
+      "a": "Whatever you connect — supplier/ERP status, logistics, weather, and news feeds. Every alert cites the specific signal and date it came from, so you can verify it."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Evaluation (Research → Evaluate)",
+    "worstCaseAction": "Raises a false disruption alert or misses one, surfaced for a human to assess. It cannot reroute, reorder, or change a supplier or shipment — execution tools are absent from its registry.",
+    "authorityBoundary": "Monitors signals for supply-chain disruptions, assesses likely impact, and surfaces prioritized alerts for review. It never reroutes shipments, places orders, or changes suppliers. A planner decides on any response.",
+    "verificationTest": "Attempt to call a reorder, reroute, or supplier-change tool → confirm it is absent from the agent's registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: action tools absent. Human gates: a planner decides. Confidence escalation: uncertain signals flagged, not acted on. Cost ceiling: bounded per scan. Audit trail: signals and assessments logged. Escalation path: high-impact disruptions surfaced first.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "disruption-monitor-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Evaluation",
+      "worst_case_action": "Raises a false disruption alert for human review. Cannot reroute, reorder, or change suppliers.",
+      "authority_boundary": "Monitors and assesses disruption signals; action tools absent.",
+      "tags": [
+        "supply-chain",
+        "monitoring",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_signals",
+          "assess_impact",
+          "prioritize",
+          "alert"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "reorder",
+          "reroute",
+          "supplier_change"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.22,
+        "alert_threshold_usd": 0.15
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "high_impact",
+          "uncertain_signal"
+        ],
+        "destination": "supply_planner"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "signals",
+          "assessments"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Raises a false disruption alert that triggers an unnecessary response.",
+      "detection": "Uncertain signals are flagged rather than acted on.",
+      "mitigation": "It assesses and alerts only — it cannot reorder, reroute, or change a supplier.",
+      "recovery": "A planner assesses before any response."
+    },
+    {
+      "mode": "Misses a real disruption (false negative).",
+      "detection": "High-impact signals are prioritized and surfaced first.",
+      "mitigation": "It surfaces prioritized alerts for review rather than filtering silently.",
+      "recovery": "The planner reviews and the detection is tuned."
+    },
+    {
+      "mode": "Acts on a stale or already-resolved signal.",
+      "detection": "Signal recency is checked.",
+      "mitigation": "Stale signals are flagged.",
+      "recovery": "The planner confirms current status."
+    }
+  ],
+  "evaluation": {
+    "primary": "Detection recall with controlled false alarms is primary — a missed disruption or a false alert that triggers an unnecessary response is the failure.",
+    "metrics": [
+      {
+        "name": "Detection recall",
+        "description": "Of genuine disruptions, the share surfaced in time."
+      },
+      {
+        "name": "False-alarm rate",
+        "description": "Frequency of alerts on non-events — the cost side."
+      },
+      {
+        "name": "Prioritization accuracy",
+        "description": "Share of disruptions ranked at the correct impact level."
+      },
+      {
+        "name": "Staleness handling",
+        "description": "Share of already-resolved or stale signals correctly suppressed."
+      },
+      {
+        "name": "Latency",
+        "description": "Time from signal to alert."
+      }
+    ],
+    "approach": "Use a labeled signal stream with known disruptions and non-events; measure detection recall and false-alarm rate and verify stale signals are suppressed. It assesses and alerts only — it cannot reorder or reroute."
+  }
+}

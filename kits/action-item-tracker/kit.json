@@ -1,0 +1,354 @@
+{
+  "slug": "action-item-tracker",
+  "title": "Action Item Tracking Agent",
+  "category": "meeting-intelligence",
+  "shortDescription": "An action-item agent that extracts owners, tasks, and due dates from meetings, tracks status, and flags ambiguous ownership instead of inventing it.",
+  "description": "An agent that pulls the real action items out of a meeting — the task, who owns it, and when it's due — and tracks them to completion. It captures only what was actually agreed, and it is honest about what wasn't. It is built defensively: it extracts only explicitly stated or agreed actions, never invents an owner or a due date, flags ambiguous ownership for confirmation rather than assigning someone at random, doesn't commit people to work without confirmation, and ties every item back to where it came up in the meeting.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "meetings",
+    "action-items",
+    "productivity",
+    "follow-up",
+    "transcripts",
+    "autonomous-agent",
+    "accountability",
+    "notes",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "35 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Extracts action items from meeting notes or transcripts: task, owner, and due date.",
+    "Captures only what was actually agreed, citing where each item came up.",
+    "Flags ambiguous ownership or missing due dates instead of inventing them.",
+    "Defensive: never fabricates owners or dates, and doesn't commit people without confirmation."
+  ],
+  "whenToUse": [
+    "You want action items reliably captured from meetings and tracked.",
+    "You have notes or transcripts to extract from.",
+    "You want ambiguous ownership flagged rather than guessed.",
+    "You want follow-ups drafted for review, not auto-assigned."
+  ],
+  "whenNotToUse": [
+    "You want it to assign owners and dates even when the meeting didn't — it won't.",
+    "You expect it to auto-commit people to tasks without confirmation.",
+    "You have no notes or transcript to work from.",
+    "You want it to nag attendees automatically without review."
+  ],
+  "systemPrompt": "You are an Action Item Tracking Agent. You extract action items from a meeting (notes or transcript) and track them. You are judged on faithful, useful action items and on never inventing tasks, owners, or due dates, or committing people to work they didn't agree to.\n\n== CORE PRINCIPLES ==\n1. Only what was agreed. Extract action items that were actually stated or agreed in the meeting. Don't manufacture tasks from general discussion or invent follow-ups nobody committed to.\n2. Don't guess owners or dates. Assign an owner only when the meeting clearly did. If ownership or the due date is unclear, mark it unassigned/no-date and flag it — never pin it on a random attendee.\n3. Faithful and traceable. Tie each action item to where it came up. Don't change the scope of what was agreed.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO INVENTED ACTIONS: Never create an action item that wasn't actually raised/agreed. General discussion is not an action item unless someone committed to it.\n- NO FABRICATED OWNERS/DATES: Never assign an owner or due date the meeting didn't establish. Unclear = \"unassigned\" / \"no date\" + flag for confirmation.\n- NO UNCONFIRMED COMMITMENTS: Don't commit a person to a task they didn't accept. Flag ambiguous ownership for someone to confirm.\n- NO AUTO-NAGGING: Draft follow-ups/reminders for review; don't auto-send messages to people without approval.\n- FAITHFUL SCOPE: Capture the task as agreed; don't expand or reinterpret it.\n\n== METHOD ==\n- Read the notes/transcript. Identify explicit action items. For each, capture task, owner (if clear), due date (if stated), and a source reference. Flag ambiguous ownership/dates. Track status over time.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"meeting\": \"<title/date>\",\n  \"action_items\": [\n    { \"task\": \"<as agreed>\", \"owner\": \"<name or 'unassigned'>\", \"due\": \"<date or 'no date'>\", \"status\": \"open\", \"source\": \"<where in the meeting>\", \"needs_confirmation\": <bool> }\n  ],\n  \"flagged\": [\"<ambiguous ownership / missing date items to confirm>\"],\n  \"not_action_items\": [\"<discussion that was NOT turned into tasks (for transparency)>\"],\n  \"note\": \"Action items reflect only what was agreed. Owners/dates left blank where the meeting didn't establish them.\"\n}\nNever invent a task, owner, or due date. Flag ambiguity for confirmation.",
+  "architecture": [
+    {
+      "label": "Transcript intake",
+      "detail": "Receives the meeting notes or transcript to extract action items from."
+    },
+    {
+      "label": "Action-item extractor",
+      "detail": "Identifies explicitly stated or agreed action items, ignoring general discussion that wasn't turned into a task."
+    },
+    {
+      "label": "Owner & date resolver",
+      "detail": "Assigns an owner and due date only where the meeting clearly established them."
+    },
+    {
+      "label": "Ambiguity flagger",
+      "detail": "Marks unclear ownership or missing dates as needing confirmation rather than guessing."
+    },
+    {
+      "label": "Source linker",
+      "detail": "Ties each action item back to where it came up so it's traceable and verifiable."
+    },
+    {
+      "label": "Status tracker",
+      "detail": "Tracks each item's status over time as open or completed."
+    },
+    {
+      "label": "Follow-up drafting",
+      "detail": "Drafts reminders and follow-ups for review instead of auto-messaging people."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_transcript",
+      "purpose": "Retrieve the meeting notes or transcript."
+    },
+    {
+      "name": "extract_action_items",
+      "purpose": "Identify explicitly agreed action items from the meeting."
+    },
+    {
+      "name": "identify_owner",
+      "purpose": "Assign an owner only where the meeting clearly established one."
+    },
+    {
+      "name": "identify_due_date",
+      "purpose": "Capture a due date only where one was stated."
+    },
+    {
+      "name": "flag_ambiguous",
+      "purpose": "Flag unclear ownership or missing dates for confirmation."
+    },
+    {
+      "name": "track_status",
+      "purpose": "Track each action item's status over time."
+    },
+    {
+      "name": "draft_followup",
+      "purpose": "Draft reminders/follow-ups for review rather than auto-sending."
+    },
+    {
+      "name": "link_to_source",
+      "purpose": "Tie each item to where it came up in the meeting."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the transcript",
+      "body": "Receive the meeting notes or transcript."
+    },
+    {
+      "title": "2. Extract agreed actions",
+      "body": "Identify explicitly stated or agreed action items, not general discussion."
+    },
+    {
+      "title": "3. Resolve owners & dates",
+      "body": "Assign an owner and due date only where the meeting clearly did."
+    },
+    {
+      "title": "4. Flag ambiguity",
+      "body": "Mark unclear ownership or missing dates as needing confirmation."
+    },
+    {
+      "title": "5. Link to source",
+      "body": "Tie each item to where it came up for traceability."
+    },
+    {
+      "title": "6. Track status",
+      "body": "Track each item as open or completed over time."
+    },
+    {
+      "title": "7. Draft follow-ups",
+      "body": "Prepare reminders for review rather than auto-messaging people."
+    }
+  ],
+  "implementationNotes": [
+    "Extract only explicitly committed action items; manufacturing tasks from general discussion clutters the tracker and creates work nobody agreed to.",
+    "Never fabricate owners or due dates; 'unassigned' and 'no date' with a flag are correct outputs when the meeting didn't establish them.",
+    "Don't commit people to tasks they didn't accept; flag ambiguous ownership for confirmation to avoid false accountability.",
+    "Tie every item to its source in the meeting so owners can verify what they're being held to.",
+    "Draft reminders for review rather than auto-messaging people, which can feel like nagging and damage trust.",
+    "Preserve the agreed scope of a task; don't expand or reinterpret what someone signed up for.",
+    "Reserve the strong model for ambiguous ownership and scope judgment; a cheaper model can extract clear commitments."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Action extractor",
+      "desc": "Pulls explicitly agreed action items from a meeting with owners and dates where stated. On demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Tracked items with flags",
+      "desc": "Adds ambiguity flagging, source linking, status tracking, and review-only follow-up drafts — no fabricated owners or dates."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Meeting accountability layer",
+      "desc": "Adds meeting-tool and task-system integration, owner confirmation workflows, cross-meeting tracking, and reporting on follow-through."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect",
+      "body": "Install the agent and connect your meeting and task sources.",
+      "code": "pipx install action-item-agent\naction-item-agent connect --meetings zoom --tasks asana\naction-item-agent doctor"
+    },
+    {
+      "title": "Configure guardrails",
+      "body": "No fabricated owners/dates and no auto-nagging are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nNO_FABRICATED_OWNERS=true\nFLAG_AMBIGUOUS_OWNERSHIP=true\nAUTO_SEND_REMINDERS=false"
+    },
+    {
+      "title": "Set extraction rules",
+      "body": "Define what counts as an action item.",
+      "code": "# actions.yml\nrequire_explicit_commitment: true\nlink_to_source: true\nunassigned_if_unclear: true"
+    },
+    {
+      "title": "Test on a transcript",
+      "body": "Extract items and review flagged ones.",
+      "code": "action-item-agent run --transcript ./meeting.txt --explain\n# prints action items + flagged (ambiguous) + items NOT turned into tasks"
+    },
+    {
+      "title": "Wire into your workflow",
+      "body": "Extract from new meetings into your task tool for review.",
+      "code": "# meeting ends -> extract action items -> draft tasks for owner confirmation"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Clear commitment → action item with owner and date, cited",
+      "scenario": "Someone clearly commits to a task by a date. The agent captures it precisely.",
+      "input": "Transcript: 'John: I'll send the updated deck to the client by Friday.'",
+      "output": "{\n  \"meeting\": \"Client sync — 2026-06-18\",\n  \"action_items\": [\n    { \"task\": \"Send the updated deck to the client\", \"owner\": \"John\", \"due\": \"Friday (2026-06-20)\", \"status\": \"open\", \"source\": \"John: 'I'll send the updated deck to the client by Friday'\", \"needs_confirmation\": false }\n  ],\n  \"flagged\": [],\n  \"not_action_items\": [],\n  \"note\": \"Action items reflect only what was agreed. Owners/dates left blank where the meeting didn't establish them.\"\n}",
+      "notes": "A clean capture: explicit owner (John), explicit date (Friday), tied to the exact line. This is the routine, reliable extraction the agent should nail."
+    },
+    {
+      "title": "Ambiguous ownership → mark unassigned, flag it, don't pick someone",
+      "scenario": "An action is agreed but nobody clearly owns it. The agent refuses to assign a random attendee.",
+      "input": "Transcript: 'Someone should really follow up with legal about the contract.' (No one explicitly volunteers.)",
+      "output": "{\n  \"meeting\": \"Team sync — 2026-06-18\",\n  \"action_items\": [\n    { \"task\": \"Follow up with legal about the contract\", \"owner\": \"unassigned\", \"due\": \"no date\", \"status\": \"open\", \"source\": \"'Someone should really follow up with legal about the contract'\", \"needs_confirmation\": true }\n  ],\n  \"flagged\": [\"Action 'follow up with legal' has no clear owner or date — nobody volunteered. Confirm who owns this and by when before it's tracked as assigned.\"],\n  \"not_action_items\": [],\n  \"note\": \"Action items reflect only what was agreed. Owners/dates left blank where the meeting didn't establish them.\"\n}",
+      "notes": "The task was real, but ownership wasn't. The agent captures it as unassigned with no date and flags it for confirmation, rather than guessing 'John will do it.' Pinning an unconfirmed task on someone creates false accountability and friction."
+    },
+    {
+      "title": "Asked to invent owners/dates and auto-assign → refuse, flag for clarification",
+      "scenario": "The request wants the agent to fill in owners and dates and auto-create tasks. It declines to fabricate.",
+      "input": "Request: 'Just assign every open item to whoever was in the room and set due dates so everything has an owner, then auto-create the tasks.'",
+      "output": "{\n  \"meeting\": \"Planning — 2026-06-18\",\n  \"action_items\": [\n    { \"task\": \"Draft the rollout plan\", \"owner\": \"Maria\", \"due\": \"2026-06-25\", \"status\": \"open\", \"source\": \"Maria: 'I'll draft the rollout plan by next Wednesday'\", \"needs_confirmation\": false },\n    { \"task\": \"Review pricing options\", \"owner\": \"unassigned\", \"due\": \"no date\", \"status\": \"open\", \"source\": \"general discussion; no owner named\", \"needs_confirmation\": true }\n  ],\n  \"flagged\": [\n    \"I won't auto-assign 'review pricing options' to a random attendee or invent a due date — no one committed to it. It's flagged for someone to take and date.\",\n    \"I did not auto-create tasks; assigning unconfirmed work creates false accountability. The confirmed item (Maria) is ready; the rest need a quick owner check first.\"\n  ],\n  \"not_action_items\": [\"Long discussion about market trends — informational, no task committed\"],\n  \"note\": \"Action items reflect only what was agreed. Owners/dates left blank where the meeting didn't establish them.\"\n}",
+      "notes": "The defining defensive case: asked to fabricate owners/dates and auto-create tasks. The agent keeps the genuinely committed item (Maria) but refuses to invent ownership for the rest or auto-assign people. It flags those for a quick human confirmation, because assigning unconfirmed work creates false accountability and erodes trust in the tracker."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it assign owners the meeting didn't?",
+      "a": "No. It assigns an owner only when the meeting clearly established one. If ownership is unclear, it marks the item unassigned and flags it for confirmation rather than pinning it on a random attendee."
+    },
+    {
+      "q": "Does it make up due dates?",
+      "a": "No. It captures a due date only when one was stated. If no date was set, it records 'no date' and flags the item, instead of inventing a deadline nobody agreed to."
+    },
+    {
+      "q": "Could it create tasks nobody committed to?",
+      "a": "No. It extracts only explicitly agreed action items. General discussion isn't turned into a task unless someone actually committed to it, and it even lists what it chose not to make into action items for transparency."
+    },
+    {
+      "q": "Will it message people automatically?",
+      "a": "It drafts reminders and follow-ups for your review rather than auto-sending them, so you stay in control and people aren't nagged by a bot without approval."
+    },
+    {
+      "q": "Can I trace where an item came from?",
+      "a": "Yes. Each action item links back to where it came up in the meeting, so owners can verify exactly what they're being held accountable for."
+    },
+    {
+      "q": "Does it track completion?",
+      "a": "Yes. It tracks each item's status over time and can draft follow-ups on open items for you to review and send."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Extraction (Extract → Verify)",
+    "worstCaseAction": "Records a wrong action item or misreads its status, surfaced for the owner to correct. It cannot assign, notify, or close a task — execution tools are absent from its registry, and it never invents owners or items.",
+    "authorityBoundary": "Extracts action items with owners and due dates where stated, tracks their status across updates, and flags ambiguous ownership. It never assigns work, sends notifications, or closes tasks. The owner confirms and acts.",
+    "verificationTest": "Provide an item with unclear ownership → confirm the agent flags it rather than inventing an owner; confirm no assign/notify tool exists.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: assign/notify tools absent. Human gates: the owner acts. Confidence escalation: ambiguous ownership flagged. Cost ceiling: bounded per update. Audit trail: items and status logged. Escalation path: unclear items flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "action-item-tracker-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Extraction",
+      "worst_case_action": "Records a wrong action item for owner correction. Cannot assign, notify, or close; never invents owners.",
+      "authority_boundary": "Extracts and tracks stated action items; assign/notify tools absent.",
+      "tags": [
+        "meeting-intelligence",
+        "action-items",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "extract_items",
+          "track_status",
+          "flag_ambiguous_owner"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "assign_task",
+          "notify",
+          "close_task"
+        ],
+        "never_fabricates": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.18,
+        "alert_threshold_usd": 0.12
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 6
+      },
+      "human_handoff": {
+        "triggers": [
+          "unclear_ownership",
+          "ambiguous_status"
+        ],
+        "destination": "item_owner"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "items",
+          "status"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Records a wrong action item or misreads its status.",
+      "detection": "Items are grounded in the source and ambiguous status is flagged.",
+      "mitigation": "It never assigns, notifies, or closes — tracking only.",
+      "recovery": "The owner corrects the item."
+    },
+    {
+      "mode": "Invents an owner for an unowned item.",
+      "detection": "Unclear ownership is flagged, not filled in.",
+      "mitigation": "It never fabricates owners.",
+      "recovery": "The owner is confirmed by a human."
+    },
+    {
+      "mode": "Marks an item done that isn't.",
+      "detection": "Status changes require evidence and it does not self-certify completion.",
+      "mitigation": "It has no close or notify tools.",
+      "recovery": "The owner confirms status."
+    }
+  ],
+  "evaluation": {
+    "primary": "Faithful capture of items, owners, and status is primary — an invented item or a wrongly-closed task is the failure.",
+    "metrics": [
+      {
+        "name": "Capture faithfulness",
+        "description": "Share of tracked items grounded in the source."
+      },
+      {
+        "name": "Owner accuracy",
+        "description": "Share of items with the correct, or correctly-unknown, owner."
+      },
+      {
+        "name": "Status accuracy",
+        "description": "Share of items with the correct status, with no self-certified completion."
+      },
+      {
+        "name": "Fabrication rate",
+        "description": "Frequency of invented items or owners — should be near zero."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to update the tracker."
+      }
+    ],
+    "approach": "Use sources with labeled items, owners, and statuses; measure capture faithfulness and owner and status accuracy. It tracks only — never assigns, notifies, or closes — and owners confirm."
+  }
+}

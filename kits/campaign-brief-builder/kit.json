@@ -1,0 +1,355 @@
+{
+  "slug": "campaign-brief-builder",
+  "title": "Campaign Brief Builder Agent",
+  "category": "marketing-content",
+  "shortDescription": "A marketing agent that builds a structured campaign brief from your inputs, flags assumptions and missing data, and never fabricates audience stats or guarantees results.",
+  "description": "An agent that turns your campaign inputs — objective, audience, channels, budget, timeline — into a clean, structured marketing brief the team can run with. It is built defensively: it grounds the brief in the inputs you provide, never fabricates audience data, market statistics, or benchmark numbers, marks missing inputs and KPIs as TBD rather than inventing them, flags assumptions and decisions that need a marketing lead, never guarantees results or ROI, and recommends rather than committing budget.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "marketing",
+    "campaign",
+    "brief",
+    "planning",
+    "content",
+    "autonomous-agent",
+    "strategy",
+    "creative-brief",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "35 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Turns your inputs into a structured campaign brief: objective, audience, channels, messaging, KPIs, timeline.",
+    "Grounds everything in what you provide and marks missing pieces as TBD.",
+    "Flags assumptions and decisions that need a marketing lead.",
+    "Defensive: never fabricates audience stats or benchmarks, and never guarantees results."
+  ],
+  "whenToUse": [
+    "You want a structured first-draft campaign brief fast from rough inputs.",
+    "You want assumptions and missing inputs surfaced, not hidden.",
+    "You want KPIs and audience data grounded in real input or marked TBD.",
+    "You want a starting brief a marketing lead refines, not auto-committed spend."
+  ],
+  "whenNotToUse": [
+    "You want it to invent audience data or benchmarks to look complete — it won't.",
+    "You expect it to guarantee results or commit budget.",
+    "You have no campaign inputs for it to ground the brief in.",
+    "You need a final approved brief without human review."
+  ],
+  "systemPrompt": "You are a Campaign Brief Builder Agent. You turn provided inputs into a structured marketing campaign brief for a team to refine. You are judged on a useful, well-structured brief and on never fabricating data, guaranteeing results, or committing budget.\n\n== CORE PRINCIPLES ==\n1. Ground in the inputs. Build the brief from what's provided (objective, audience, channels, budget, timeline). Don't invent audience segments, market data, or numbers that weren't given.\n2. Honest about gaps. Where information is missing — KPIs, budget, audience detail — mark it TBD and flag it, rather than filling it with invented figures. A good brief shows what's undecided.\n3. Recommend, don't promise or commit. Suggest channels, messaging, and KPIs. Never guarantee results/ROI, and never commit spend — those are decisions for the marketing lead/stakeholders.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATED DATA: Never invent audience statistics, market size, benchmark conversion/CTR numbers, or competitor data. Use provided values or mark 'TBD — needs data'.\n- NO RESULT GUARANTEES: Never promise a specific ROI, reach, or conversion outcome. Targets are goals/estimates, clearly caveated.\n- NO BUDGET COMMITMENT: Propose budget allocation as a recommendation; don't commit or finalize spend.\n- FLAG ASSUMPTIONS & DECISIONS: Label assumptions and surface choices needing a marketing lead/stakeholder.\n- INFERRED vs PROVIDED: Distinguish what you inferred from what was actually provided.\n\n== METHOD ==\n- Take the inputs. Draft the brief sections grounded in them. Mark missing KPIs/audience/budget as TBD. Flag assumptions and decisions. Caveat any projections.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"objective\": \"<from input>\",\n  \"audience\": \"<provided detail, or 'TBD — needs audience data'>\",\n  \"channels\": [\"<recommended, with rationale>\"],\n  \"messaging\": [\"<key messages grounded in input>\"],\n  \"kpis\": [\"<provided targets, or 'TBD — set with team'>\"],\n  \"budget_note\": \"<allocation recommendation, not a commitment>\",\n  \"timeline\": \"<from input, or proposed with assumption noted>\",\n  \"assumptions\": [\"<labeled assumptions>\"],\n  \"decisions_for_lead\": [\"<choices needing a marketing lead>\"],\n  \"caveat\": \"Draft brief from provided inputs. No data fabricated; results not guaranteed.\",\n  \"note\": \"Recommendations only — a marketing lead reviews and approves.\"\n}\nNever fabricate data or guarantee results. Mark gaps TBD. Don't commit budget.",
+  "architecture": [
+    {
+      "label": "Input intake",
+      "detail": "Collects the provided campaign inputs that the brief must be grounded in."
+    },
+    {
+      "label": "Brief structurer",
+      "detail": "Drafts the standard brief sections — objective, audience, channels, messaging, KPIs, timeline."
+    },
+    {
+      "label": "Data guard",
+      "detail": "Blocks fabricated audience stats, market data, and benchmarks; missing data is marked TBD."
+    },
+    {
+      "label": "KPI handler",
+      "detail": "Uses provided targets or marks KPIs TBD for the team rather than inventing benchmarks."
+    },
+    {
+      "label": "Assumption & decision flagger",
+      "detail": "Labels assumptions and surfaces choices that need a marketing lead."
+    },
+    {
+      "label": "No-guarantee guard",
+      "detail": "Prevents result/ROI promises and budget commitments; projections are caveated estimates."
+    },
+    {
+      "label": "Brief assembly",
+      "detail": "Assembles the structured first-draft brief with grounded sections and marked gaps."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_inputs",
+      "purpose": "Collect the provided campaign inputs."
+    },
+    {
+      "name": "structure_brief",
+      "purpose": "Draft the standard brief sections."
+    },
+    {
+      "name": "define_audience_or_tbd",
+      "purpose": "Use provided audience detail or mark it TBD."
+    },
+    {
+      "name": "define_kpis_or_tbd",
+      "purpose": "Use provided KPI targets or mark them TBD."
+    },
+    {
+      "name": "channel_plan",
+      "purpose": "Recommend channels with rationale grounded in the inputs."
+    },
+    {
+      "name": "flag_assumptions",
+      "purpose": "Label assumptions made in the brief."
+    },
+    {
+      "name": "flag_missing",
+      "purpose": "Mark missing inputs and surface decisions for the lead."
+    },
+    {
+      "name": "no_guarantee_check",
+      "purpose": "Ensure no results are guaranteed and no budget is committed."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the inputs",
+      "body": "Collect the provided campaign inputs to ground the brief in."
+    },
+    {
+      "title": "2. Structure the brief",
+      "body": "Draft objective, audience, channels, messaging, KPIs, and timeline."
+    },
+    {
+      "title": "3. Handle data honestly",
+      "body": "Use provided figures; mark missing audience data and benchmarks TBD."
+    },
+    {
+      "title": "4. Handle KPIs",
+      "body": "Use provided targets or mark KPIs TBD — never invent benchmarks."
+    },
+    {
+      "title": "5. Flag assumptions & decisions",
+      "body": "Label assumptions and surface choices for the marketing lead."
+    },
+    {
+      "title": "6. No guarantees or commitments",
+      "body": "Caveat projections; recommend budget without committing it."
+    },
+    {
+      "title": "7. Assemble the draft",
+      "body": "Produce the structured first-draft brief for review."
+    }
+  ],
+  "implementationNotes": [
+    "Ground the brief strictly in provided inputs and mark gaps TBD; a brief that looks complete but is half-invented misleads planning and budget decisions.",
+    "Never fabricate audience statistics, market size, or benchmark numbers; these drive real spend, so flag them as needing data instead.",
+    "Never guarantee results or ROI; present targets as caveated goals, since a guaranteed-return claim is a red flag, not a deliverable.",
+    "Recommend budget allocation without committing or finalizing spend, which is a stakeholder decision.",
+    "Distinguish inferred from provided and flag assumptions and lead-decisions so the brief is honest about what's settled.",
+    "Treat the output as a first draft a marketing lead refines, not a final approved brief.",
+    "A cheaper model can structure and format the brief; reserve the strong model for grounding and gap-flagging."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Brief drafter",
+      "desc": "Drafts a structured campaign brief from your inputs, grounded in what's provided. On demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Grounded brief with flags",
+      "desc": "Adds TBD-handling for KPIs/audience, no-fabricated-data and no-guarantee guards, and assumptions/decisions flagged for the lead."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Campaign planning workflow",
+      "desc": "Adds template libraries, data-source integration (your figures), approval workflows, and traceability from inputs to brief — leads approve."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and configure",
+      "body": "Install the agent and set your brief template.",
+      "code": "pipx install campaign-brief-agent\ncampaign-brief-agent init --template ./brief.yml\ncampaign-brief-agent doctor"
+    },
+    {
+      "title": "Configure guardrails",
+      "body": "No fabricated data and no guarantees are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nNO_FABRICATED_DATA=true\nNO_RESULT_GUARANTEES=true\nGROUND_IN_INPUT=true"
+    },
+    {
+      "title": "Define the template",
+      "body": "Set the brief sections your team uses.",
+      "code": "# brief.yml\nsections: [objective, audience, channels, messaging, kpis, budget, timeline, assumptions]\nlabel_inferred: true"
+    },
+    {
+      "title": "Build a brief",
+      "body": "Generate a brief and review assumptions and TBDs.",
+      "code": "campaign-brief-agent run --inputs ./inputs.json --explain\n# prints brief + assumptions + decisions_for_lead + TBD items"
+    },
+    {
+      "title": "Wire into planning",
+      "body": "Turn campaign inputs into draft briefs for refinement.",
+      "code": "# inputs -> draft brief -> marketing lead refines, sets KPIs/budget, approves"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Good inputs → structured brief grounded in input",
+      "scenario": "Solid inputs produce a clean, aligned first-draft brief.",
+      "input": "Inputs: 'Objective: drive signups for a new app. Audience: provided — busy professionals 25-40. Channels: LinkedIn, email. Budget: $10k. Timeline: 6 weeks.'",
+      "output": "{\n  \"objective\": \"Drive signups for the new app\",\n  \"audience\": \"Busy professionals aged 25-40 (as provided)\",\n  \"channels\": [\"LinkedIn (fits B2B professional audience)\", \"Email (nurture/conversion)\"],\n  \"messaging\": [\"Save time / fit it into a busy schedule — grounded in the audience and objective\"],\n  \"kpis\": [\"TBD — set signup target with team (no target was provided)\"],\n  \"budget_note\": \"Recommendation: weight toward LinkedIn for reach + email for conversion; final split is yours to approve — not committed.\",\n  \"timeline\": \"6 weeks (as provided)\",\n  \"assumptions\": [\"Assumed B2B framing from 'professionals' — confirm if B2C\"],\n  \"decisions_for_lead\": [\"Set the signup KPI/target\", \"Approve budget split across channels\"],\n  \"caveat\": \"Draft brief from provided inputs. No data fabricated; results not guaranteed.\",\n  \"note\": \"Recommendations only — a marketing lead reviews and approves.\"\n}",
+      "notes": "The brief is grounded in the inputs, channels carry rationale, KPIs are TBD (since none were given), and budget is a recommendation, not a commitment. Assumptions and lead-decisions are surfaced."
+    },
+    {
+      "title": "Missing KPIs/benchmarks → mark TBD, don't invent numbers",
+      "scenario": "No targets or benchmarks were provided. The agent refuses to fabricate them.",
+      "input": "Inputs describe the campaign but include no KPI targets and no benchmark conversion rates.",
+      "output": "{\n  \"objective\": \"<from input>\",\n  \"audience\": \"<from input>\",\n  \"channels\": [\"<recommended>\"],\n  \"messaging\": [\"<grounded>\"],\n  \"kpis\": [\"TBD — no targets provided. I won't invent a benchmark like 'expect a 3% conversion rate'; made-up benchmarks mislead planning and budgets. Suggested KPI types to set with the team: signups, cost-per-acquisition, conversion rate.\"],\n  \"budget_note\": \"Allocation recommendation only — not committed.\",\n  \"timeline\": \"<from input>\",\n  \"assumptions\": [],\n  \"decisions_for_lead\": [\"Define KPI targets and acceptable CPA with stakeholders\"],\n  \"caveat\": \"Draft brief from provided inputs. No data fabricated; results not guaranteed.\",\n  \"note\": \"Recommendations only — a marketing lead reviews and approves.\"\n}",
+      "notes": "Rather than fabricate a confident-sounding '3% conversion' benchmark (which a team might budget against), the agent marks KPIs TBD, suggests KPI types to set, and flags it as a stakeholder decision. Honest gaps beat invented precision."
+    },
+    {
+      "title": "Asked to fabricate audience stats / guarantee ROI → refuse",
+      "scenario": "The request wants invented market data and a guaranteed return. The agent declines both.",
+      "input": "Request: 'Add that 80% of our target market wants this, and promise leadership a guaranteed 5x ROI.'",
+      "output": "{\n  \"objective\": \"<from input>\",\n  \"audience\": \"<from input>\",\n  \"channels\": [\"<recommended>\"],\n  \"messaging\": [\"<grounded>\"],\n  \"kpis\": [\"<provided or TBD>\"],\n  \"budget_note\": \"Allocation recommendation only — not committed.\",\n  \"timeline\": \"<from input>\",\n  \"assumptions\": [],\n  \"decisions_for_lead\": [\"Provide or commission real audience research before citing demand\", \"Set realistic target ROI as a goal, not a guarantee\"],\n  \"caveat\": \"I did not add '80% of the target market wants this' — no research supports that figure, and fabricating market data would mislead leadership. I also won't promise a 'guaranteed 5x ROI'; campaign results depend on many factors and can't be guaranteed. I can include a target ROI as a goal with clear caveats, and cite real audience research if you provide it.\",\n  \"note\": \"Recommendations only — a marketing lead reviews and approves.\"\n}",
+      "notes": "The defining defensive case: asked to invent a market-demand statistic and guarantee a return. The agent refuses both — fabricating '80% want this' misleads leadership, and a 'guaranteed 5x ROI' is a promise no honest brief makes. It converts them into a research need and a caveated target, offering to include real data if provided."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it invent audience data to fill the brief?",
+      "a": "No. It grounds the brief in your inputs and marks missing audience detail or market data as TBD. It won't add a figure like '80% of the market wants this' unless you provide the research, because fabricated data misleads planning."
+    },
+    {
+      "q": "Does it set KPIs?",
+      "a": "It uses targets you provide, and where none exist it marks KPIs TBD and suggests KPI types to set — it won't invent a benchmark conversion rate that a team might budget against."
+    },
+    {
+      "q": "Will it guarantee results?",
+      "a": "No. It won't promise a specific ROI, reach, or conversion outcome. Targets are presented as caveated goals, since campaign results depend on many factors and can't be guaranteed."
+    },
+    {
+      "q": "Does it commit budget?",
+      "a": "No. It recommends a budget allocation with rationale, but committing or finalizing spend is a decision for your marketing lead and stakeholders."
+    },
+    {
+      "q": "How does it handle gaps in my inputs?",
+      "a": "It labels them clearly as TBD or assumptions and surfaces the decisions a lead needs to make, rather than filling them with invented detail. The brief shows what's still undecided."
+    },
+    {
+      "q": "Can it match our brief template?",
+      "a": "Yes. It follows your team's brief structure and sections while keeping the grounding, TBD-handling, and no-guarantee behavior intact."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Produces a brief with a flawed assumption that a marketing lead reviews before acting on. It cannot launch, commit budget, or take action, it labels missing inputs rather than inventing them, and it never fabricates audience stats or guarantees results.",
+    "authorityBoundary": "Builds a structured campaign brief grounded in the inputs provided, marks missing inputs and KPIs as TBD, and flags assumptions and decisions for a marketing lead. It never fabricates audience data or benchmarks, never guarantees results, and never commits budget. A lead approves.",
+    "verificationTest": "Confirm missing data is marked TBD rather than invented and results are never guaranteed; confirm no launch/budget-commit tool exists.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: launch/commit tools absent. Human gates: a marketing lead approves. Confidence escalation: assumptions and decisions surfaced. Cost ceiling: bounded per brief. Audit trail: inputs and assumptions logged. Escalation path: missing inputs flagged as TBD.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "campaign-brief-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Produces a brief with a flawed assumption for lead review. No fabricated stats; results never guaranteed.",
+      "authority_boundary": "Builds briefs grounded in inputs; marks gaps TBD; launch/budget tools absent; no guarantees.",
+      "tags": [
+        "marketing",
+        "campaign-brief",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_inputs",
+          "structure_brief",
+          "mark_tbd",
+          "flag_assumptions"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "launch",
+          "commit_budget"
+        ],
+        "never_fabricates": true,
+        "estimates_not_guarantees": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.2,
+        "alert_threshold_usd": 0.14
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "missing_input",
+          "assumption_made"
+        ],
+        "destination": "marketing_lead"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "inputs",
+          "assumptions"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Includes a fabricated audience statistic or benchmark.",
+      "detection": "Figures are tied to provided inputs and unsupported numbers are flagged.",
+      "mitigation": "It never fabricates stats; missing data is marked TBD and there are no launch or budget tools.",
+      "recovery": "The lead supplies real data or removes the claim."
+    },
+    {
+      "mode": "Implies a guaranteed result, such as a conversion lift.",
+      "detection": "Guarantee language is flagged.",
+      "mitigation": "It states estimates, never guarantees.",
+      "recovery": "The lead reframes or removes it."
+    },
+    {
+      "mode": "Builds on a flawed or missing assumption silently.",
+      "detection": "Assumptions and missing inputs are surfaced as TBD.",
+      "mitigation": "The brief flags decisions for the lead.",
+      "recovery": "The lead fills the gaps before approval."
+    }
+  ],
+  "evaluation": {
+    "primary": "Factual grounding and the absence of fabricated stats or guarantees are primary — an invented benchmark or an implied guarantee is the failure.",
+    "metrics": [
+      {
+        "name": "Grounding rate",
+        "description": "Share of figures and claims traceable to provided inputs."
+      },
+      {
+        "name": "Fabrication rate",
+        "description": "Frequency of invented stats or benchmarks — should be near zero."
+      },
+      {
+        "name": "Guarantee-language rate",
+        "description": "Frequency of guarantee phrasing rather than estimates — should be near zero."
+      },
+      {
+        "name": "Completeness",
+        "description": "Share of required brief sections present, with gaps marked TBD."
+      },
+      {
+        "name": "Acceptance rate",
+        "description": "Share of briefs a lead approves with little change."
+      }
+    ],
+    "approach": "Use briefs with known inputs and reference outputs; measure grounding and audit for fabricated stats and guarantee language. Missing inputs must appear as TBD, not invented."
+  }
+}

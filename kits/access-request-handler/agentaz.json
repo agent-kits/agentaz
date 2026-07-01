@@ -1,0 +1,57 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "access-request-agent",
+  "trust_level": "A3",
+  "dna_pattern": "Planning",
+  "worst_case_action": "Prepares an incorrect access change for human approval. Cannot grant or revoke access.",
+  "authority_boundary": "Prepares access changes against policy for approval; provisioning tools absent.",
+  "tags": [
+    "security",
+    "iam",
+    "access-request",
+    "human-approval"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_request",
+      "check_policy",
+      "prepare_change",
+      "summarize"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "grant_access",
+      "revoke_access",
+      "provisioning_write"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.25,
+    "alert_threshold_usd": 0.16
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "sensitive_resource",
+      "policy_ambiguous",
+      "low_confidence"
+    ],
+    "destination": "access_owner"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "request",
+      "policy_check",
+      "prepared_change",
+      "approvals"
+    ]
+  }
+}

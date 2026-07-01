@@ -1,0 +1,56 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "vendor-risk-assessment-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Evaluation",
+  "worst_case_action": "Produces an inaccurate risk score for human review. Cannot approve or onboard vendors.",
+  "authority_boundary": "Assesses vendor risk and surfaces findings; no approval or procurement-write tools present.",
+  "tags": [
+    "compliance",
+    "vendor-risk",
+    "security",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "gather_vendor_info",
+      "check_criteria",
+      "score_risk",
+      "summarize_findings"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "vendor_approve",
+      "procurement_write"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.3,
+    "alert_threshold_usd": 0.2
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 10
+  },
+  "human_handoff": {
+    "triggers": [
+      "high_risk_vendor",
+      "missing_evidence",
+      "low_confidence"
+    ],
+    "destination": "procurement_review"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "scores",
+      "evidence",
+      "rationale"
+    ]
+  }
+}

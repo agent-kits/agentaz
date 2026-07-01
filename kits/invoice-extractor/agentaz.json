@@ -1,0 +1,55 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "invoice-extraction-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Extraction",
+  "worst_case_action": "Extracts a wrong field for human review. Cannot post, pay, or write to financial systems.",
+  "authority_boundary": "Extracts and validates invoice fields; payment/post tools absent.",
+  "tags": [
+    "document-processing",
+    "invoice",
+    "extraction",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_document",
+      "extract_fields",
+      "validate_schema",
+      "flag_low_confidence"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "ledger_write",
+      "payment",
+      "post"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.2,
+    "alert_threshold_usd": 0.14
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "low_confidence_field",
+      "missing_required_field"
+    ],
+    "destination": "ap_review"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "fields",
+      "confidence"
+    ]
+  }
+}

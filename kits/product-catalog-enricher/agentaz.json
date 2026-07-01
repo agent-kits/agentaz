@@ -1,0 +1,54 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "catalog-enrichment-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Synthesis",
+  "worst_case_action": "Proposes a wrong enrichment for human review. Cannot write to catalog; never fabricates specs.",
+  "authority_boundary": "Enriches from source data and flags low confidence; catalog-write tools absent; no fabrication.",
+  "tags": [
+    "ecommerce",
+    "catalog",
+    "enrichment",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_source",
+      "normalize_attributes",
+      "fill_supported_gaps",
+      "flag_low_confidence"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "catalog_write"
+    ],
+    "never_fabricates": true
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.2,
+    "alert_threshold_usd": 0.14
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "unsupported_claim",
+      "low_confidence_field"
+    ],
+    "destination": "catalog_reviewer"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "enrichments",
+      "sources"
+    ]
+  }
+}

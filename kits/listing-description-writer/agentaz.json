@@ -1,0 +1,55 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "listing-description-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Synthesis",
+  "worst_case_action": "Writes an inaccurate/non-compliant description for agent review. Cannot publish; never invents features.",
+  "authority_boundary": "Writes listings from provided facts in Fair-Housing-compliant language; publish tools absent.",
+  "tags": [
+    "real-estate",
+    "listing",
+    "fair-housing",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_property_facts",
+      "write_description",
+      "check_fair_housing",
+      "flag_unverifiable"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "publish"
+    ],
+    "never_fabricates": true,
+    "fair_housing_compliant": true
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.18,
+    "alert_threshold_usd": 0.12
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 6
+  },
+  "human_handoff": {
+    "triggers": [
+      "unverifiable_claim",
+      "compliance_concern"
+    ],
+    "destination": "listing_agent"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "description",
+      "facts"
+    ]
+  }
+}

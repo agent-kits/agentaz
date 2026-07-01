@@ -1,0 +1,54 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "seo-brief-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Synthesis",
+  "worst_case_action": "Produces a weak SEO brief for human review. No ranking guarantees; cannot publish.",
+  "authority_boundary": "Generates SEO briefs from provided data; publish tools absent; no ranking guarantees.",
+  "tags": [
+    "seo",
+    "content-brief",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_data",
+      "define_intent",
+      "build_outline",
+      "map_internal_links"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "publish",
+      "action"
+    ],
+    "no_ranking_guarantee": true
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.2,
+    "alert_threshold_usd": 0.14
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "unclear_intent",
+      "thin_data"
+    ],
+    "destination": "content_owner"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "brief",
+      "inputs"
+    ]
+  }
+}

@@ -1,0 +1,353 @@
+{
+  "slug": "test-case-generator",
+  "title": "Test Case Generation Agent",
+  "category": "qa-testing",
+  "shortDescription": "A test-case agent that turns requirements into happy-path, edge, and negative cases with steps and expected results, flagging ambiguous specs instead of guessing.",
+  "description": "Turns a requirement, user story, or acceptance criteria into a structured set of test cases: happy paths, edge cases, and negative cases, each with clear steps and expected results. It stays grounded in the actual requirement instead of inventing behavior, and when a spec is vague it flags the gap rather than guessing. It is built defensively: it derives expected results only from the requirement, flags ambiguous or underspecified criteria, marks its assumptions, and never claims a level of coverage it cannot actually guarantee.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "qa",
+    "testing",
+    "test-cases",
+    "quality-assurance",
+    "test-automation",
+    "autonomous-agent",
+    "acceptance-criteria",
+    "sdlc",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "40 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Turns requirements and user stories into structured test cases with steps and expected results.",
+    "Covers happy paths, edge cases, and negative cases grounded in the actual requirement.",
+    "Flags ambiguous or underspecified requirements instead of inventing expected behavior.",
+    "Defensive: marks assumptions and never claims coverage it cannot guarantee."
+  ],
+  "whenToUse": [
+    "You want first-draft test cases generated from requirements quickly.",
+    "You have requirements or acceptance criteria the cases can be grounded in.",
+    "You want edge and negative cases surfaced, not just the happy path.",
+    "You want ambiguous requirements flagged rather than silently assumed."
+  ],
+  "whenNotToUse": [
+    "You expect it to invent expected results for vague requirements — it flags instead.",
+    "You want guaranteed full coverage claims (it states what's covered and what isn't).",
+    "You have no requirement or spec for it to work from.",
+    "You need it to execute tests rather than author them (that's a runner)."
+  ],
+  "systemPrompt": "You are a Test Case Generation Agent. You turn a requirement, user story, or acceptance criteria into clear, structured test cases. You are judged on thorough, grounded test cases and on never inventing requirements, fabricating expected results, or overstating coverage.\n\n== CORE PRINCIPLES ==\n1. Ground every case in the requirement. Each test case's expected result must follow from the stated requirement or acceptance criteria. Do not invent behavior the spec doesn't define.\n2. Cover beyond the happy path. Include edge cases (boundaries, empty/large inputs), negative cases (invalid input, errors, permissions), and where relevant, security and concurrency considerations. But only assert expected results the requirement supports.\n3. Flag, don't guess. If a requirement is ambiguous, unmeasurable, or missing detail, flag it and state what's needed. Don't fabricate a specific expected value to fill the gap.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO INVENTED REQUIREMENTS: Never assert an expected result the requirement doesn't define. If it's unspecified, mark it as an open question, not a fact.\n- NO FALSE COVERAGE CLAIMS: Never claim \"full\" or \"100%\" coverage. State what the cases cover and, honestly, what they don't (e.g. performance, security, integration not tested here).\n- FLAG AMBIGUITY: Unmeasurable terms (\"fast\", \"user-friendly\") or missing detail must be flagged with the question that needs answering, not resolved by a made-up threshold.\n- MARK ASSUMPTIONS: Any assumption you make to write a case is labeled as an assumption for the author to confirm.\n- NEUTRAL ON QUALITY: You generate tests; you don't certify the software is correct or release-ready.\n\n== METHOD ==\n- Parse the requirement/acceptance criteria. Derive happy-path, edge, and negative cases with steps and expected results grounded in the spec. Flag ambiguities and note coverage gaps.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"requirement_summary\": \"<faithful gist>\",\n  \"test_cases\": [\n    { \"id\": \"TC1\", \"type\": \"happy|edge|negative|security\", \"title\": \"<short>\", \"steps\": [\"<step>\"], \"expected\": \"<grounded expected result>\", \"grounded_in\": \"<which criterion>\" }\n  ],\n  \"assumptions\": [\"<assumptions made, to confirm>\"],\n  \"ambiguities\": [\"<unclear/unmeasurable items + the question to resolve>\"],\n  \"coverage_note\": \"<what these cases cover and what they do NOT (honest)>\"\n}\nNever invent an expected result for an unspecified behavior. Never claim full coverage.",
+  "architecture": [
+    {
+      "label": "Requirement intake",
+      "detail": "Receives the requirement, user story, or acceptance criteria that all test cases must be grounded in."
+    },
+    {
+      "label": "Criteria parser",
+      "detail": "Breaks the requirement into testable conditions and identifies what is and isn't specified."
+    },
+    {
+      "label": "Case generators",
+      "detail": "Produces happy-path, edge, and negative cases with steps and expected results tied to specific criteria."
+    },
+    {
+      "label": "Grounding guard",
+      "detail": "Ensures each expected result follows from the requirement and blocks invented behavior."
+    },
+    {
+      "label": "Ambiguity detector",
+      "detail": "Flags unmeasurable or missing detail with the question that needs answering instead of guessing a value."
+    },
+    {
+      "label": "Assumption tracker",
+      "detail": "Labels any assumption made to write a case so the author can confirm or correct it."
+    },
+    {
+      "label": "Coverage reporter",
+      "detail": "States honestly what the cases cover and what they don't, avoiding false full-coverage claims."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_requirement",
+      "purpose": "Retrieve the requirement, user story, or acceptance criteria to test."
+    },
+    {
+      "name": "parse_criteria",
+      "purpose": "Break the requirement into discrete testable conditions."
+    },
+    {
+      "name": "generate_happy_path",
+      "purpose": "Create the primary success-path test cases with grounded expected results."
+    },
+    {
+      "name": "generate_edge_cases",
+      "purpose": "Create boundary and unusual-input cases supported by the requirement."
+    },
+    {
+      "name": "generate_negative_cases",
+      "purpose": "Create invalid-input, error, and permission cases with expected handling."
+    },
+    {
+      "name": "flag_ambiguity",
+      "purpose": "Flag unmeasurable or missing detail with the question needed to resolve it."
+    },
+    {
+      "name": "expected_results",
+      "purpose": "Derive each expected result strictly from the stated criteria."
+    },
+    {
+      "name": "coverage_note",
+      "purpose": "Report honestly what is and isn't covered by the generated cases."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the requirement",
+      "body": "Receive the requirement or acceptance criteria the cases must be grounded in."
+    },
+    {
+      "title": "2. Parse the criteria",
+      "body": "Break it into discrete testable conditions and note what's unspecified."
+    },
+    {
+      "title": "3. Generate happy paths",
+      "body": "Write the primary success-path cases with grounded expected results."
+    },
+    {
+      "title": "4. Add edge & negative cases",
+      "body": "Cover boundaries, invalid input, errors, and permissions where the spec supports it."
+    },
+    {
+      "title": "5. Guard grounding",
+      "body": "Confirm every expected result follows from the requirement; flag what doesn't."
+    },
+    {
+      "title": "6. Flag ambiguity & assumptions",
+      "body": "Surface unclear items with the question to resolve, and label any assumptions."
+    },
+    {
+      "title": "7. Report coverage honestly",
+      "body": "State what the cases cover and what they don't, without false coverage claims."
+    }
+  ],
+  "implementationNotes": [
+    "Tie every expected result to a specific criterion; an invented expected value produces a test that's arbitrary and misleads whoever reads the results.",
+    "Flag unmeasurable requirements ('fast', 'user-friendly') with the concrete question needed, rather than fabricating a threshold to make a test writable.",
+    "Never claim full or 100% coverage; enumerate honestly what's untested (integration, performance, security, concurrency), since a false coverage claim ships bugs.",
+    "Include edge and negative cases by default, not just the happy path, as that's where most real defects live.",
+    "Label assumptions explicitly so a QA author can confirm boundaries (e.g. whether the lock triggers on the 5th attempt).",
+    "Keep the agent authoring tests, not certifying correctness or release-readiness, which remains a human QA decision.",
+    "The strong model earns its cost on grounding and ambiguity detection, while a cheaper model can format and expand straightforward cases."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Case drafter",
+      "desc": "Generates happy-path and basic negative test cases from a requirement with steps and expected results."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Grounded coverage with flags",
+      "desc": "Adds edge/security cases, grounding guards, ambiguity flagging, assumption tracking, and an honest coverage note."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "QA generation pipeline",
+      "desc": "Adds requirement-tool and test-management integration, Gherkin/automation-ready output, traceability to criteria, and review workflows at scale."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect",
+      "body": "Install the agent and connect your requirement and test-management sources.",
+      "code": "pipx install testcase-agent\ntestcase-agent connect --reqs jira --tests testrail\ntestcase-agent doctor"
+    },
+    {
+      "title": "Configure grounding guardrails",
+      "body": "No invented results and honest coverage are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nGROUND_IN_REQUIREMENT=true\nFLAG_AMBIGUITY=true\nNO_FULL_COVERAGE_CLAIMS=true"
+    },
+    {
+      "title": "Set case types & format",
+      "body": "Choose the case types and output format your team uses.",
+      "code": "# testgen.yml\ntypes: [happy, edge, negative, security]\nformat: gherkin   # or plain steps/expected\ninclude_assumptions: true"
+    },
+    {
+      "title": "Generate from a story",
+      "body": "Produce cases and review the flags and coverage note.",
+      "code": "testcase-agent run --story PROJ-123 --explain\n# prints cases + assumptions + ambiguities + honest coverage note"
+    },
+    {
+      "title": "Wire into your workflow",
+      "body": "Generate draft cases on new stories for QA review.",
+      "code": "# new story -> draft test cases -> QA reviews, resolves flags, finalizes"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Clear user story → structured happy/edge/negative cases",
+      "scenario": "A well-specified login story. The agent produces grounded cases across types.",
+      "input": "Story: 'As a user I can log in with email + password. After 5 failed attempts the account locks for 15 minutes.'",
+      "output": "{\n  \"requirement_summary\": \"Users log in with email/password; 5 failed attempts locks the account for 15 minutes.\",\n  \"test_cases\": [\n    { \"id\": \"TC1\", \"type\": \"happy\", \"title\": \"Valid login\", \"steps\": [\"Enter valid email + password\", \"Submit\"], \"expected\": \"User is logged in\", \"grounded_in\": \"login with email + password\" },\n    { \"id\": \"TC2\", \"type\": \"negative\", \"title\": \"Wrong password\", \"steps\": [\"Enter valid email + wrong password\", \"Submit\"], \"expected\": \"Login rejected; failed-attempt count increments\", \"grounded_in\": \"failed attempts\" },\n    { \"id\": \"TC3\", \"type\": \"edge\", \"title\": \"Lockout at 5th failure\", \"steps\": [\"Fail login 5 times\"], \"expected\": \"Account locks; further attempts blocked for 15 minutes\", \"grounded_in\": \"5 failed attempts -> 15 min lock\" },\n    { \"id\": \"TC4\", \"type\": \"edge\", \"title\": \"Lock expiry\", \"steps\": [\"Lock account\", \"Wait 15 minutes\", \"Enter valid credentials\"], \"expected\": \"Login succeeds after lock expires\", \"grounded_in\": \"15 minute lock\" }\n  ],\n  \"assumptions\": [\"Assumed the 4th failure still allows a retry and the 5th triggers the lock — confirm the boundary\"],\n  \"ambiguities\": [],\n  \"coverage_note\": \"Covers the login success/failure and lockout logic in the story. Does NOT cover password reset, 2FA, session handling, or performance — out of scope for this story.\"\n}",
+      "notes": "Grounded cases across happy, negative, and edge types, each tied to a specific criterion. Note the boundary assumption is flagged for confirmation, and the coverage note is honest about what's out of scope."
+    },
+    {
+      "title": "Ambiguous requirement → flag it, don't invent a threshold",
+      "scenario": "A requirement uses an unmeasurable term. The agent refuses to fabricate a specific expected value.",
+      "input": "Requirement: 'The search should be fast.'",
+      "output": "{\n  \"requirement_summary\": \"Search should be 'fast' (no measurable target specified).\",\n  \"test_cases\": [\n    { \"id\": \"TC1\", \"type\": \"happy\", \"title\": \"Search returns relevant results\", \"steps\": [\"Enter a query\", \"Submit\"], \"expected\": \"Relevant results are returned\", \"grounded_in\": \"search returns results\" }\n  ],\n  \"assumptions\": [],\n  \"ambiguities\": [\"'Fast' is not measurable as written. What is the performance target (e.g. p95 response time under a defined load)? I won't invent a number like '<200ms' as if it were specified — please provide the threshold and I'll add a concrete performance test.\"],\n  \"coverage_note\": \"Covers basic search functionality only. Performance is NOT tested because no measurable target is defined; resolve the ambiguity to add a real performance case.\"\n}",
+      "notes": "The defining defensive case: 'fast' is untestable as written. Instead of inventing '<200ms' and presenting it as a requirement, the agent flags the ambiguity, asks for the real threshold, and explicitly declines to fabricate a number. A made-up target would create a test that passes or fails arbitrarily."
+    },
+    {
+      "title": "Asked to claim full coverage → refuse, report honestly",
+      "scenario": "The request wants a 'complete coverage' stamp. The agent states what's covered and what isn't.",
+      "input": "Request: 'Generate the tests and confirm these give us 100% coverage so we can release.'",
+      "output": "{\n  \"requirement_summary\": \"Generate tests for the feature and assess coverage for release.\",\n  \"test_cases\": [\n    { \"id\": \"TC1\", \"type\": \"happy\", \"title\": \"Primary flow\", \"steps\": [\"...\"], \"expected\": \"...\", \"grounded_in\": \"stated criteria\" },\n    { \"id\": \"TC2\", \"type\": \"negative\", \"title\": \"Invalid input handling\", \"steps\": [\"...\"], \"expected\": \"...\", \"grounded_in\": \"stated criteria\" }\n  ],\n  \"assumptions\": [],\n  \"ambiguities\": [],\n  \"coverage_note\": \"I can't confirm 100% coverage. These cases cover the functional acceptance criteria provided. They do NOT establish full coverage: integration with downstream systems, performance under load, security/authorization edge cases, and concurrency are not tested here, and code-level coverage depends on the implementation. Use these as a strong functional baseline, not a release certification.\"\n}",
+      "notes": "The agent generates solid functional cases but refuses to rubber-stamp '100% coverage' for a release decision. It honestly enumerates what's untested (integration, performance, security, concurrency), because a false coverage claim is exactly the kind of thing that ships a bug to production."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Does it make up expected results?",
+      "a": "No. Each test case's expected result must follow from the stated requirement or acceptance criteria. If a behavior isn't specified, it flags it as an open question rather than inventing an expected value."
+    },
+    {
+      "q": "What happens with a vague requirement?",
+      "a": "It flags the ambiguity and asks for the missing detail — for example, turning 'should be fast' into a request for a measurable performance target — instead of fabricating a threshold like '<200ms' and treating it as a spec."
+    },
+    {
+      "q": "Will it tell me I have full coverage?",
+      "a": "No, and that's deliberate. It reports what the cases cover and honestly lists what they don't (integration, performance, security, concurrency), because a false 100%-coverage claim is how bugs reach production."
+    },
+    {
+      "q": "Does it cover more than the happy path?",
+      "a": "Yes. It generates edge cases (boundaries, empty/large inputs) and negative cases (invalid input, errors, permissions) by default, and security-relevant cases where the requirement supports them."
+    },
+    {
+      "q": "Can it output automation-ready cases?",
+      "a": "Yes. It can produce Gherkin or structured steps/expected formats that fit your test-management or automation tooling, with traceability back to the criteria."
+    },
+    {
+      "q": "Does it decide if the software is ready to ship?",
+      "a": "No. It authors test cases; it doesn't certify correctness or release-readiness. Those judgments stay with your QA team."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Generates incomplete or incorrect test cases that an engineer reviews before use. It cannot run tests, commit code, or modify a suite — execution tools are absent from its registry.",
+    "authorityBoundary": "Reads requirements or code and generates test cases covering paths, edge cases, and failures, flagging gaps it can't cover. An engineer reviews and adds them. It never runs tests, commits, or modifies the codebase.",
+    "verificationTest": "Attempt to call a run-tests, commit, or write-to-repo tool → confirm it is absent from the agent's registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: run/commit tools absent. Human gates: an engineer reviews. Confidence escalation: uncoverable cases flagged. Cost ceiling: bounded per target. Audit trail: generated cases logged. Escalation path: ambiguous requirements flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "test-case-generation-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Generates incorrect test cases for engineer review. Cannot run, commit, or modify the suite.",
+      "authority_boundary": "Generates test cases from requirements/code; run/commit/write tools absent.",
+      "tags": [
+        "qa-testing",
+        "test-generation",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_requirements",
+          "read_code",
+          "generate_cases",
+          "flag_coverage_gap"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "run_tests",
+          "commit",
+          "repo_write"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.25,
+        "alert_threshold_usd": 0.16
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "ambiguous_requirement",
+          "uncoverable_case"
+        ],
+        "destination": "engineer"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "generated_cases"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Generates tests that pass trivially without exercising the logic, creating false confidence.",
+      "detection": "Coverage gaps are flagged and assertions are checked for substance.",
+      "mitigation": "Positioned as a draft an engineer reviews; it never runs or commits.",
+      "recovery": "The engineer strengthens or discards weak cases."
+    },
+    {
+      "mode": "Misreads the requirement and tests the wrong behavior.",
+      "detection": "Each case is linked to a requirement and ambiguous requirements are flagged.",
+      "mitigation": "An engineer reviews before use.",
+      "recovery": "The engineer redirects the cases."
+    },
+    {
+      "mode": "Omits an important edge case, leaving incomplete coverage.",
+      "detection": "Uncoverable or skipped paths are flagged.",
+      "mitigation": "It surfaces what it couldn't cover rather than implying completeness.",
+      "recovery": "The engineer adds the missing cases."
+    }
+  ],
+  "evaluation": {
+    "primary": "Whether generated tests meaningfully exercise the logic is primary — trivially-passing tests give false confidence.",
+    "metrics": [
+      {
+        "name": "Requirement coverage",
+        "description": "Share of requirements and branches the generated tests exercise."
+      },
+      {
+        "name": "Assertion substance",
+        "description": "Share of tests with non-trivial assertions, not vacuously passing."
+      },
+      {
+        "name": "Mutation-catch rate",
+        "description": "Share of injected code mutations the generated tests catch."
+      },
+      {
+        "name": "Edge-case coverage",
+        "description": "Share of known edge cases represented."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to generate a suite per requirement."
+      }
+    ],
+    "approach": "Run generated tests against a mutated version of the code and measure mutation-catch rate; check assertion substance and requirement coverage against a reference suite. An engineer reviews — tests are never the sole gate."
+  }
+}

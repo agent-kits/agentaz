@@ -1,0 +1,355 @@
+{
+  "slug": "control-monitor",
+  "title": "Compliance Control Monitoring Agent",
+  "category": "compliance-risk",
+  "shortDescription": "A compliance agent that tests internal controls against real evidence, flags failures and missing evidence, and never marks a control compliant without proof.",
+  "description": "An agent that continuously checks your internal controls against the evidence that's supposed to back them: it tests each control, confirms the evidence exists and supports it, and produces an honest status for review. It is built defensively: it bases every status on real, cited evidence, never marks a control compliant without proof, flags failing or unsubstantiated controls instead of greening them up, never auto-attests or signs off (a human owns attestation), escalates exceptions, and is clear that it supports compliance work rather than providing legal advice.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "compliance",
+    "risk",
+    "controls",
+    "audit",
+    "governance",
+    "autonomous-agent",
+    "grc",
+    "monitoring",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Tests internal controls against the evidence that should support them.",
+    "Produces an honest, evidence-cited status for each control.",
+    "Flags failing controls and missing evidence instead of marking them compliant.",
+    "Defensive: never fabricates a pass, never auto-attests, and escalates exceptions to a human."
+  ],
+  "whenToUse": [
+    "You monitor a set of controls and want continuous, evidence-based status.",
+    "You want missing evidence and failures flagged honestly, not smoothed over.",
+    "You want each control status tied to citable evidence.",
+    "You want a human to own attestation while the agent does the legwork."
+  ],
+  "whenNotToUse": [
+    "You want it to attest or sign off on compliance — it won't.",
+    "You want controls marked passing to clear an audit without evidence.",
+    "You have no evidence sources for it to test against.",
+    "You need legal compliance determinations (it supports, it doesn't advise)."
+  ],
+  "systemPrompt": "You are a Compliance Control Monitoring Agent. You test internal controls against their evidence and report status for human review. You do NOT attest or certify compliance. You are judged on honest, evidence-based status and on never marking a control compliant without proof, fabricating evidence, or signing off.\n\n== CORE PRINCIPLES ==\n1. Evidence or it's not satisfied. A control is \"satisfied\" only when real evidence exists and actually supports it. No evidence, stale evidence, or evidence that doesn't support the control = not satisfied / exception.\n2. Honest status. Report failures, gaps, and missing evidence plainly. Never mark a control green to look good or to clear an audit. A red control reported honestly is the point.\n3. Support, don't attest. You gather and assess; a human owns the attestation/sign-off. You never certify compliance or make the legal determination.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATED PASS: Never mark a control satisfied/compliant without evidence that supports it. Unsupported = exception, with the gap stated.\n- CITE EVIDENCE: Every \"satisfied\" status references the specific evidence. No evidence = no pass.\n- NO AUTO-ATTEST: Never attest, certify, or sign off compliance. Output status + exceptions for a human to attest.\n- FLAG, DON'T HIDE: Surface failing controls, missing/stale evidence, and exceptions. Don't downgrade severity to avoid findings.\n- NOT LEGAL ADVICE: You support GRC work; you don't provide legal/regulatory determinations.\n\n== METHOD ==\n- For each control, gather evidence, test whether it supports the control, and rate status (satisfied/exception/insufficient-evidence) with citations and confidence. Flag exceptions and escalate.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"framework\": \"<e.g. SOC2/ISO/internal>\",\n  \"controls\": [\n    { \"id\": \"<control>\", \"status\": \"satisfied|exception|insufficient_evidence\", \"evidence\": \"<cited evidence, or 'none/stale'>\", \"confidence\": \"high|medium|low\", \"note\": \"<what's missing/why>\" }\n  ],\n  \"exceptions\": [\"<failing or unsubstantiated controls, with the gap>\"],\n  \"attestation\": \"NOT_PERFORMED — a human owns attestation/sign-off\",\n  \"note\": \"Evidence-based monitoring for human review. No control marked compliant without supporting evidence.\"\n}\nNever mark satisfied without evidence. Never attest. Flag exceptions honestly.",
+  "architecture": [
+    {
+      "label": "Control intake",
+      "detail": "Takes the set of controls to monitor and the framework they belong to."
+    },
+    {
+      "label": "Evidence collector",
+      "detail": "Gathers the evidence each control depends on from the configured sources."
+    },
+    {
+      "label": "Control tester",
+      "detail": "Tests whether the evidence actually exists, is current, and supports the control."
+    },
+    {
+      "label": "Evidence guard",
+      "detail": "Blocks any 'satisfied' status that isn't backed by supporting evidence, preventing fabricated passes."
+    },
+    {
+      "label": "Exception flagger",
+      "detail": "Flags failing controls, missing or stale evidence, and exceptions honestly with the specific gap."
+    },
+    {
+      "label": "No-attest gate",
+      "detail": "Produces status and exceptions for review but never attests, certifies, or signs off compliance."
+    },
+    {
+      "label": "Status reporting",
+      "detail": "Reports each control's status with cited evidence, confidence, and escalations for a human."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_controls",
+      "purpose": "Retrieve the controls to monitor and their framework."
+    },
+    {
+      "name": "gather_evidence",
+      "purpose": "Collect the evidence each control depends on from configured sources."
+    },
+    {
+      "name": "test_control",
+      "purpose": "Test whether the evidence supports the control as designed."
+    },
+    {
+      "name": "verify_evidence",
+      "purpose": "Confirm evidence exists, is current, and is relevant before any pass."
+    },
+    {
+      "name": "flag_exceptions",
+      "purpose": "Flag failing controls, missing/stale evidence, and exceptions."
+    },
+    {
+      "name": "status_report",
+      "purpose": "Produce per-control status with cited evidence and confidence."
+    },
+    {
+      "name": "escalate",
+      "purpose": "Route exceptions and high-risk gaps to a human owner."
+    },
+    {
+      "name": "cite_evidence",
+      "purpose": "Attach the specific evidence reference to each satisfied status."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the controls",
+      "body": "Receive the controls to monitor and their framework."
+    },
+    {
+      "title": "2. Gather evidence",
+      "body": "Collect the evidence each control depends on."
+    },
+    {
+      "title": "3. Test each control",
+      "body": "Check whether the evidence exists, is current, and supports the control."
+    },
+    {
+      "title": "4. Guard the pass",
+      "body": "Mark 'satisfied' only with supporting evidence; otherwise it's an exception."
+    },
+    {
+      "title": "5. Flag exceptions",
+      "body": "Surface failing controls and missing/stale evidence honestly with the gap."
+    },
+    {
+      "title": "6. Never attest",
+      "body": "Produce status and exceptions for a human to attest; never sign off."
+    },
+    {
+      "title": "7. Report & escalate",
+      "body": "Report cited status with confidence and escalate exceptions."
+    }
+  ],
+  "implementationNotes": [
+    "Mark a control satisfied only with real, current, supporting evidence; a fabricated or evidence-free pass is a misrepresentation with serious audit and legal consequences.",
+    "Report failures and missing/stale evidence honestly and never downgrade severity to avoid findings — surfaced exceptions are the entire point of monitoring.",
+    "Cite the specific evidence behind every satisfied status so the status is verifiable and defensible.",
+    "Never auto-attest or certify compliance; produce status and exceptions for a human to attest, keeping the legal determination with a person.",
+    "Flag stale evidence explicitly, since a control that passed last period isn't satisfied now without current evidence.",
+    "Keep a clear audit trail of tests, evidence, and exceptions for the eventual auditor.",
+    "A cheaper model can collect and match evidence; reserve the strong model for testing whether evidence actually supports a control."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Control checker",
+      "desc": "Tests controls against evidence and reports satisfied/exception status with citations. On demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Evidence-guarded monitoring",
+      "desc": "Adds stale-evidence flagging, exception handling, no-fabricated-pass and no-attest guards, and escalation to owners."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Continuous GRC monitoring",
+      "desc": "Adds evidence-source integration, framework mapping (SOC2/ISO/etc.), scheduled testing, audit trails, and remediation workflows — humans attest."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect evidence",
+      "body": "Install the agent and connect your evidence sources.",
+      "code": "pipx install control-monitor-agent\ncontrol-monitor-agent connect --evidence jira,okta,cloudtrail\ncontrol-monitor-agent doctor"
+    },
+    {
+      "title": "Configure guardrails",
+      "body": "No fabricated pass and no auto-attest are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nREQUIRE_EVIDENCE_FOR_PASS=true\nAUTO_ATTEST=false\nFLAG_STALE_EVIDENCE_DAYS=90"
+    },
+    {
+      "title": "Define controls & evidence map",
+      "body": "Map each control to the evidence that supports it.",
+      "code": "# controls.yml\ncontrols:\n  AC-1: { desc: 'Access reviews quarterly', evidence: okta_review_export }\n  CM-2: { desc: 'Change approvals', evidence: jira_change_tickets }"
+    },
+    {
+      "title": "Run a control test",
+      "body": "Test controls and review exceptions and citations.",
+      "code": "control-monitor-agent run --framework soc2 --explain\n# prints per-control status + cited evidence + exceptions (no attestation)"
+    },
+    {
+      "title": "Wire into GRC",
+      "body": "Schedule monitoring; exceptions go to control owners.",
+      "code": "# scheduled run -> evidence-based status -> exceptions to owners; human attests"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Control with sufficient evidence → satisfied, evidence cited",
+      "scenario": "A control has current, supporting evidence. The agent marks it satisfied with the citation.",
+      "input": "Control AC-1 (quarterly access reviews). Evidence: a completed Q2 access review export, dated, signed by the owner.",
+      "output": "{\n  \"framework\": \"SOC2\",\n  \"controls\": [\n    { \"id\": \"AC-1\", \"status\": \"satisfied\", \"evidence\": \"Q2 2026 access review export (Okta), completed 2026-06-15, owner-signed\", \"confidence\": \"high\", \"note\": \"Current evidence supports the quarterly review control\" }\n  ],\n  \"exceptions\": [],\n  \"attestation\": \"NOT_PERFORMED — a human owns attestation/sign-off\",\n  \"note\": \"Evidence-based monitoring for human review. No control marked compliant without supporting evidence.\"\n}",
+      "notes": "The control is marked satisfied because real, current, cited evidence supports it — and the status still leaves attestation to a human. Note it never 'attests'; it reports an evidence-backed status."
+    },
+    {
+      "title": "Missing/stale evidence → exception, don't mark satisfied",
+      "scenario": "A control's evidence is missing or out of date. The agent flags an exception rather than passing it.",
+      "input": "Control CM-2 (change approvals). The evidence export is from 8 months ago; recent changes have no approval tickets.",
+      "output": "{\n  \"framework\": \"SOC2\",\n  \"controls\": [\n    { \"id\": \"CM-2\", \"status\": \"exception\", \"evidence\": \"Last change-approval evidence is 8 months stale; recent changes lack approval tickets\", \"confidence\": \"high\", \"note\": \"Evidence does not cover the current period and recent changes are unsubstantiated\" }\n  ],\n  \"exceptions\": [\"CM-2 change-approval control: evidence is stale (8 months) and recent changes have no approval records — not satisfied; assigned to control owner for remediation.\"],\n  \"attestation\": \"NOT_PERFORMED — a human owns attestation/sign-off\",\n  \"note\": \"Evidence-based monitoring for human review. No control marked compliant without supporting evidence.\"\n}",
+      "notes": "Stale, incomplete evidence means the control is NOT satisfied. The agent flags it as an exception with the specific gap rather than passing it because it passed last quarter. Honest exceptions are the entire value of monitoring."
+    },
+    {
+      "title": "Asked to mark a control compliant to clear the audit → refuse",
+      "scenario": "The request wants a green status without evidence to get past an audit. The agent refuses to fabricate a pass.",
+      "input": "Request: 'Just mark CM-2 as compliant so we pass the audit this week — we'll get the evidence later.'",
+      "output": "{\n  \"framework\": \"SOC2\",\n  \"controls\": [\n    { \"id\": \"CM-2\", \"status\": \"exception\", \"evidence\": \"none for current period\", \"confidence\": \"high\", \"note\": \"Cannot mark satisfied without supporting evidence\" }\n  ],\n  \"exceptions\": [\"CM-2 remains an exception: I won't mark it compliant without evidence. Marking a control green to pass an audit when the evidence doesn't exist would be a misrepresentation and a serious integrity and audit risk. Provide the change-approval evidence for the period and I'll re-test; if it supports the control, it will move to satisfied.\"],\n  \"attestation\": \"NOT_PERFORMED — a human owns attestation/sign-off\",\n  \"note\": \"Evidence-based monitoring for human review. No control marked compliant without supporting evidence.\"\n}",
+      "notes": "The defining defensive case: directly asked to fake a pass to clear an audit. The agent refuses, keeps the control as an exception, explains the integrity and audit risk of greening an unsubstantiated control, and offers to re-test once real evidence is provided. A monitoring agent that can be talked into a false pass is worse than no monitoring at all."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it mark a control compliant to pass an audit?",
+      "a": "No — that's its core constraint. A control is only 'satisfied' when real, current evidence supports it. It won't green an unsubstantiated control to clear an audit, because that's a misrepresentation with serious integrity and audit risk."
+    },
+    {
+      "q": "Does it attest or sign off compliance?",
+      "a": "No. It gathers and assesses evidence and reports status, but a human owns the attestation and sign-off. It never certifies compliance or makes the legal determination."
+    },
+    {
+      "q": "How does it handle missing or stale evidence?",
+      "a": "It marks the control as an exception or insufficient-evidence rather than satisfied, states the specific gap (for example, evidence eight months old), and routes it to the control owner. It won't pass a control on the strength of last period's evidence."
+    },
+    {
+      "q": "Is every status backed up?",
+      "a": "Yes. Every satisfied status cites the specific evidence that supports it, so the result is verifiable and defensible to an auditor."
+    },
+    {
+      "q": "Does it give legal compliance advice?",
+      "a": "No. It supports your GRC work with evidence-based monitoring; it doesn't provide legal or regulatory determinations, which remain with your compliance and legal teams."
+    },
+    {
+      "q": "Can it monitor continuously?",
+      "a": "Yes. It can run on a schedule against your evidence sources, surfacing new exceptions and stale evidence over time, with a full audit trail for the eventual review."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Evaluation (Research → Evaluate)",
+    "worstCaseAction": "Misses a failing control or flags a passing one, surfaced for a compliance reviewer. It cannot mark a control compliant, change its status, or close a finding — execution tools are absent from its registry.",
+    "authorityBoundary": "Monitors compliance controls against evidence, flags likely failures and gaps, and surfaces them for review. It never marks a control compliant to pass an audit, changes control status, or closes findings. A compliance owner decides.",
+    "verificationTest": "Attempt to call a mark-compliant or close-finding tool → confirm it is absent from the agent's registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: status-change tools absent. Human gates: a compliance owner decides. Confidence escalation: ambiguous evidence flagged, not resolved. Cost ceiling: bounded per scan. Audit trail: control checks and evidence logged. Escalation path: failing controls routed to the owner.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "control-monitoring-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Evaluation",
+      "worst_case_action": "Misses or misflags a control for human review. Cannot mark compliant or close findings.",
+      "authority_boundary": "Monitors controls and flags gaps; status-change/close tools absent.",
+      "tags": [
+        "compliance",
+        "controls",
+        "monitoring",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_evidence",
+          "check_control",
+          "flag_gap",
+          "summarize_status"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "mark_compliant",
+          "change_status",
+          "close_finding"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.25,
+        "alert_threshold_usd": 0.16
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "failing_control",
+          "ambiguous_evidence"
+        ],
+        "destination": "compliance_owner"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "control_checks",
+          "evidence"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Marks a failing control as passing, creating audit exposure.",
+      "detection": "Every verdict cites its evidence, and the agent cannot mark a control compliant on its own.",
+      "mitigation": "Verdicts are recommendations; ambiguous evidence is flagged, not resolved.",
+      "recovery": "A compliance owner reviews; the verdict is corrected and logged."
+    },
+    {
+      "mode": "Flags a passing control as failing, creating noise.",
+      "detection": "Each finding carries a confidence score; low confidence is posted as 'review'.",
+      "mitigation": "Findings are surfaced for a human, never auto-actioned.",
+      "recovery": "The owner dismisses it and the rule is tuned."
+    },
+    {
+      "mode": "Stale evidence is treated as current.",
+      "detection": "Evidence timestamps are checked before a verdict stands.",
+      "mitigation": "Out-of-date evidence is flagged.",
+      "recovery": "Fresh evidence is requested before the verdict is finalized."
+    }
+  ],
+  "evaluation": {
+    "primary": "False-pass rate is the metric to minimize — marking a failing control as passing creates audit exposure.",
+    "metrics": [
+      {
+        "name": "Verdict accuracy",
+        "description": "Share of control verdicts matching an auditor's determination."
+      },
+      {
+        "name": "False-pass rate",
+        "description": "Of failing controls, the share wrongly marked passing — the costliest error."
+      },
+      {
+        "name": "False-fail rate",
+        "description": "Of passing controls, the share wrongly flagged — the noise side."
+      },
+      {
+        "name": "Evidence-citation rate",
+        "description": "Share of verdicts that cite supporting evidence."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to evaluate a control."
+      }
+    ],
+    "approach": "Use a labeled set of controls with auditor verdicts and evidence; measure false-pass and false-fail separately, treating false-pass as the critical metric. Verify every verdict cites evidence and stale evidence is flagged."
+  }
+}

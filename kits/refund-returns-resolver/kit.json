@@ -1,0 +1,356 @@
+{
+  "slug": "refund-returns-resolver",
+  "title": "Refund & Returns Resolution Agent",
+  "category": "support-triage",
+  "shortDescription": "A refund and returns agent that checks eligibility against policy, approves within caps, detects abuse, and escalates out-of-policy and disputed cases to humans.",
+  "description": "An agent that resolves refund and return requests the way a careful support team would: it verifies the order, checks eligibility against your policy, approves what qualifies within configured caps, and escalates everything else. It is built defensively: it verifies order ownership before acting, applies the policy window and refund cap strictly, never over-refunds or refunds outside policy, detects abuse and serial-refund patterns, escalates disputes and high-value or out-of-policy cases to a human, and never exposes another customer's data.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "support",
+    "refunds",
+    "returns",
+    "customer-service",
+    "policy",
+    "autonomous-agent",
+    "fraud-detection",
+    "post-purchase",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Resolves refund and return requests by checking eligibility against your policy.",
+    "Approves qualifying requests within configured refund caps, with a clear reason.",
+    "Detects abuse and serial-refund patterns and escalates disputes and high-value cases.",
+    "Defensive: verifies the order, never over-refunds or refunds outside policy, and protects customer data."
+  ],
+  "whenToUse": [
+    "You handle a high volume of refund/return requests against a clear policy.",
+    "You want eligible requests resolved within caps and exceptions escalated.",
+    "You want abuse and fraud patterns flagged automatically.",
+    "You want consistent, policy-bound decisions with reasons."
+  ],
+  "whenNotToUse": [
+    "You want refunds approved beyond policy or cap without review — it won't.",
+    "You can't verify order ownership, so refunds can't be issued safely.",
+    "You have no refund/return policy to apply.",
+    "Your cases are mostly complex disputes needing a human from the start."
+  ],
+  "systemPrompt": "You are a Refund & Returns Resolution Agent. You resolve refund/return requests using the company's policy, approving what qualifies within caps and escalating the rest. You are judged on fair, fast resolution and on never over-refunding, refunding outside policy, leaking data, or missing abuse.\n\n== CORE PRINCIPLES ==\n1. Verify, then apply policy. Confirm the order and the requester's ownership of it. Then check eligibility against the policy: return window, item condition, proof required, refund method.\n2. Within caps only. Approve refunds only within the policy and the configured auto-approval cap. Over cap, outside window, or non-standard = escalate, don't improvise.\n3. Honest and consistent. Give the decision with the policy reason. If denying, explain why and offer any policy-allowed alternative (e.g. store credit). Don't make exceptions you aren't authorized to.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- VERIFY OWNERSHIP: No refund/return action or order detail without confirming the requester owns the order. Mismatch = no action, escalate.\n- POLICY + CAP: Auto-approve only within the return window AND at/under the refund cap. Beyond either = escalate.\n- NO OVER-REFUND: Never refund more than paid, never refund an already-refunded item, never refund outside policy.\n- ABUSE DETECTION: Flag serial refunds, mismatched identity, \"refund or I'll chargeback\" pressure, and other abuse patterns; escalate rather than auto-approve.\n- NO CROSS-CUSTOMER DATA: Never expose or act on another customer's order.\n- AUDIT: Log every decision with the policy basis.\n\n== METHOD ==\n- Verify order + ownership. Check eligibility vs policy. If eligible and within cap, approve with reason. If not, deny with reason + alternative, or escalate. Flag abuse.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"order_id\": \"<id or 'unknown'>\",\n  \"ownership_verified\": <bool>,\n  \"request\": \"refund|return|exchange\",\n  \"eligibility\": { \"within_window\": <bool>, \"condition_ok\": <bool>, \"within_cap\": <bool> },\n  \"decision\": \"APPROVE|DENY|ESCALATE\",\n  \"amount\": <n|null>,\n  \"customer_reply\": \"<decision + policy reason + any alternative>\",\n  \"abuse_flag\": { \"flag\": <bool>, \"reason\": \"<pattern, or empty>\" },\n  \"escalation\": { \"needed\": <bool>, \"reason\": \"<out-of-policy/over-cap/dispute/abuse, or empty>\" }\n}\nNever approve over cap or outside policy. Verify ownership before acting. Flag abuse.",
+  "architecture": [
+    {
+      "label": "Request intake",
+      "detail": "Receives the refund/return request and identifies the order in question."
+    },
+    {
+      "label": "Ownership verification",
+      "detail": "Confirms the requester owns the order before any detail is shared or action taken."
+    },
+    {
+      "label": "Policy & eligibility engine",
+      "detail": "Checks return window, item condition, proof, and refund method against the policy."
+    },
+    {
+      "label": "Cap gate",
+      "detail": "A deterministic gate auto-approves only within the policy and the configured refund cap."
+    },
+    {
+      "label": "Abuse detection",
+      "detail": "Watches for serial refunds, identity mismatch, and chargeback pressure, flagging them for review."
+    },
+    {
+      "label": "Decision & reply",
+      "detail": "Approves, denies with a policy reason and alternative, or escalates, with an honest customer reply."
+    },
+    {
+      "label": "Escalation & audit",
+      "detail": "Routes over-cap, out-of-policy, disputed, or abusive cases to a human and logs every decision."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_request",
+      "purpose": "Retrieve the refund/return request and its details."
+    },
+    {
+      "name": "verify_order",
+      "purpose": "Confirm the order exists and the requester owns it."
+    },
+    {
+      "name": "check_policy",
+      "purpose": "Return the applicable refund/return policy and windows."
+    },
+    {
+      "name": "check_eligibility",
+      "purpose": "Assess window, condition, and proof against the policy."
+    },
+    {
+      "name": "process_refund",
+      "purpose": "Issue a refund within policy. Hard-capped: rejects over-cap or out-of-policy amounts."
+    },
+    {
+      "name": "detect_abuse",
+      "purpose": "Flag serial refunds, identity mismatch, and chargeback-pressure patterns."
+    },
+    {
+      "name": "escalate",
+      "purpose": "Route out-of-policy, over-cap, disputed, or abusive cases to a human."
+    },
+    {
+      "name": "log_decision",
+      "purpose": "Record the decision with its policy basis for audit."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the request",
+      "body": "Receive the refund/return request and identify the order."
+    },
+    {
+      "title": "2. Verify ownership",
+      "body": "Confirm the requester owns the order before acting."
+    },
+    {
+      "title": "3. Check eligibility",
+      "body": "Assess window, condition, and proof against the policy."
+    },
+    {
+      "title": "4. Check the cap",
+      "body": "Determine whether the refund is within policy and the configured cap."
+    },
+    {
+      "title": "5. Watch for abuse",
+      "body": "Flag serial refunds, mismatches, and chargeback pressure."
+    },
+    {
+      "title": "6. Decide or escalate",
+      "body": "Approve within cap, deny with reason and alternative, or escalate exceptions."
+    },
+    {
+      "title": "7. Reply & log",
+      "body": "Give an honest decision with the policy reason and log it for audit."
+    }
+  ],
+  "implementationNotes": [
+    "Verify order ownership before any refund action or detail disclosure; an unverified refund is both a fraud and a data-leak risk.",
+    "Enforce the policy window and refund cap in a deterministic gate; never let the model improvise an over-cap or out-of-policy refund.",
+    "Never over-refund (more than paid, an already-refunded item, or outside policy); these are direct financial losses.",
+    "Detect abuse patterns — serial refunds, identity mismatch, chargeback pressure — and escalate rather than auto-approving under pressure.",
+    "Deny with a clear policy reason and offer any policy-allowed alternative (like store credit) so the customer experience stays fair.",
+    "Keep strict per-order data isolation and a full audit trail of decisions and their policy basis.",
+    "A cheaper model is usually enough to handle clear in-policy approvals, so keep the strong model for abuse judgment and exceptions."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Eligibility checker",
+      "desc": "Checks a refund/return request against policy and approves clear in-cap cases. Verification required."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Policy-bound resolution",
+      "desc": "Adds ownership verification, cap gating, abuse detection, denial-with-alternative, and escalation of exceptions."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Returns operations",
+      "desc": "Adds platform/payment integration, multi-policy support, fraud analytics, audit trails, and human-in-the-loop for disputes and high-value cases."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect commerce",
+      "body": "Install the agent and connect your order and refund systems.",
+      "code": "pipx install refund-resolver-agent\nrefund-resolver-agent connect --platform shopify --payments stripe\nrefund-resolver-agent doctor"
+    },
+    {
+      "title": "Configure policy & cap",
+      "body": "Ownership verification and the refund cap are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nVERIFY_OWNERSHIP=true\nREFUND_AUTO_CAP_USD=100\nRETURN_WINDOW_DAYS=30"
+    },
+    {
+      "title": "Load the refund policy",
+      "body": "Provide the rules the agent must apply.",
+      "code": "# policy.yml\nreturns: { window_days: 30, condition: unused, proof: receipt_or_order }\nrefunds: { auto_cap_usd: 100, method: original, over_cap: escalate }\nalternatives: { out_of_window: store_credit_if_eligible }"
+    },
+    {
+      "title": "Dry-run on past tickets",
+      "body": "Replay refund tickets to check decisions before going live.",
+      "code": "refund-resolver-agent backtest --range 30d --explain\n# reports decisions + a hard check: over-cap/out-of-policy approvals (must be 0)"
+    },
+    {
+      "title": "Wire into support",
+      "body": "Route refund/return requests through the agent; exceptions escalate.",
+      "code": "# refund request -> verify -> approve within cap / deny / escalate; all logged"
+    }
+  ],
+  "examples": [
+    {
+      "title": "In-policy return within cap → approved with reason",
+      "scenario": "A verified customer returns an item inside the window for an amount under the cap. The agent approves it.",
+      "input": "Verified customer returns a $55 unused item, ordered 10 days ago. Policy: 30-day window, $100 auto cap.",
+      "output": "{\n  \"order_id\": \"20455\",\n  \"ownership_verified\": true,\n  \"request\": \"refund\",\n  \"eligibility\": { \"within_window\": true, \"condition_ok\": true, \"within_cap\": true },\n  \"decision\": \"APPROVE\",\n  \"amount\": 55,\n  \"customer_reply\": \"Your return qualifies under our 30-day policy, so I've approved a $55 refund to your original payment method — it should appear in 5–7 business days. A prepaid return label is on its way.\",\n  \"abuse_flag\": { \"flag\": false, \"reason\": \"\" },\n  \"escalation\": { \"needed\": false, \"reason\": \"\" }\n}",
+      "notes": "All eligibility checks pass and the amount is under the cap, so the agent approves with a clear policy reason. The routine, high-volume case it should own end to end."
+    },
+    {
+      "title": "Out-of-window / over-cap → don't auto-refund, offer alternative or escalate",
+      "scenario": "A request falls outside the policy window and over the cap. The agent denies the auto-refund and routes appropriately.",
+      "input": "Customer requests a $220 refund for an item ordered 60 days ago (window is 30 days; cap is $100).",
+      "output": "{\n  \"order_id\": \"20480\",\n  \"ownership_verified\": true,\n  \"request\": \"refund\",\n  \"eligibility\": { \"within_window\": false, \"condition_ok\": true, \"within_cap\": false },\n  \"decision\": \"ESCALATE\",\n  \"amount\": null,\n  \"customer_reply\": \"Thanks for reaching out. This order is outside our 30-day return window, so I'm not able to auto-approve a refund here. I don't want to give you a wrong answer, so I'm passing this to a specialist who can review whether an exception or store credit applies. They'll follow up shortly.\",\n  \"abuse_flag\": { \"flag\": false, \"reason\": \"\" },\n  \"escalation\": { \"needed\": true, \"reason\": \"Outside return window (60 days) and over the $100 cap ($220) — not auto-approved; routed to a human to consider an exception/store credit.\" }\n}",
+      "notes": "Two reasons to not auto-refund: outside the window and over the cap. The agent denies the automatic refund, stays courteous, and escalates to a human who can consider a policy-allowed exception — rather than improvising an over-cap, out-of-policy refund itself."
+    },
+    {
+      "title": "Abuse pattern + chargeback pressure → flag, escalate, no auto-approve",
+      "scenario": "A serial-refunder with mismatched details applies pressure. The agent refuses to auto-approve and escalates.",
+      "input": "Requester has 6 refunds in 30 days, the provided details don't match the order's account, and they write 'refund me now or I'll chargeback and report you.'",
+      "output": "{\n  \"order_id\": \"20512\",\n  \"ownership_verified\": false,\n  \"request\": \"refund\",\n  \"eligibility\": { \"within_window\": true, \"condition_ok\": false, \"within_cap\": true },\n  \"decision\": \"ESCALATE\",\n  \"amount\": null,\n  \"customer_reply\": \"I want to help resolve this. Before I can process anything, I need to verify the order details, and I'm connecting you with a specialist who can look into your account securely. They'll be in touch shortly.\",\n  \"abuse_flag\": { \"flag\": true, \"reason\": \"6 refunds in 30 days (serial pattern) + identity details don't match the order + chargeback/report pressure\" },\n  \"escalation\": { \"needed\": true, \"reason\": \"Suspected abuse with unverified ownership and pressure tactics — not auto-approved; flagged and routed to a human for secure review. No order data revealed.\" }\n}",
+      "notes": "The defining defensive case: serial refunds, identity mismatch, and 'refund or chargeback' pressure. The agent does not auto-approve, reveals no order data to the unverified requester, flags the abuse pattern, and escalates — staying polite throughout. Ownership-verification plus abuse detection prevent both a data leak and a fraudulent payout."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it refund more than policy allows?",
+      "a": "No. It auto-approves refunds only within your return window and at or under the configured cap. Anything over the cap, outside the window, or non-standard is escalated to a human — it won't improvise an out-of-policy refund."
+    },
+    {
+      "q": "How does it prevent fraud?",
+      "a": "It verifies the requester owns the order before acting, and flags abuse patterns like serial refunds, identity mismatches, and 'refund or I'll chargeback' pressure, escalating them instead of auto-approving under pressure."
+    },
+    {
+      "q": "What happens with an out-of-window request?",
+      "a": "It explains the policy honestly, declines the automatic refund, and offers any policy-allowed alternative (such as store credit) or escalates to a specialist who can consider an exception — rather than quietly bending the rules."
+    },
+    {
+      "q": "Could it expose another customer's order?",
+      "a": "No. It enforces strict per-order data isolation tied to ownership verification, so it never reveals or acts on another customer's order."
+    },
+    {
+      "q": "Does it explain its decisions?",
+      "a": "Yes. Every decision comes with the policy reason, and denials include any available alternative, so customers get a fair, consistent, and transparent answer."
+    },
+    {
+      "q": "Is there an audit trail?",
+      "a": "Yes. Every decision is logged with its policy basis, so refund activity is traceable for finance and compliance."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A3 — Human-Approved",
+    "dnaPattern": "Planning (Research → Plan)",
+    "worstCaseAction": "Prepares an incorrect refund or return decision that a human reviews before it is issued. It cannot issue a refund, move money, or modify an order — execution tools are absent from its registry.",
+    "authorityBoundary": "Reads a refund or return request, checks it against policy, and prepares a recommended decision and amount for human approval. It never issues a refund, moves money, or changes an order. An agent approves and executes within policy.",
+    "verificationTest": "Attempt to call an issue-refund, payment, or order-modify tool → confirm it is absent from the agent's registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: refund/payment tools absent. Human gates: approval required before any refund. Confidence escalation: out-of-policy or high-value cases flagged. Cost ceiling: bounded per request. Audit trail: policy check and recommendation logged. Escalation path: exceptions routed to a supervisor.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "refund-returns-agent",
+      "trust_level": "A3",
+      "dna_pattern": "Planning",
+      "worst_case_action": "Prepares an incorrect refund decision for human approval. Cannot issue refunds or move money.",
+      "authority_boundary": "Prepares refund/return decisions against policy for approval; refund/payment tools absent.",
+      "tags": [
+        "customer-support",
+        "refunds",
+        "returns",
+        "human-approval"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_request",
+          "check_policy",
+          "calculate_amount",
+          "prepare_decision"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "issue_refund",
+          "payment",
+          "order_modify"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.22,
+        "alert_threshold_usd": 0.15
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "out_of_policy",
+          "high_value",
+          "low_confidence"
+        ],
+        "destination": "support_supervisor"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "policy_check",
+          "recommended_amount",
+          "approvals"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Prepares a refund for the wrong amount.",
+      "detection": "The amount is recomputed against the order and policy, with out-of-policy values flagged.",
+      "mitigation": "It prepares only — a human approves; no refund or payment tool exists.",
+      "recovery": "The approver corrects the amount before issuing."
+    },
+    {
+      "mode": "Approves a refund outside policy, such as past the return window.",
+      "detection": "Policy window and eligibility checks run.",
+      "mitigation": "Out-of-policy and high-value cases are flagged for a supervisor.",
+      "recovery": "The case is routed to a supervisor and denied or exception-logged."
+    },
+    {
+      "mode": "A double refund is prepared for a single return.",
+      "detection": "A refund-status and dedup check runs per order.",
+      "mitigation": "Duplicates are flagged and never auto-issued.",
+      "recovery": "The duplicate is held and voided."
+    }
+  ],
+  "evaluation": {
+    "primary": "Amount and policy correctness are primary — a wrong amount or an out-of-policy refund prepared for approval is the failure.",
+    "metrics": [
+      {
+        "name": "Amount accuracy",
+        "description": "Share of prepared refunds with the correct amount versus order and policy."
+      },
+      {
+        "name": "Policy-eligibility accuracy",
+        "description": "Share where eligibility — window and condition — is judged correctly."
+      },
+      {
+        "name": "Out-of-policy flag rate",
+        "description": "Of ineligible requests, the share correctly flagged for a supervisor."
+      },
+      {
+        "name": "Duplicate-refund recall",
+        "description": "Of duplicate-return cases, the share caught."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to prepare a resolution."
+      }
+    ],
+    "approach": "Replay historical returns with known correct amounts and eligibility; measure amount accuracy and policy-eligibility accuracy, and include ineligible and duplicate cases. No refund or payment is issued during evaluation."
+  }
+}

@@ -1,0 +1,358 @@
+{
+  "slug": "resume-screener",
+  "title": "Resume Screening Agent",
+  "category": "hr-recruiting",
+  "shortDescription": "A resume-screening agent that scores only job-relevant evidence, ignores protected attributes, cites every finding, and routes the decision to a human recruiter.",
+  "description": "An agent that screens resumes against a specific role's stated requirements and produces a structured, evidence-cited assessment — which qualifications are met, which aren't, and where information is missing — plus interview focus areas and a recommendation to a human. It is built for fair, auditable hiring: it scores only job-relevant criteria, never uses or infers protected characteristics or their proxies, cites evidence from the resume for every claim, refuses to auto-reject, and flags gaps instead of guessing. The goal is to make screening faster and more consistent while keeping a human accountable for every decision.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "recruiting",
+    "hr",
+    "resume-screening",
+    "hiring",
+    "fairness",
+    "bias-mitigation",
+    "autonomous-agent",
+    "ats",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Screens each resume against the role's required and preferred qualifications, with evidence cited from the resume for every met/unmet call.",
+    "Fairness-first: it scores only job-relevant criteria and never uses or infers protected attributes (age, gender, race, disability, etc.) or proxies like name, photo, or graduation year.",
+    "Human-in-the-loop by design: it recommends advance / review / decline-with-reasons but never auto-rejects — a recruiter decides.",
+    "Auditable: structured, explainable output with citations supports consistent, defensible screening."
+  ],
+  "whenToUse": [
+    "You receive high applicant volume for defined roles and want a faster, more consistent first pass.",
+    "You have clear, job-relevant requirements (required vs. preferred) the agent can screen against.",
+    "You need explainable, auditable assessments with evidence — for quality and compliance.",
+    "You want to surface the strongest candidates and structured interview focus areas while a human owns every decision."
+  ],
+  "whenNotToUse": [
+    "You want it to auto-reject or make final hiring decisions — it must not, and those stay with humans.",
+    "You don't have job-relevant criteria defined, so screening would be subjective.",
+    "You intend to screen on anything other than job-relevant qualifications — this agent explicitly won't.",
+    "You can't keep recruiter review on outcomes or maintain an audit trail."
+  ],
+  "systemPrompt": "You are a Resume Screening Agent supporting a hiring team. You assess ONE resume against ONE role's stated, job-relevant requirements and produce an evidence-based, fair, auditable summary for a human recruiter. You do NOT make hiring decisions. You are judged on accuracy, fairness, and never overstepping into auto-rejection or biased reasoning.\n\n== FAIRNESS RULES (NON-NEGOTIABLE) ==\n1. Job-relevant criteria ONLY. Evaluate against the role's required/preferred qualifications, skills, and experience. Nothing else.\n2. NEVER use or infer protected characteristics: age, gender, race, ethnicity, national origin, religion, disability, pregnancy/family status, sexual orientation, or anything similar. Do not estimate them. If the resume reveals them, ignore them entirely.\n3. NO PROXIES. Do not use name, photo, address/neighborhood, graduation years, citizenship (beyond a bona-fide work-authorization requirement), gaps you can't tie to a job-relevant fact, or school 'prestige' as a stand-in for quality. Judge demonstrated, job-relevant evidence.\n4. EVIDENCE OR IT DIDN'T HAPPEN. Cite the specific resume content supporting each met/unmet finding. Never credit a qualification the resume doesn't show, and never fabricate one.\n\n== HARD RULES ==\n- NO AUTO-REJECTION / NO DECISION: You recommend; a human decides. Never output a final 'reject'/'hire'. Use advance / review / decline_with_reasons as a recommendation only.\n- FLAG MISSING INFO: If you can't tell whether a requirement is met, mark it 'unclear' and say what's missing — do not assume present or absent.\n- EXPLAINABILITY: Every recommendation must be traceable to job-relevant evidence and the role's criteria, suitable for audit.\n- CONSISTENCY: Apply the same criteria to every candidate; do not invent new bars for one resume.\n\n== METHOD ==\n- Load the role's requirements (required vs. preferred) and the resume.\n- For each requirement, decide met / not_met / unclear, with a cited evidence snippet.\n- Note relevant strengths and genuine, job-relevant gaps. Propose interview focus areas to probe unclear items.\n- Recommend advance / review / decline_with_reasons — based only on requirement coverage.\n\n== RECOMMENDATION POLICY ==\n- advance: meets the required qualifications with evidence.\n- review: mixed/borderline or important items unclear — a human should look closely.\n- decline_with_reasons: clearly misses required, job-relevant qualifications, with the specific unmet requirements cited. (Still a recommendation, not a rejection.)\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"role\": \"<title>\",\n  \"recommendation\": \"advance|review|decline_with_reasons\",\n  \"requirements\": [\n    { \"requirement\": \"<job-relevant requirement>\", \"status\": \"met|not_met|unclear\", \"evidence\": \"<cited resume snippet or 'not found'>\" }\n  ],\n  \"strengths\": [\"<job-relevant strengths with evidence>\"],\n  \"gaps\": [\"<job-relevant gaps or unclear items>\"],\n  \"interview_focus\": [\"<areas to probe>\"],\n  \"fairness_note\": \"Assessed only on job-relevant criteria; protected attributes and proxies were not considered.\",\n  \"human_review_required\": true\n}\nIf a required qualification is 'unclear', prefer 'review' over 'decline'. Never base any field on a protected attribute or proxy.",
+  "architecture": [
+    {
+      "label": "Role & criteria intake",
+      "detail": "Loads the requisition's job-relevant requirements, split into required and preferred, which become the only yardstick for screening."
+    },
+    {
+      "label": "Resume parsing",
+      "detail": "Extracts skills, experience, and accomplishments from the resume into a structured form for requirement matching."
+    },
+    {
+      "label": "Protected-attribute redaction",
+      "detail": "Strips/ignores name, photo, and other proxy signals before scoring, so the assessment can't be driven by them even inadvertently."
+    },
+    {
+      "label": "Requirement matching",
+      "detail": "For each requirement, the model decides met / not_met / unclear and attaches a cited evidence snippet from the resume — no evidence, no credit."
+    },
+    {
+      "label": "Fairness gate",
+      "detail": "A guard checks that findings reference only job-relevant criteria and that no protected attribute or proxy entered the reasoning; violations are stripped and flagged."
+    },
+    {
+      "label": "Assessment & routing",
+      "detail": "Produces the evidence-cited summary, interview focus areas, and a recommendation, then routes to a recruiter — never an auto-decision."
+    },
+    {
+      "label": "Audit & monitoring",
+      "detail": "Logs assessments and recruiter outcomes to support audits and to monitor for adverse-impact patterns over time."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_requisition",
+      "purpose": "Load the role's job-relevant requirements (required vs. preferred), skills, and experience criteria."
+    },
+    {
+      "name": "get_resume",
+      "purpose": "Retrieve the candidate's resume/application content for screening."
+    },
+    {
+      "name": "parse_resume",
+      "purpose": "Structure the resume into skills, roles, durations, and accomplishments for requirement matching."
+    },
+    {
+      "name": "redact_protected",
+      "purpose": "Remove/neutralize name, photo, and proxy signals so scoring is driven only by job-relevant evidence."
+    },
+    {
+      "name": "match_requirements",
+      "purpose": "Compare the resume to each requirement and return met/not_met/unclear with a cited evidence snippet."
+    },
+    {
+      "name": "evidence_cite",
+      "purpose": "Attach the exact resume text supporting a finding so the assessment is auditable."
+    },
+    {
+      "name": "summarize_assessment",
+      "purpose": "Assemble the cited findings, strengths, gaps, and interview focus into a structured recruiter summary."
+    },
+    {
+      "name": "route_to_recruiter",
+      "purpose": "Send the assessment and recommendation to a human recruiter; never finalizes a hire/reject decision."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Load role criteria",
+      "body": "Pull the requisition's job-relevant required and preferred qualifications — the only yardstick used."
+    },
+    {
+      "title": "2. Parse the resume",
+      "body": "Structure the resume into skills, experience, and accomplishments for matching."
+    },
+    {
+      "title": "3. Neutralize proxies",
+      "body": "Strip/ignore name, photo, and other proxy signals so they can't influence scoring."
+    },
+    {
+      "title": "4. Match requirement by requirement",
+      "body": "Decide met / not_met / unclear for each requirement, with a cited evidence snippet. No evidence, no credit; missing info is 'unclear'."
+    },
+    {
+      "title": "5. Run the fairness check",
+      "body": "Confirm the reasoning used only job-relevant criteria and no protected attribute or proxy; strip and flag anything that slips in."
+    },
+    {
+      "title": "6. Summarize & recommend",
+      "body": "Produce strengths, job-relevant gaps, interview focus areas, and a recommendation (advance/review/decline_with_reasons)."
+    },
+    {
+      "title": "7. Route to a human",
+      "body": "Send the assessment to a recruiter for the decision, and log it for audit and adverse-impact monitoring."
+    }
+  ],
+  "implementationNotes": [
+    "Make 'no auto-rejection' an enforced rule, not a preference: the agent recommends and a human decides every outcome. This is both an ethics and a compliance requirement.",
+    "Neutralize proxies (name, photo, graduation year, address, school prestige) before scoring, and have the fairness gate strip any protected-attribute reasoning that slips into the output.",
+    "Require cited evidence for every met/unmet finding; 'unclear' (with what's missing) is the correct answer when the resume doesn't show it — never assume.",
+    "Apply identical criteria to every candidate for a role; consistency is what makes the process fair and auditable.",
+    "Log assessments and recruiter outcomes and monitor for adverse-impact patterns; screening tools must be watched, not trusted blindly.",
+    "Keep the criteria strictly job-relevant and documented per role — vague or non-job-related bars are where bias and legal risk enter.",
+    "The strong model earns its cost on evidence-based requirement matching, while a cheaper model can parse and structure resumes."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Evidence-cited screener",
+      "desc": "Assesses a resume against the role's requirements with cited evidence and a recommendation for a recruiter. No auto-decisions; fairness guardrails on."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Fair screening with audit trail",
+      "desc": "Adds proxy neutralization, a fairness gate, interview-focus generation, and structured, auditable assessments routed to recruiters — still human-decided."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Governed, monitored screening",
+      "desc": "Adds ATS integration, per-role criteria libraries, adverse-impact monitoring, full audit logging, and calibration from recruiter outcomes — with humans accountable for every decision."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect your ATS",
+      "body": "Install the agent and connect it to your applicant tracking system.",
+      "code": "pipx install resume-screen-agent\nresume-screen-agent connect --ats greenhouse\nresume-screen-agent doctor"
+    },
+    {
+      "title": "Configure fairness guardrails",
+      "body": "These are on by default and enforced outside the model. Keep human review required.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nAUTO_REJECT=false            # never; recommendations only\nIGNORE_PROTECTED=true\nIGNORE_PROXIES=[\"name\",\"photo\",\"address\",\"graduation_year\",\"school_prestige\"]\nHUMAN_REVIEW_REQUIRED=true"
+    },
+    {
+      "title": "Define job-relevant criteria per role",
+      "body": "List required vs. preferred qualifications. This is the only basis for screening.",
+      "code": "# roles/backend-engineer.yml\nrequired:\n  - \"3+ years building production backend services\"\n  - \"Proficiency in a modern backend language (Go/Java/Python/Node)\"\n  - \"Experience with relational databases\"\npreferred:\n  - \"Experience with distributed systems\"\n  - \"Cloud (AWS/GCP/Azure)\""
+    },
+    {
+      "title": "Dry-run and review the audit trail",
+      "body": "Screen a few resumes and inspect the cited evidence and fairness note before going live.",
+      "code": "resume-screen-agent screen --role backend-engineer --resume ./candidate.pdf --explain\n# prints per-requirement status + evidence, gaps, interview_focus, recommendation"
+    },
+    {
+      "title": "Integrate as a first-pass assistant",
+      "body": "Surface assessments to recruiters in the ATS. The agent assists; recruiters decide.",
+      "code": "# ATS webhook -> POST https://your-host/screen\n# assessment attaches to the candidate; recruiter makes the call"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Strong match → advance with cited evidence",
+      "scenario": "A candidate clearly meets the required qualifications. The agent advances them and cites the resume evidence per requirement.",
+      "input": "Role: Backend Engineer (required: 3+ yrs backend, modern backend language, relational DBs). Resume shows 5 years building Go services at a SaaS company, Postgres, and a high-throughput payments API.",
+      "output": "{\n  \"role\": \"Backend Engineer\",\n  \"recommendation\": \"advance\",\n  \"requirements\": [\n    { \"requirement\": \"3+ years building production backend services\", \"status\": \"met\", \"evidence\": \"'5 years building backend services' + roles dated 2021–2026\" },\n    { \"requirement\": \"Modern backend language (Go/Java/Python/Node)\", \"status\": \"met\", \"evidence\": \"'Built and maintained Go microservices'\" },\n    { \"requirement\": \"Relational databases\", \"status\": \"met\", \"evidence\": \"'Designed Postgres schemas for a high-throughput payments API'\" }\n  ],\n  \"strengths\": [\"High-throughput payments API experience (relevant to our scale)\", \"5 years > the 3-year bar\"],\n  \"gaps\": [],\n  \"interview_focus\": [\"Depth of distributed-systems experience (a preferred item)\", \"Ownership scope on the payments API\"],\n  \"fairness_note\": \"Assessed only on job-relevant criteria; protected attributes and proxies were not considered.\",\n  \"human_review_required\": true\n}",
+      "notes": "Every 'met' is backed by a specific resume snippet — no credit without evidence. The recommendation is 'advance,' but note human_review_required stays true; the agent surfaces a strong candidate, the recruiter still owns the decision."
+    },
+    {
+      "title": "Required qualification unclear → review, not decline",
+      "scenario": "The resume is strong but doesn't clearly show one required item. The agent marks it unclear and recommends review instead of guessing.",
+      "input": "Role: Data Engineer (required: experience with a workflow orchestrator like Airflow/Dagster). Resume lists 'built ETL pipelines' and 'scheduled data jobs' but never names an orchestrator.",
+      "output": "{\n  \"role\": \"Data Engineer\",\n  \"recommendation\": \"review\",\n  \"requirements\": [\n    { \"requirement\": \"Experience with a workflow orchestrator (Airflow/Dagster/etc.)\", \"status\": \"unclear\", \"evidence\": \"'built ETL pipelines' and 'scheduled data jobs' — orchestrator not named\" },\n    { \"requirement\": \"SQL and data modeling\", \"status\": \"met\", \"evidence\": \"'Designed dimensional models in Snowflake'\" },\n    { \"requirement\": \"Python for data engineering\", \"status\": \"met\", \"evidence\": \"'Python ETL with pandas and PySpark'\" }\n  ],\n  \"strengths\": [\"Strong SQL/modeling and Python evidence\"],\n  \"gaps\": [\"Orchestrator experience not explicitly stated — may exist but isn't shown\"],\n  \"interview_focus\": [\"Which orchestrator they've used (Airflow/Dagster?) and at what scale\"],\n  \"fairness_note\": \"Assessed only on job-relevant criteria; protected attributes and proxies were not considered.\",\n  \"human_review_required\": true\n}",
+      "notes": "The candidate 'scheduled data jobs,' which might mean an orchestrator — but the resume doesn't say. Rather than assume met or not_met, the agent marks it 'unclear,' recommends review, and turns it into an interview question. Flagging missing info instead of guessing is what keeps screening fair and accurate."
+    },
+    {
+      "title": "Proxy bait → ignores protected signals, scores on evidence only",
+      "scenario": "The resume contains signals a biased screener might latch onto (a name suggesting ethnicity/gender, a 1998 graduation year implying age, a 'career gap'). The agent explicitly disregards them and judges only job-relevant evidence.",
+      "input": "Role: Product Manager (required: 4+ yrs PM experience shipping software products). Resume: name and photo present; 'BA 1998'; a 2015–2018 gap; then 'Senior PM, 2018–2026, led 3 product launches generating $20M revenue.'",
+      "output": "{\n  \"role\": \"Product Manager\",\n  \"recommendation\": \"advance\",\n  \"requirements\": [\n    { \"requirement\": \"4+ years PM experience shipping products\", \"status\": \"met\", \"evidence\": \"'Senior PM 2018–2026, led 3 product launches' (8 years, multiple shipped products)\" }\n  ],\n  \"strengths\": [\"Shipped 3 product launches with quantified $20M revenue impact (job-relevant outcome)\"],\n  \"gaps\": [],\n  \"interview_focus\": [\"Role and scope on the 3 launches; how success was measured\"],\n  \"fairness_note\": \"I did not consider the candidate's name, photo, graduation year, or the 2015–2018 gap. Graduation year and gaps are not job-relevant here and can encode age/other protected signals; assessment is based solely on demonstrated PM experience and outcomes.\",\n  \"human_review_required\": true\n}",
+      "notes": "The defining fairness example: the resume is full of proxy bait — a name, a photo, a 1998 graduation year (age signal), and an employment gap. The agent explicitly states it ignored all of them and scores only the demonstrated, job-relevant PM experience. The fairness_note makes the non-consideration auditable, which is exactly what defensible, compliant screening requires."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Does it reject candidates automatically?",
+      "a": "No. It never auto-rejects or makes a final hiring decision. It produces an evidence-cited assessment and a recommendation (advance / review / decline-with-reasons), and a human recruiter makes every call."
+    },
+    {
+      "q": "How does it avoid bias?",
+      "a": "It scores only job-relevant criteria and is built to never use or infer protected characteristics (age, gender, race, disability, etc.) or proxies like name, photo, or graduation year. A fairness gate strips any such reasoning, and it documents that it didn't consider them."
+    },
+    {
+      "q": "What if it can't tell whether a requirement is met?",
+      "a": "It marks the requirement 'unclear,' says what's missing, and recommends review rather than guessing met or not_met — and turns the gap into an interview question."
+    },
+    {
+      "q": "Is the assessment auditable?",
+      "a": "Yes. Every finding cites the specific resume evidence and ties to a documented, job-relevant requirement, and assessments and outcomes are logged so the process can be reviewed and monitored for adverse impact."
+    },
+    {
+      "q": "Can it just rank or auto-advance everyone to save time?",
+      "a": "It surfaces strong candidates with evidence, but a human reviews every assessment. The goal is faster, more consistent screening with accountability — not removing humans from the decision."
+    },
+    {
+      "q": "Does it consider where someone went to school or employment gaps?",
+      "a": "Not as proxies for quality. School 'prestige' and unexplained gaps aren't job-relevant and can encode protected signals, so it judges demonstrated, job-relevant experience instead."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Evaluation (Research → Evaluate)",
+    "worstCaseAction": "Produces a biased or incorrect screening assessment, surfaced for a recruiter to review. It cannot reject, advance, contact a candidate, or make any hiring decision — execution tools are absent from its registry.",
+    "authorityBoundary": "Reviews a resume against job-relevant, documented criteria and surfaces a structured assessment for human review. It never rejects, advances, or contacts candidates, and never makes a hiring decision. A recruiter decides, and protected-characteristic factors are excluded.",
+    "verificationTest": "Attempt to call a reject, advance, or candidate-contact tool → confirm it is absent; confirm the criteria exclude protected characteristics.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: decision/contact tools absent. Human gates: a recruiter decides. Confidence escalation: borderline candidates flagged for review, never auto-rejected. Cost ceiling: bounded per resume. Audit trail: assessment and criteria logged for fairness review. Escalation path: ambiguous cases routed to a recruiter.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "resume-screening-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Evaluation",
+      "worst_case_action": "Produces a biased/incorrect assessment for recruiter review. Cannot reject, advance, or contact candidates.",
+      "authority_boundary": "Assesses resumes against job-relevant criteria for human review; decision/contact tools absent.",
+      "tags": [
+        "hr",
+        "recruiting",
+        "resume-screening",
+        "fairness",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_resume",
+          "match_criteria",
+          "summarize_fit",
+          "flag_for_review"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "reject",
+          "advance",
+          "contact_candidate",
+          "hiring_decision"
+        ],
+        "excludes_protected_characteristics": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.22,
+        "alert_threshold_usd": 0.15
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "borderline_fit",
+          "insufficient_info",
+          "low_confidence"
+        ],
+        "destination": "recruiter"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "assessment",
+          "criteria_used"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Produces a biased screen using a protected characteristic.",
+      "detection": "Criteria exclude protected characteristics by design and outputs are auditable for fairness.",
+      "mitigation": "It assesses against job-relevant criteria only and never decides.",
+      "recovery": "A recruiter reviews; the assessment and criteria are logged for fairness review."
+    },
+    {
+      "mode": "Auto-rejects a qualified candidate.",
+      "detection": "It has no reject or advance tool and borderline cases are flagged.",
+      "mitigation": "It surfaces an assessment for review, never a decision.",
+      "recovery": "The recruiter decides — nothing is auto-rejected."
+    },
+    {
+      "mode": "Over-weights keyword matching, missing a strong non-standard candidate.",
+      "detection": "Borderline and unusual profiles are flagged for review.",
+      "mitigation": "Positioned as a screening aid, not a gate.",
+      "recovery": "The recruiter reviews flagged profiles."
+    }
+  ],
+  "evaluation": {
+    "primary": "Job-relevant assessment quality and fairness are primary — a biased screen or an auto-rejection is the failure.",
+    "metrics": [
+      {
+        "name": "Assessment agreement",
+        "description": "Agreement of assessments with recruiter judgments on job-relevant criteria."
+      },
+      {
+        "name": "Fairness audit",
+        "description": "Outcome parity checks across protected groups on matched-qualification sets."
+      },
+      {
+        "name": "Protected-attribute leakage",
+        "description": "Whether protected characteristics influence the output — should be none."
+      },
+      {
+        "name": "Auditability",
+        "description": "Share of assessments with logged, reviewable criteria."
+      },
+      {
+        "name": "Latency",
+        "description": "Time per resume."
+      }
+    ],
+    "approach": "Have recruiters label resumes on job-relevant criteria; measure agreement and run a fairness audit comparing outcomes across protected groups on matched-qualification pairs. It surfaces assessments only — never an auto-reject."
+  }
+}

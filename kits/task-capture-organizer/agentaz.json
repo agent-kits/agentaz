@@ -1,0 +1,57 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "task-capture-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Extraction",
+  "worst_case_action": "Miscaptures a task for user correction. Proposes only; never auto-schedules, sends, or completes.",
+  "authority_boundary": "Captures only stated tasks and proposes organization; schedule/send/complete tools absent.",
+  "tags": [
+    "personal-productivity",
+    "task-capture",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_input",
+      "extract_stated_tasks",
+      "infer_project",
+      "suggest_priority",
+      "flag_ambiguous"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "schedule",
+      "send",
+      "complete_task",
+      "delete_task"
+    ],
+    "never_fabricates": true
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.18,
+    "alert_threshold_usd": 0.12
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 6
+  },
+  "human_handoff": {
+    "triggers": [
+      "ambiguous_item",
+      "inferred_priority"
+    ],
+    "destination": "user"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "captured_items",
+      "inferences"
+    ]
+  }
+}

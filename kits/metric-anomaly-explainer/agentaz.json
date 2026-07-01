@@ -1,0 +1,54 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "metric-anomaly-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Synthesis",
+  "worst_case_action": "Proposes a wrong explanation for analyst review. Read-only; cannot change data.",
+  "authority_boundary": "Investigates anomalies read-only and ranks hypotheses; write tools absent.",
+  "tags": [
+    "data-analysis",
+    "anomaly",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_metrics",
+      "slice_dimensions",
+      "form_hypotheses",
+      "rank_evidence"
+    ],
+    "execution_tools_absent": true,
+    "read_only": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "data_write",
+      "dashboard_change"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.25,
+    "alert_threshold_usd": 0.16
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 10
+  },
+  "human_handoff": {
+    "triggers": [
+      "competing_hypotheses",
+      "inconclusive"
+    ],
+    "destination": "data_analyst"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "hypotheses",
+      "evidence"
+    ]
+  }
+}

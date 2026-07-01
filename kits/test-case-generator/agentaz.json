@@ -1,0 +1,53 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "test-case-generation-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Synthesis",
+  "worst_case_action": "Generates incorrect test cases for engineer review. Cannot run, commit, or modify the suite.",
+  "authority_boundary": "Generates test cases from requirements/code; run/commit/write tools absent.",
+  "tags": [
+    "qa-testing",
+    "test-generation",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_requirements",
+      "read_code",
+      "generate_cases",
+      "flag_coverage_gap"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "run_tests",
+      "commit",
+      "repo_write"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.25,
+    "alert_threshold_usd": 0.16
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "ambiguous_requirement",
+      "uncoverable_case"
+    ],
+    "destination": "engineer"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "generated_cases"
+    ]
+  }
+}

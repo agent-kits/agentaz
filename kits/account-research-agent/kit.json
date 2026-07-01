@@ -1,0 +1,357 @@
+{
+  "slug": "account-research-agent",
+  "title": "Account Research Agent",
+  "category": "sales-sdr",
+  "shortDescription": "A sales-research agent that builds a cited account brief — firmographics, tech stack, triggers, key people — flags stale data, and never fabricates contacts or triggers.",
+  "description": "An agent that builds the account brief a rep actually needs before a call — firmographics, tech stack, recent triggers, and key people — with every claim tied to a source instead of confidently made up. It separates verified facts from inference, flags stale or thin data, and refuses to invent the things reps are most tempted to fake: contact details and 'trigger events.' It is built defensively: it cites a source for every claim, never fabricates firmographics, contacts, or quotes, flags low-confidence and stale data, distinguishes fact from inference, and respects privacy by sticking to professional, public information.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "sales",
+    "sdr",
+    "account-research",
+    "prospecting",
+    "go-to-market",
+    "autonomous-agent",
+    "account-brief",
+    "firmographics",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Compiles an account brief: firmographics, tech stack, recent triggers, and key people, ready before a call.",
+    "Every claim is tied to a source; verified facts are separated from inference.",
+    "Flags stale, thin, or low-confidence data instead of presenting it as solid.",
+    "Defensive: never fabricates firmographics, contacts, or trigger events, and sticks to professional, public information."
+  ],
+  "whenToUse": [
+    "Reps spend too long manually researching accounts before outreach or calls.",
+    "You want consistent, cited account briefs rather than ad-hoc notes.",
+    "You want triggers and firmographics surfaced with sources you can trust.",
+    "You want gaps and stale data flagged rather than papered over."
+  ],
+  "whenNotToUse": [
+    "You want it to invent plausible-sounding details to fill a brief — it won't.",
+    "You need personal/private data on individuals beyond public professional info.",
+    "You have no access to data sources, so claims would be ungrounded.",
+    "You expect verified contact details it can't actually source."
+  ],
+  "systemPrompt": "You are an Account Research Agent for a sales team. You compile a brief on a target account — firmographics, tech stack, recent triggers, and key people — for a rep preparing outreach. You are judged on a useful, accurate, source-cited brief and on never fabricating facts, contacts, or triggers.\n\n== CORE PRINCIPLES ==\n1. Cite or don't claim. Every factual claim must be tied to a source you actually consulted. If you can't source it, don't state it as fact — mark it unknown or as an inference.\n2. Fact vs. inference. Clearly separate verified facts (with sources) from your inferences/hypotheses. Label inferences as such; never present a guess as a confirmed fact.\n3. Freshness matters. Note how recent each key data point is. Flag stale data (e.g. headcount or funding that may be outdated) rather than presenting it as current.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATION: Never invent firmographics, funding, headcount, tech stack, news/triggers, quotes, or — especially — contact details (emails, phone numbers). Missing = \"not found\", never guessed.\n- NO FAKE TRIGGERS: Do not manufacture a \"recent event\" or buying signal that isn't in a source. A made-up trigger is worse than none.\n- PRIVACY: Use only public, professional information. Do not compile personal/private details about individuals beyond their professional role and public statements.\n- DISAMBIGUATE: If multiple entities match the account name, do not blend them — flag the ambiguity and ask which one.\n- VERIFY CONTACTS: Only include contact info that comes from a legitimate source; otherwise state it wasn't found rather than inferring an email pattern as fact.\n\n== METHOD ==\n- Resolve the account (disambiguate if needed). Gather firmographics, tech stack, recent news/triggers, and key people from sources.\n- For each item: record the source and recency, mark fact vs inference, and flag gaps. Compose a concise brief with talking points grounded only in cited facts.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"account\": \"<resolved name>\",\n  \"disambiguation\": \"<note if multiple matches, or 'clear'>\",\n  \"firmographics\": { \"industry\": \"<v|null>\", \"size\": \"<v|null>\", \"hq\": \"<v|null>\", \"_sources\": [\"...\"], \"_recency\": \"<as-of>\" },\n  \"tech_stack\": [ { \"tech\": \"<name>\", \"source\": \"<source>\", \"confidence\": \"high|medium|low\" } ],\n  \"triggers\": [ { \"event\": \"<recent event>\", \"date\": \"<when>\", \"source\": \"<source>\" } ],\n  \"key_people\": [ { \"name\": \"<name>\", \"role\": \"<title>\", \"source\": \"<source>\", \"contact\": \"<only if sourced, else 'not found'>\" } ],\n  \"inferences\": [\"<clearly-labeled hypotheses, not facts>\"],\n  \"gaps\": [\"<what couldn't be verified>\"],\n  \"talking_points\": [\"<grounded in cited facts only>\"]\n}\nNever output an unsourced fact or a guessed contact. Mark gaps as gaps.",
+  "architecture": [
+    {
+      "label": "Account resolution",
+      "detail": "Resolves the target account from the input and disambiguates when multiple entities share a name, rather than blending them."
+    },
+    {
+      "label": "Source-grounded gathering",
+      "detail": "Collects firmographics, tech stack, recent news/triggers, and key people from data sources, recording the source for each item."
+    },
+    {
+      "label": "Fact/inference separation",
+      "detail": "Tags each item as a verified fact (with source) or a labeled inference, so the rep knows what's solid versus hypothesized."
+    },
+    {
+      "label": "Freshness & verification",
+      "detail": "Records recency and flags stale data, and verifies contact details against sources instead of inferring email patterns."
+    },
+    {
+      "label": "Anti-fabrication gate",
+      "detail": "A check drops any unsourced fact, guessed contact, or invented trigger, converting it into an explicit gap."
+    },
+    {
+      "label": "Brief composition",
+      "detail": "Assembles a concise brief with talking points grounded only in cited facts, plus clearly-marked inferences and gaps."
+    },
+    {
+      "label": "Privacy scope",
+      "detail": "Keeps research to public, professional information and avoids compiling private personal details about individuals."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_account",
+      "purpose": "Take the target account input and resolve/disambiguate the entity to research."
+    },
+    {
+      "name": "firmographic_lookup",
+      "purpose": "Retrieve industry, size, HQ, funding and similar firmographics with sources and recency."
+    },
+    {
+      "name": "tech_stack_detect",
+      "purpose": "Identify the account's technologies from sources, with a confidence per item."
+    },
+    {
+      "name": "news_triggers",
+      "purpose": "Find recent, sourced events/buying signals (funding, launches, leadership changes)."
+    },
+    {
+      "name": "key_people_lookup",
+      "purpose": "Find key people and public professional roles, with sources."
+    },
+    {
+      "name": "verify_source",
+      "purpose": "Confirm a claim or contact detail traces to a legitimate source before including it."
+    },
+    {
+      "name": "compose_brief",
+      "purpose": "Assemble the cited brief with talking points grounded only in verified facts."
+    },
+    {
+      "name": "flag_unverified",
+      "purpose": "Convert anything unsourced, stale, or ambiguous into an explicit gap or inference."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Resolve the account",
+      "body": "Identify the target entity and disambiguate if multiple matches exist."
+    },
+    {
+      "title": "2. Gather from sources",
+      "body": "Collect firmographics, tech stack, triggers, and key people, recording a source for each."
+    },
+    {
+      "title": "3. Separate fact from inference",
+      "body": "Label verified facts (with sources) versus inferences/hypotheses."
+    },
+    {
+      "title": "4. Check freshness & contacts",
+      "body": "Note recency, flag stale data, and verify contact details rather than inferring them."
+    },
+    {
+      "title": "5. Drop the unsourced",
+      "body": "Convert any unsourced fact, guessed contact, or invented trigger into an explicit gap."
+    },
+    {
+      "title": "6. Compose the brief",
+      "body": "Write talking points grounded only in cited facts, with inferences and gaps clearly marked."
+    },
+    {
+      "title": "7. Stay in scope",
+      "body": "Keep to public professional information and avoid private personal details."
+    }
+  ],
+  "implementationNotes": [
+    "Require a source per fact and convert anything unsourced into an explicit gap; an account brief's value is its trustworthiness, and one fabricated fact poisons the whole thing.",
+    "Never guess contact details: an inferred email pattern presented as a verified address is both a credibility and a deliverability risk — mark it 'not found' instead.",
+    "Don't manufacture triggers; a fake buying signal leads to embarrassing, off-base outreach. No trigger is better than a false one.",
+    "Disambiguate same-name entities explicitly rather than blending them, which silently produces a wrong brief.",
+    "Separate and label inferences from facts so reps can use hypotheses as conversation openers without stating them as truth.",
+    "Stay within public, professional information and avoid compiling private personal data about individuals.",
+    "Spend the strong model on fact/inference judgment and brief framing — a cheaper model can gather and structure source data."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Cited account snapshot",
+      "desc": "Compiles firmographics, tech stack, and recent triggers with sources for a single account, flagging gaps. On demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Fact-graded brief",
+      "desc": "Adds fact-vs-inference labeling, recency/staleness flags, contact verification, disambiguation, and grounded talking points."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "GTM research at scale",
+      "desc": "Adds CRM integration, batch account briefs, territory/ICP scoring, trigger monitoring, source governance, and privacy controls."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect data sources",
+      "body": "Install the agent and connect it to your enrichment/news/CRM sources.",
+      "code": "pipx install account-research-agent\naccount-research-agent connect --sources clearbit,news-api,crm\naccount-research-agent doctor"
+    },
+    {
+      "title": "Configure anti-fabrication guardrails",
+      "body": "Enforce citing and the no-guessed-contacts rule.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nREQUIRE_SOURCE_PER_FACT=true\nGUESS_CONTACTS=false\nFLAG_STALE_AFTER_DAYS=180"
+    },
+    {
+      "title": "Set brief template",
+      "body": "Define the brief structure and what counts as a trigger.",
+      "code": "# brief.yml\nsections: [firmographics, tech_stack, triggers, key_people, talking_points]\ntriggers: [funding, leadership_change, product_launch, expansion]\nprivacy: public_professional_only"
+    },
+    {
+      "title": "Run a brief",
+      "body": "Generate a brief and review sources, recency, and gaps.",
+      "code": "account-research-agent run --account 'Acme Robotics' --explain\n# prints cited firmographics, stack, triggers, people, inferences, gaps"
+    },
+    {
+      "title": "Wire into the workflow",
+      "body": "Generate briefs on new accounts and attach them to CRM records.",
+      "code": "# new-account trigger -> generate brief -> attach to CRM (facts cited, gaps flagged)"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Well-documented company → cited brief",
+      "scenario": "A company with good public data. The agent compiles firmographics, stack, and a recent trigger, each with a source.",
+      "input": "Account: 'Northwind Logistics' — well-covered mid-market company.",
+      "output": "{\n  \"account\": \"Northwind Logistics\",\n  \"disambiguation\": \"clear\",\n  \"firmographics\": { \"industry\": \"Logistics & supply chain\", \"size\": \"~600 employees\", \"hq\": \"Columbus, OH\", \"_sources\": [\"company site\", \"enrichment provider\"], \"_recency\": \"as of 2026-Q1\" },\n  \"tech_stack\": [ { \"tech\": \"Snowflake\", \"source\": \"job posting\", \"confidence\": \"medium\" }, { \"tech\": \"Salesforce\", \"source\": \"case study\", \"confidence\": \"high\" } ],\n  \"triggers\": [ { \"event\": \"Opened a new West-coast distribution center\", \"date\": \"2026-05\", \"source\": \"press release\" } ],\n  \"key_people\": [ { \"name\": \"(VP Operations)\", \"role\": \"VP Operations\", \"source\": \"company leadership page\", \"contact\": \"not found\" } ],\n  \"inferences\": [\"Likely scaling ops given the new DC — may have data-integration needs (hypothesis, not confirmed)\"],\n  \"gaps\": [\"No verified direct contact emails found\", \"Tech stack partial — inferred from postings\"],\n  \"talking_points\": [\"Congratulate on the new West-coast DC (sourced)\", \"Explore ops-scaling data needs (framed as a question, since it's an inference)\"]\n}",
+      "notes": "Every fact carries a source and recency, the new-DC trigger is real and sourced, and the agent still separates a clearly-labeled inference (scaling needs) from fact and flags that no verified contact email was found. Useful and honest."
+    },
+    {
+      "title": "Ambiguous account name → disambiguate, don't blend",
+      "scenario": "Two companies share the name. The agent refuses to merge their data and asks which one.",
+      "input": "Account: 'Apex Systems' — matches both an IT staffing firm and an unrelated industrial-controls company.",
+      "output": "{\n  \"account\": \"Apex Systems (ambiguous)\",\n  \"disambiguation\": \"Multiple matches: (1) Apex Systems — IT staffing/services; (2) Apex Systems — industrial control systems. These are different companies.\",\n  \"firmographics\": { \"industry\": null, \"size\": null, \"hq\": null, \"_sources\": [], \"_recency\": \"\" },\n  \"tech_stack\": [],\n  \"triggers\": [],\n  \"key_people\": [],\n  \"inferences\": [],\n  \"gaps\": [\"Cannot research until the correct entity is confirmed — blending the two would produce a false brief\"],\n  \"talking_points\": [\"Confirm which 'Apex Systems' is the target before proceeding\"]\n}",
+      "notes": "Rather than producing a confident brief that silently mixes two different companies (a classic research failure), the agent stops, lays out the two matches, and asks for disambiguation. A blended brief would be worse than none — the rep would walk into a call with wrong facts."
+    },
+    {
+      "title": "Tempted to invent a contact / trigger → refuse, mark as gap",
+      "scenario": "The rep wants a decision-maker's email and a recent trigger, but neither is in any source. The agent declines to fabricate.",
+      "input": "Account: 'Cedar Health' — request includes 'give me the VP Eng's email and a recent buying trigger'. No email or recent event found in sources.",
+      "output": "{\n  \"account\": \"Cedar Health\",\n  \"disambiguation\": \"clear\",\n  \"firmographics\": { \"industry\": \"Healthcare technology\", \"size\": \"~200 employees\", \"hq\": \"Austin, TX\", \"_sources\": [\"company site\"], \"_recency\": \"as of 2026-Q1\" },\n  \"tech_stack\": [ { \"tech\": \"AWS\", \"source\": \"job posting\", \"confidence\": \"medium\" } ],\n  \"triggers\": [],\n  \"key_people\": [ { \"name\": \"(VP Engineering)\", \"role\": \"VP Engineering\", \"source\": \"LinkedIn (public role)\", \"contact\": \"not found\" } ],\n  \"inferences\": [],\n  \"gaps\": [\"No verified email for the VP Engineering — not guessing an address from a pattern\", \"No recent buying trigger found in sources — none manufactured\"],\n  \"talking_points\": [\"Reach the VP Eng via a verified channel (not a guessed email)\", \"No fresh trigger to cite — lead with a relevant industry insight instead\"]\n}",
+      "notes": "The defining defensive case: directly asked for an email and a 'trigger,' and both are absent from sources. The agent refuses to invent an email from a guessed pattern or manufacture a buying signal — it marks both as explicit gaps and suggests honest alternatives. Fabricated contacts and fake triggers are exactly how research agents quietly destroy rep credibility."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it make up details to fill a brief?",
+      "a": "No — that's its core constraint. Every factual claim must be tied to a source it consulted; anything it can't source is marked as a gap rather than invented, and inferences are clearly labeled as hypotheses."
+    },
+    {
+      "q": "Does it provide contact emails and phone numbers?",
+      "a": "Only when they come from a legitimate source. It will not guess an email from a naming pattern and present it as verified — if it isn't sourced, it says 'not found', protecting both your credibility and deliverability."
+    },
+    {
+      "q": "What about 'recent triggers' for outreach?",
+      "a": "It surfaces only real, sourced events (funding, launches, leadership changes). It won't manufacture a buying signal, because a fake trigger leads to off-base outreach that's worse than no trigger."
+    },
+    {
+      "q": "How does it handle companies with the same name?",
+      "a": "It disambiguates explicitly and asks which entity you mean rather than blending their data, which would produce a confidently wrong brief."
+    },
+    {
+      "q": "Does it respect privacy?",
+      "a": "Yes. It uses only public, professional information and doesn't compile private personal details about individuals beyond their professional role and public statements."
+    },
+    {
+      "q": "How do I know what's solid vs. a guess?",
+      "a": "Verified facts carry sources and recency; inferences are listed separately and labeled as hypotheses, and unverified items are flagged as gaps — so you always know what you can state confidently."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A1 — Research",
+    "dnaPattern": "Research (Research → Verify)",
+    "worstCaseAction": "Includes a wrong or stale fact in an account brief that a human reviews before acting on. It cannot send outreach, write to a CRM, or take any action — it only gathers and cites, and it never fabricates contacts or signals.",
+    "authorityBoundary": "Gathers firmographics, tech stack, triggers, and key people into a cited brief, and flags stale or low-confidence data. It never sends messages, writes to a CRM, or takes action. It does not invent contacts or buying signals.",
+    "verificationTest": "Confirm the agent cites every fact and flags unverifiable ones rather than asserting them; confirm no send or CRM-write tool exists in its registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: send/CRM-write tools absent. Human gates: a rep reviews and acts. Confidence escalation: stale or unverifiable facts flagged. Cost ceiling: bounded per account. Audit trail: sources and citations logged. Escalation path: thin or conflicting data flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "account-research-agent",
+      "trust_level": "A1",
+      "dna_pattern": "Research",
+      "worst_case_action": "Includes a stale fact in a brief for human review. Cannot send outreach or write to a CRM.",
+      "authority_boundary": "Gathers and cites account info; never fabricates; send/CRM-write tools absent.",
+      "tags": [
+        "sales",
+        "account-research",
+        "read-only",
+        "cited"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "search_sources",
+          "gather_firmographics",
+          "find_triggers",
+          "cite_source",
+          "flag_stale"
+        ],
+        "execution_tools_absent": true,
+        "read_only": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "send_outreach",
+          "crm_write"
+        ],
+        "never_fabricates": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.3,
+        "alert_threshold_usd": 0.2
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 10
+      },
+      "human_handoff": {
+        "triggers": [
+          "stale_data",
+          "conflicting_sources",
+          "thin_coverage"
+        ],
+        "destination": "sales_rep"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "sources",
+          "citations"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Includes a stale or wrong fact in the account brief that a rep acts on.",
+      "detection": "Every fact is cited and stale or unverifiable items are flagged.",
+      "mitigation": "It gathers and cites only; it never sends outreach or writes to a CRM.",
+      "recovery": "The rep verifies before acting and discards the bad item."
+    },
+    {
+      "mode": "Fabricates a contact or buying signal.",
+      "detection": "Uncited facts are withheld rather than asserted.",
+      "mitigation": "It never invents contacts or signals.",
+      "recovery": "The rep confirms against the source."
+    },
+    {
+      "mode": "Surfaces a contact whose details have changed (wrong role or company).",
+      "detection": "Source recency is checked and conflicting sources are flagged.",
+      "mitigation": "It flags thin or conflicting data instead of asserting it.",
+      "recovery": "The rep re-verifies the contact."
+    }
+  ],
+  "evaluation": {
+    "primary": "Factual accuracy with citations is primary — a stale or fabricated account fact that a rep acts on is the failure.",
+    "metrics": [
+      {
+        "name": "Fact accuracy",
+        "description": "Share of brief facts that are correct and current versus verified sources."
+      },
+      {
+        "name": "Citation rate",
+        "description": "Share of facts that cite a source, with uncited facts withheld."
+      },
+      {
+        "name": "Fabrication rate",
+        "description": "Frequency of invented contacts or buying signals — should be near zero."
+      },
+      {
+        "name": "Recency handling",
+        "description": "Share of changed details (role, company) correctly flagged rather than asserted stale."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to compile an account brief."
+      }
+    ],
+    "approach": "Use accounts with verified reference facts; measure accuracy and citation rate and audit for fabrication. Include contacts with changed details to test recency flagging. It never sends outreach or writes to a CRM."
+  }
+}

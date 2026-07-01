@@ -1,0 +1,54 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "action-item-tracker-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Extraction",
+  "worst_case_action": "Records a wrong action item for owner correction. Cannot assign, notify, or close; never invents owners.",
+  "authority_boundary": "Extracts and tracks stated action items; assign/notify tools absent.",
+  "tags": [
+    "meeting-intelligence",
+    "action-items",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "extract_items",
+      "track_status",
+      "flag_ambiguous_owner"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "assign_task",
+      "notify",
+      "close_task"
+    ],
+    "never_fabricates": true
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.18,
+    "alert_threshold_usd": 0.12
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 6
+  },
+  "human_handoff": {
+    "triggers": [
+      "unclear_ownership",
+      "ambiguous_status"
+    ],
+    "destination": "item_owner"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "items",
+      "status"
+    ]
+  }
+}

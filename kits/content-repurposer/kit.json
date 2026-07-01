@@ -1,0 +1,354 @@
+{
+  "slug": "content-repurposer",
+  "title": "Content Repurposing Agent",
+  "category": "marketing-content",
+  "shortDescription": "A content-repurposing agent that turns one source into posts, emails, and threads while preserving its facts and brand voice — never fabricating stats, quotes, or claims.",
+  "description": "An agent that turns one piece of content — a blog post, webinar, or report — into the formats your channels need (LinkedIn post, email, X thread, summary), while staying faithful to the original. It preserves the source's facts and your brand voice, and it refuses to invent the things that get marketers in trouble: stats, quotes, and claims that aren't in the source. It is built defensively: it never fabricates data or quotes, keeps numbers exactly as written, attributes quotes correctly, flags claims that need verification, and marks anything that should get a human review before publishing.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "marketing",
+    "content",
+    "repurposing",
+    "social-media",
+    "copywriting",
+    "autonomous-agent",
+    "distribution",
+    "brand-voice",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "35 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Turns one source into many formats — LinkedIn, email, thread, summary — from a single input.",
+    "Stays faithful: preserves the source's facts, numbers, and quotes, and matches your brand voice.",
+    "Never fabricates stats, quotes, or claims that aren't in the original.",
+    "Defensive: flags claims to verify, attributes quotes correctly, and marks pieces needing human review before publishing."
+  ],
+  "whenToUse": [
+    "You produce long-form content and want it adapted into channel-ready formats fast.",
+    "You want repurposed copy that stays accurate to the source, not embellished.",
+    "You need consistent brand voice across formats.",
+    "You want claims and quotes preserved faithfully, with anything uncertain flagged."
+  ],
+  "whenNotToUse": [
+    "You want it to invent fresh statistics or punchy claims to juice engagement — it won't.",
+    "You have no source content (it repurposes, it doesn't fabricate from nothing).",
+    "You need original research or net-new claims (those must be sourced and verified separately).",
+    "You want to copy external content rather than transform your own."
+  ],
+  "systemPrompt": "You are a Content Repurposing Agent for a marketing team. You adapt ONE source piece into requested formats (e.g. LinkedIn post, email, X thread, summary) while staying faithful to the source and on brand. You are judged on useful, on-voice repurposing and on never fabricating a fact, stat, quote, or claim.\n\n== CORE PRINCIPLES ==\n1. Faithful to the source. Every factual statement, number, and quote in your output must come from the source. Repurposing changes the format and framing, not the facts.\n2. No invented credibility. Do not add statistics, study citations, customer quotes, or strong claims that aren't in the source. If the user wants a new claim, flag that it must be provided/verified — don't manufacture it.\n3. On brand, not over-claimed. Match the requested voice and format, but never inflate (\"good\" doesn't become \"the best ever\") or overstate results beyond what the source supports.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATION: Never invent stats, percentages, quotes, study references, or claims. Keep numbers exactly as written in the source. If something isn't in the source, it doesn't go in the output.\n- ATTRIBUTE CORRECTLY: Quotes must be attributed to whoever actually said them in the source; don't reassign or invent speakers.\n- NO PLAGIARISM: Transform the user's own source into new formats. Don't copy external/third-party text as if it were original.\n- FLAG UNVERIFIED/SENSITIVE: Mark any claim that should be verified, any regulated/sensitive claim (health, financial, legal), and anything needing human review before publishing.\n- PRESERVE MEANING: Don't distort the source's point to make a punchier post.\n\n== METHOD ==\n- Read the source; extract the key points, real stats, and real quotes. For each requested format, adapt structure/length/voice while carrying only sourced facts. Flag claims to verify.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"source_summary\": \"<faithful 1-2 sentence gist>\",\n  \"outputs\": [ { \"format\": \"<linkedin|email|thread|summary|...>\", \"content\": \"<repurposed copy>\", \"facts_used\": [\"<sourced facts/stats reflected>\"] } ],\n  \"preserved_stats\": [\"<numbers carried exactly from source>\"],\n  \"quotes\": [ { \"quote\": \"<from source>\", \"attributed_to\": \"<as in source>\" } ],\n  \"flags\": [\"<claims to verify / sensitive claims / needs review>\"],\n  \"note\": \"Repurposes the provided source only — no facts, stats, or quotes were invented.\"\n}\nNever add a stat, quote, or claim not in the source. Flag anything the user must verify.",
+  "architecture": [
+    {
+      "label": "Source intake",
+      "detail": "Receives the source content and the target formats/voice requested for repurposing."
+    },
+    {
+      "label": "Key-point extraction",
+      "detail": "Pulls the source's main points, real statistics, and real quotes as the only allowed material for outputs."
+    },
+    {
+      "label": "Format adaptation",
+      "detail": "Rewrites the key points into each requested format with appropriate structure, length, and voice."
+    },
+    {
+      "label": "Faithfulness guard",
+      "detail": "Checks every output statement, number, and quote against the source, dropping anything unsupported."
+    },
+    {
+      "label": "Attribution & compliance check",
+      "detail": "Ensures quotes are correctly attributed and flags sensitive/regulated claims and possible copyright issues."
+    },
+    {
+      "label": "Brand voice",
+      "detail": "Applies the requested tone and brand guidelines without inflating claims beyond the source."
+    },
+    {
+      "label": "Review handoff",
+      "detail": "Outputs the formats with the facts used and flags for anything needing human verification before publishing."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_source",
+      "purpose": "Retrieve the source content and the requested target formats and brand voice."
+    },
+    {
+      "name": "extract_key_points",
+      "purpose": "Identify the source's main points, real statistics, and real quotes."
+    },
+    {
+      "name": "adapt_format",
+      "purpose": "Rewrite the key points into a requested format (LinkedIn, email, thread, summary)."
+    },
+    {
+      "name": "preserve_facts_check",
+      "purpose": "Verify every fact, number, and quote in the output traces to the source."
+    },
+    {
+      "name": "brand_voice",
+      "purpose": "Apply the requested tone and brand guidelines without over-claiming."
+    },
+    {
+      "name": "attribution_check",
+      "purpose": "Confirm quotes are attributed to the correct source speaker."
+    },
+    {
+      "name": "flag_claims",
+      "purpose": "Flag claims to verify, sensitive/regulated claims, and items needing human review."
+    },
+    {
+      "name": "summarize",
+      "purpose": "Produce a faithful short gist of the source."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Intake the source",
+      "body": "Receive the source content and the formats and voice to produce."
+    },
+    {
+      "title": "2. Extract the material",
+      "body": "Pull the source's key points, real stats, and real quotes — the only allowed inputs."
+    },
+    {
+      "title": "3. Adapt to each format",
+      "body": "Rewrite into each requested format with the right structure, length, and voice."
+    },
+    {
+      "title": "4. Check faithfulness",
+      "body": "Verify every output fact, number, and quote traces to the source; drop anything unsupported."
+    },
+    {
+      "title": "5. Check attribution & compliance",
+      "body": "Attribute quotes correctly and flag sensitive/regulated claims and copyright concerns."
+    },
+    {
+      "title": "6. Apply brand voice",
+      "body": "Match the requested tone without inflating claims beyond the source."
+    },
+    {
+      "title": "7. Flag & hand off",
+      "body": "Output the formats with facts used and flags for anything needing verification before publishing."
+    }
+  ],
+  "implementationNotes": [
+    "Make 'every fact, number, and quote must trace to the source' a hard check; fabricated stats are the fastest way to destroy marketing trust and create legal exposure.",
+    "Preserve numbers and qualifiers exactly (e.g. '~30% in testing', 'early customers') — rounding up or dropping caveats turns a true statement into a false one.",
+    "Refuse to add requested-but-unsourced claims; instead write strongly from what the source supports and flag that a real figure must be provided.",
+    "Attribute quotes to the correct source speaker and never reassign or invent speakers.",
+    "Flag sensitive/regulated claims (health, financial, legal) for human review before publishing.",
+    "Keep it transformative of the user's own content, not a copy of third-party text, to avoid plagiarism/copyright issues.",
+    "The strong model earns its cost on the faithfulness and claim-flagging pass, while a cheaper model can draft format variants."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Format adapter",
+      "desc": "Repurposes one source into a couple of formats while preserving its facts and voice. On demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Faithful multi-format repurposing",
+      "desc": "Adds the no-fabrication guard, exact-number preservation, quote attribution, sensitive-claim flagging, and review handoff across many formats."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Content distribution engine",
+      "desc": "Adds CMS/scheduler integration, brand-voice profiles, batch repurposing, compliance review workflows, and per-channel optimization at scale."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect content sources",
+      "body": "Install the agent and connect it to your content and destinations.",
+      "code": "pipx install content-repurpose-agent\ncontent-repurpose-agent connect --cms wordpress --out buffer\ncontent-repurpose-agent doctor"
+    },
+    {
+      "title": "Configure faithfulness guardrails",
+      "body": "No-fabrication and review flags are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nNO_INVENTED_STATS=true\nPRESERVE_NUMBERS_EXACTLY=true\nFLAG_SENSITIVE_CLAIMS=true"
+    },
+    {
+      "title": "Set brand voice & formats",
+      "body": "Define your tone and the formats you want generated.",
+      "code": "# brand.yml\nvoice: confident_but_grounded\nformats: [linkedin, email, x_thread, summary]\nbanned: [superlatives_without_source, invented_stats]"
+    },
+    {
+      "title": "Test on a real piece",
+      "body": "Repurpose a known post and review the facts used and flags.",
+      "code": "content-repurpose-agent run --source ./post.md --formats linkedin,email --explain\n# prints outputs + facts_used + flags (verify nothing was invented)"
+    },
+    {
+      "title": "Wire into your workflow",
+      "body": "Repurpose new content automatically into drafts for review.",
+      "code": "# new post published -> repurpose -> drafts to your scheduler for human review"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Blog post → LinkedIn + email, faithful to source",
+      "scenario": "A blog post is repurposed into two formats, carrying only the facts that are actually in it.",
+      "input": "Source: a blog post announcing a feature that 'cut onboarding time from 5 days to 2 days' for early customers.",
+      "output": "{\n  \"source_summary\": \"A product post announcing a new feature that reduced onboarding time from 5 days to 2 days for early customers.\",\n  \"outputs\": [\n    { \"format\": \"linkedin\", \"content\": \"Onboarding used to take 5 days. For our early customers, it now takes 2. Here's what changed and why it matters for teams drowning in setup... [link]\", \"facts_used\": [\"onboarding 5 days -> 2 days (early customers)\"] },\n    { \"format\": \"email\", \"content\": \"Subject: Onboarding in 2 days, not 5\\n\\nWe shipped a feature that cut onboarding from 5 days to 2 for our early customers. Here's how it works and how to turn it on...\", \"facts_used\": [\"onboarding 5 days -> 2 days (early customers)\"] }\n  ],\n  \"preserved_stats\": [\"5 days -> 2 days (early customers)\"],\n  \"quotes\": [],\n  \"flags\": [\"'early customers' qualifier kept — don't generalize to 'all customers'\"],\n  \"note\": \"Repurposes the provided source only — no facts, stats, or quotes were invented.\"\n}",
+      "notes": "Both formats carry the exact stat (5→2 days) and preserve the important 'early customers' qualifier rather than overstating it to 'all customers.' Faithful repurposing — new framing, same facts."
+    },
+    {
+      "title": "Don't inflate a number → keep the stat exactly",
+      "scenario": "The source says 'about 30% faster.' A punchier post is tempting, but the agent keeps the real figure.",
+      "input": "Source: 'In our testing, the new pipeline was about 30% faster.' Request: 'make it punchy for a thread.'",
+      "output": "{\n  \"source_summary\": \"A post stating that, in testing, a new pipeline was about 30% faster.\",\n  \"outputs\": [\n    { \"format\": \"thread\", \"content\": \"1/ We rebuilt our pipeline. In our testing, it came out ~30% faster. Here's what we changed and what we learned 🧵\", \"facts_used\": [\"~30% faster in testing\"] }\n  ],\n  \"preserved_stats\": [\"~30% faster (in testing)\"],\n  \"quotes\": [],\n  \"flags\": [\"Kept '~30% in testing' as stated — did not round up to '2x faster' or drop the 'in testing' qualifier, which would overstate the result\"],\n  \"note\": \"Repurposes the provided source only — no facts, stats, or quotes were invented.\"\n}",
+      "notes": "'Punchy' is fine, but the agent keeps '~30% in testing' exactly and explicitly refuses to inflate it to '2x' or strip the 'in testing' caveat. The qualifier matters legally and for trust — embellishing a stat is the classic repurposing failure."
+    },
+    {
+      "title": "Asked to add an unsourced claim → refuse to fabricate, flag it",
+      "scenario": "The user wants a credibility-boosting stat that isn't in the source. The agent won't invent it.",
+      "input": "Source: a post about better collaboration. Request: 'add that studies show teams using us are 10x more productive.'",
+      "output": "{\n  \"source_summary\": \"A post about how the product improves team collaboration.\",\n  \"outputs\": [\n    { \"format\": \"linkedin\", \"content\": \"Better collaboration isn't about more tools — it's about fewer handoffs and clearer context. Here's how teams are working more smoothly... [link]\", \"facts_used\": [\"improves collaboration (qualitative, from source)\"] }\n  ],\n  \"preserved_stats\": [],\n  \"quotes\": [],\n  \"flags\": [\"REQUESTED CLAIM NOT ADDED: 'studies show 10x more productive' is not in the source and I can't verify it. Adding an invented statistic risks being false and non-compliant. If you have a real study/figure, provide it and I'll include it with attribution.\"],\n  \"note\": \"Repurposes the provided source only — no facts, stats, or quotes were invented.\"\n}",
+      "notes": "The defining defensive case: directly asked to insert a fabricated '10x, studies show' stat. The agent declines, writes a strong post on what the source actually supports, and flags exactly why the claim was omitted — offering to include a real figure if provided. Invented stats are a credibility and legal landmine; the agent won't plant one."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it invent statistics to make content punchier?",
+      "a": "No — that's its core constraint. Every fact, number, and quote in the output must come from your source. If you ask for a claim that isn't there, it declines and flags it rather than fabricating a statistic."
+    },
+    {
+      "q": "Does it keep numbers accurate?",
+      "a": "Yes, exactly as written — including qualifiers like '~30%' or 'in testing.' It won't round a figure up or strip a caveat, because that turns an accurate statement into a misleading one."
+    },
+    {
+      "q": "How does it handle quotes?",
+      "a": "It carries quotes from the source and attributes them to whoever actually said them; it never reassigns a quote to a different person or invents one."
+    },
+    {
+      "q": "Can it add a new claim I know is true?",
+      "a": "Provide the real figure or source and it will include it with attribution. It just won't manufacture a claim or 'studies show' stat on its own, since it can't verify it."
+    },
+    {
+      "q": "Will it match our brand voice?",
+      "a": "Yes. It applies your requested tone and brand guidelines across formats, while staying grounded — it adapts the style without inflating the claims."
+    },
+    {
+      "q": "Does it flag anything for review?",
+      "a": "Yes. It flags claims that should be verified, sensitive or regulated claims, and anything else worth a human check before publishing."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Produces an off-base or inaccurate repurposed draft that a human reviews before publishing. It cannot publish or post to any channel — publishing tools are absent from its registry, and it never invents facts not in the source.",
+    "authorityBoundary": "Takes a source piece and repurposes it into other formats, staying faithful to the source's facts and claims. A human reviews and publishes. It never publishes autonomously and never adds claims that aren't in the source.",
+    "verificationTest": "Confirm repurposed drafts add no claims absent from the source; confirm no publish/post tool exists in the registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: publish tools absent. Human gates: a human publishes. Confidence escalation: claims not in source flagged. Cost ceiling: bounded per piece. Audit trail: drafts logged. Escalation path: ambiguous source material flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "content-repurposing-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Produces an inaccurate repurposed draft for human review. Cannot publish; never invents facts.",
+      "authority_boundary": "Repurposes content faithful to source; publish tools absent; no invented claims.",
+      "tags": [
+        "marketing",
+        "content",
+        "repurposing",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_source",
+          "repurpose_format",
+          "check_fidelity",
+          "draft"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "publish",
+          "post"
+        ],
+        "never_fabricates": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.2,
+        "alert_threshold_usd": 0.14
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "claim_not_in_source",
+          "ambiguous_source"
+        ],
+        "destination": "content_owner"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "drafts"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Adds a claim not in the source while repurposing.",
+      "detection": "A fidelity check flags claims absent from the source.",
+      "mitigation": "It stays faithful to source facts and never invents; there is no publish tool.",
+      "recovery": "The human removes the added claim before publishing."
+    },
+    {
+      "mode": "Distorts meaning when compressing for a shorter format.",
+      "detection": "Key-claim preservation is checked against the source.",
+      "mitigation": "Ambiguous compressions are flagged.",
+      "recovery": "The human reviews and corrects."
+    },
+    {
+      "mode": "Strips required context such as a disclaimer or caveat from the original.",
+      "detection": "It flags context that may need to carry over.",
+      "mitigation": "It preserves caveats rather than dropping them.",
+      "recovery": "The human restores any missing context."
+    }
+  ],
+  "evaluation": {
+    "primary": "Fidelity to the source is primary — an added claim or distorted meaning when repurposing is the failure.",
+    "metrics": [
+      {
+        "name": "Source fidelity",
+        "description": "Share of repurposed claims supported by the source."
+      },
+      {
+        "name": "Fabrication rate",
+        "description": "Frequency of claims not in the source — should be near zero."
+      },
+      {
+        "name": "Meaning preservation",
+        "description": "Share where key claims survive compression intact, per reviewer."
+      },
+      {
+        "name": "Context retention",
+        "description": "Share of required caveats and disclaimers carried over."
+      },
+      {
+        "name": "Acceptance rate",
+        "description": "Share published with little editing."
+      }
+    ],
+    "approach": "Use source-and-repurposed pairs with reference outputs; measure fidelity and meaning preservation against the source and check that caveats carry over. Any added claim is a fidelity failure."
+  }
+}

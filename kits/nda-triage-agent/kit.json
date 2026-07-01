@@ -1,0 +1,356 @@
+{
+  "slug": "nda-triage-agent",
+  "title": "NDA Triage Agent",
+  "category": "legal-contracts",
+  "shortDescription": "An NDA triage agent that extracts key terms, flags non-standard and risky clauses against your playbook, and recommends lawyer review without giving legal sign-off.",
+  "description": "An agent that triages non-disclosure agreements so the right ones reach a lawyer faster: it identifies the NDA type, extracts the key terms, and flags non-standard or risky clauses against your playbook, with a recommended review level. It assists; it does not give legal sign-off. It is built defensively: it never tells you something is safe to sign, it flags rather than approves, it cites the specific clause behind every flag, it never fabricates terms that aren't in the document, and it routes risky or unusual agreements to a lawyer.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "legal",
+    "contracts",
+    "nda",
+    "contract-review",
+    "legal-ops",
+    "autonomous-agent",
+    "triage",
+    "risk",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "40 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Identifies the NDA type and extracts the key terms (term, confidentiality scope, carve-outs, governing law).",
+    "Flags non-standard or risky clauses against your playbook, each tied to the clause text.",
+    "Recommends a review level and routes risky or unusual NDAs to a lawyer.",
+    "Defensive: never gives legal sign-off, flags rather than approves, and never fabricates terms."
+  ],
+  "whenToUse": [
+    "You process many NDAs and want them triaged before legal review.",
+    "You have a playbook of standard terms to compare against.",
+    "You want risky clauses flagged with the clause text and a review recommendation.",
+    "You want faster routing to a lawyer, not an automated approval."
+  ],
+  "whenNotToUse": [
+    "You want it to approve NDAs or say they're safe to sign — it won't.",
+    "You expect legal advice rather than triage and flagging.",
+    "You have no playbook or standards to compare against.",
+    "You can't route flagged agreements to a lawyer."
+  ],
+  "systemPrompt": "You are an NDA Triage Agent for a legal/legal-ops team. You triage NDAs: identify type, extract key terms, and flag non-standard or risky clauses against a playbook. You assist review; you do NOT give legal advice or sign-off. You are judged on accurate, well-cited triage and on never approving an NDA, declaring it safe to sign, or fabricating terms.\n\n== CORE PRINCIPLES ==\n1. Triage, don't approve. You summarize and flag for a human reviewer. You never say an NDA is \"safe to sign,\" \"fine,\" or \"approved.\" Those are legal judgments for a qualified person.\n2. Cite every flag. Each issue references the specific clause/section it comes from. No clause = no claim about it.\n3. Compare to the playbook. Flag deviations from standard terms (term length, confidentiality scope, carve-outs, governing law, non-solicit, assignment, etc.) and rate review urgency. Don't fabricate or assume terms not present.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NOT LEGAL ADVICE: You are not a lawyer and don't provide legal advice or sign-off. Never tell the user it's safe to sign or approve.\n- FLAG, DON'T APPROVE: Output flags and a recommended review level. Risky/unusual = route to a lawyer.\n- CITE THE CLAUSE: Every flag points to the specific clause text/section. Never assert a term that isn't in the document.\n- NO FABRICATION: Don't invent clauses, protections, or terms. If a standard protection is missing, flag the absence; don't pretend it's there.\n- ESCALATE RISK: Perpetual terms, overly broad confidentiality, IP assignment, non-competes, indemnification, or anything unusual -> flag high and route to legal.\n\n== METHOD ==\n- Identify type (mutual/one-way). Extract key terms with citations. Compare each to the playbook, flag deviations and missing protections, rate risk, and recommend a review level. Route risky ones to a lawyer.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"nda_type\": \"mutual|one_way|unclear\",\n  \"key_terms\": [ { \"term\": \"<e.g. term length>\", \"value\": \"<as written>\", \"clause\": \"<section ref>\" } ],\n  \"playbook_deviations\": [ { \"issue\": \"<what>\", \"clause\": \"<section ref + brief quote>\", \"risk\": \"high|medium|low\", \"why\": \"<plain explanation>\" } ],\n  \"missing_protections\": [\"<standard terms absent, flagged>\"],\n  \"recommended_review\": \"standard|elevated|lawyer_required\",\n  \"decision\": \"ROUTE_REVIEW|ROUTE_LAWYER\",\n  \"disclaimer\": \"Triage only — not legal advice and not an approval. A qualified lawyer must review before signing.\"\n}\nNever say it's safe to sign. Never fabricate terms. Cite every flag.",
+  "architecture": [
+    {
+      "label": "NDA intake",
+      "detail": "Receives the NDA document for triage."
+    },
+    {
+      "label": "Type classifier",
+      "detail": "Determines whether the NDA is mutual, one-way, or unclear."
+    },
+    {
+      "label": "Term extractor",
+      "detail": "Extracts key terms (duration, confidentiality scope, carve-outs, governing law) with clause citations."
+    },
+    {
+      "label": "Playbook comparator",
+      "detail": "Compares each term to the organization's standard playbook to find deviations."
+    },
+    {
+      "label": "Risk & deviation flagger",
+      "detail": "Flags non-standard or risky clauses and missing standard protections, each tied to the clause."
+    },
+    {
+      "label": "No-sign-off guard",
+      "detail": "Blocks any 'safe to sign' or approval language; output is triage and flags only."
+    },
+    {
+      "label": "Review routing",
+      "detail": "Recommends a review level and routes risky or unusual NDAs to a lawyer with citations."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_nda",
+      "purpose": "Retrieve the NDA document to triage."
+    },
+    {
+      "name": "classify_type",
+      "purpose": "Determine whether the NDA is mutual, one-way, or unclear."
+    },
+    {
+      "name": "extract_terms",
+      "purpose": "Extract key terms with their clause citations."
+    },
+    {
+      "name": "compare_playbook",
+      "purpose": "Compare terms against the organization's standard playbook."
+    },
+    {
+      "name": "flag_deviations",
+      "purpose": "Flag non-standard or risky clauses and missing protections with citations."
+    },
+    {
+      "name": "risk_level",
+      "purpose": "Rate the risk and recommend a review level."
+    },
+    {
+      "name": "cite_clause",
+      "purpose": "Attach the specific clause/section reference to each flag."
+    },
+    {
+      "name": "route_legal",
+      "purpose": "Route risky or unusual NDAs to a lawyer with the flagged context."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the NDA",
+      "body": "Receive the document for triage."
+    },
+    {
+      "title": "2. Identify the type",
+      "body": "Determine mutual, one-way, or unclear."
+    },
+    {
+      "title": "3. Extract key terms",
+      "body": "Pull duration, confidentiality scope, carve-outs, and governing law with citations."
+    },
+    {
+      "title": "4. Compare to playbook",
+      "body": "Check each term against your standard positions."
+    },
+    {
+      "title": "5. Flag deviations & gaps",
+      "body": "Flag risky clauses and missing protections, each tied to the clause."
+    },
+    {
+      "title": "6. Rate & route",
+      "body": "Rate risk, recommend a review level, and route risky NDAs to a lawyer."
+    },
+    {
+      "title": "7. Add the disclaimer",
+      "body": "Make clear it's triage, not legal advice or approval."
+    }
+  ],
+  "implementationNotes": [
+    "Never let the agent approve an NDA or call it 'safe to sign'; it triages and flags, and legal judgment stays with a qualified lawyer.",
+    "Cite the specific clause for every flag and key term; an uncited claim about a contract is unverifiable and untrustworthy.",
+    "Compare against a real playbook and flag both risky deviations and missing standard protections, rather than assuming terms are present.",
+    "Never fabricate clauses or terms; if a protection is absent, flag the absence instead of implying it exists.",
+    "Escalate high-risk patterns (perpetual terms, IP assignment, non-competes, indemnification, overly broad confidentiality) to a lawyer.",
+    "Keep the disclaimer attached: triage is decision support for legal review, not legal advice.",
+    "A cheaper model is usually enough to extract standard terms, so keep the strong model for deviation detection and risk explanation."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "NDA summarizer",
+      "desc": "Identifies NDA type and extracts key terms with clause citations for a reviewer. Triage only."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Playbook-based triage",
+      "desc": "Adds playbook comparison, risky-clause and missing-protection flagging with citations, risk rating, and lawyer routing."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Contract triage pipeline",
+      "desc": "Adds CLM integration, configurable playbooks, batch triage, review-level routing, and audit trails for legal ops at scale."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect",
+      "body": "Install the agent and connect your contract source.",
+      "code": "pipx install nda-triage-agent\nnda-triage-agent connect --source contracts-inbox\nnda-triage-agent doctor"
+    },
+    {
+      "title": "Configure guardrails",
+      "body": "No sign-off and cite-every-flag are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nNO_LEGAL_SIGNOFF=true\nCITE_EVERY_FLAG=true\nESCALATE_RISKY_TO_LAWYER=true"
+    },
+    {
+      "title": "Load your playbook",
+      "body": "Define your standard positions to compare against.",
+      "code": "# playbook.yml\nstandard: { term_years: '2-3', mutual: preferred, governing_law: [DE, NY] }\nrisky: [perpetual_term, ip_assignment, non_compete, broad_confidentiality, indemnification]"
+    },
+    {
+      "title": "Triage a document",
+      "body": "Run triage and review flags and citations.",
+      "code": "nda-triage-agent run --doc ./nda.pdf --explain\n# prints key terms + playbook deviations (with clause refs) + review level"
+    },
+    {
+      "title": "Wire into intake",
+      "body": "Triage incoming NDAs and route by review level.",
+      "code": "# NDA received -> triage -> standard to ops; elevated/lawyer_required -> legal queue"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Standard mutual NDA → key terms summary, routine review",
+      "scenario": "A clean mutual NDA that matches the playbook. The agent summarizes terms and recommends standard review.",
+      "input": "Mutual NDA: 2-year term, standard confidentiality definition with usual carve-outs, Delaware governing law.",
+      "output": "{\n  \"nda_type\": \"mutual\",\n  \"key_terms\": [\n    { \"term\": \"Term length\", \"value\": \"2 years\", \"clause\": \"§5 Term\" },\n    { \"term\": \"Confidentiality scope\", \"value\": \"Standard definition with carve-outs (public info, independently developed, lawfully received)\", \"clause\": \"§1-2\" },\n    { \"term\": \"Governing law\", \"value\": \"Delaware\", \"clause\": \"§9\" }\n  ],\n  \"playbook_deviations\": [],\n  \"missing_protections\": [],\n  \"recommended_review\": \"standard\",\n  \"decision\": \"ROUTE_REVIEW\",\n  \"disclaimer\": \"Triage only — not legal advice and not an approval. A qualified lawyer must review before signing.\"\n}",
+      "notes": "Terms are extracted with clause citations and match the playbook, so the agent recommends standard review. Note it still says a lawyer must review — it summarizes, it does not approve."
+    },
+    {
+      "title": "Risky clause → flag with the clause text, route to a lawyer",
+      "scenario": "The NDA hides a perpetual term and an IP assignment. The agent flags both with citations and escalates.",
+      "input": "NDA contains a perpetual confidentiality term and a clause assigning any jointly developed IP to the other party.",
+      "output": "{\n  \"nda_type\": \"one_way\",\n  \"key_terms\": [\n    { \"term\": \"Term length\", \"value\": \"Perpetual (no expiry)\", \"clause\": \"§5: 'obligations shall survive in perpetuity'\" },\n    { \"term\": \"IP assignment\", \"value\": \"Jointly developed IP assigned to Disclosing Party\", \"clause\": \"§7: 'all work product... assigned to Discloser'\" }\n  ],\n  \"playbook_deviations\": [\n    { \"issue\": \"Perpetual confidentiality term\", \"clause\": \"§5 'in perpetuity'\", \"risk\": \"high\", \"why\": \"Playbook standard is 2-3 years; a perpetual obligation is a significant, open-ended commitment.\" },\n    { \"issue\": \"IP assignment inside an NDA\", \"clause\": \"§7 'assigned to Discloser'\", \"risk\": \"high\", \"why\": \"Assigning IP is well beyond confidentiality and is unusual/risky in an NDA.\" }\n  ],\n  \"missing_protections\": [\"No mutual obligation — one-way only, against playbook preference\"],\n  \"recommended_review\": \"lawyer_required\",\n  \"decision\": \"ROUTE_LAWYER\",\n  \"disclaimer\": \"Triage only — not legal advice and not an approval. A qualified lawyer must review before signing.\"\n}",
+      "notes": "Both serious issues are flagged high-risk with the exact clause language quoted, and the agent routes to a lawyer. It explains in plain terms why each is risky without rendering a legal verdict — it surfaces, the lawyer decides."
+    },
+    {
+      "title": "Asked 'is it safe to sign?' → refuse sign-off, deliver triage",
+      "scenario": "The request wants an approval. The agent declines to give legal sign-off and provides the triage instead.",
+      "input": "Request: 'Just tell me this NDA is fine and I'll sign it now.'",
+      "output": "{\n  \"nda_type\": \"mutual\",\n  \"key_terms\": [\n    { \"term\": \"Term length\", \"value\": \"3 years\", \"clause\": \"§5\" },\n    { \"term\": \"Non-solicit\", \"value\": \"12-month non-solicit of employees\", \"clause\": \"§8\" }\n  ],\n  \"playbook_deviations\": [\n    { \"issue\": \"Non-solicit clause present\", \"clause\": \"§8\", \"risk\": \"medium\", \"why\": \"A 12-month non-solicit is a real obligation beyond pure confidentiality; worth a reviewer's attention.\" }\n  ],\n  \"missing_protections\": [],\n  \"recommended_review\": \"elevated\",\n  \"decision\": \"ROUTE_REVIEW\",\n  \"disclaimer\": \"I can't tell you it's safe to sign — that's a legal judgment I'm not able to make, and I'm not a lawyer. I've triaged it: the key terms and a non-solicit clause to be aware of are flagged for review. Please have a qualified lawyer review before signing, especially the flagged clause.\"\n}",
+      "notes": "The defining defensive case: directly asked to bless the document for signing. The agent refuses to give legal sign-off, makes clear it isn't a lawyer, and instead delivers useful triage with a flagged clause and a recommendation to have a lawyer review. It never says 'it's fine, go ahead.'"
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it tell me an NDA is safe to sign?",
+      "a": "No. It triages and flags for review, but it never says an NDA is safe to sign, fine, or approved. Those are legal judgments for a qualified lawyer — the agent is decision support, not legal advice."
+    },
+    {
+      "q": "How does it flag risky clauses?",
+      "a": "It compares the NDA to your playbook and flags non-standard or risky clauses — like perpetual terms, IP assignment, or non-competes — each tied to the specific clause text, with a plain-language explanation of why it's worth attention."
+    },
+    {
+      "q": "Does it cite where issues come from?",
+      "a": "Yes. Every key term and every flag references the specific clause or section it comes from. It won't make a claim about a term that isn't actually in the document."
+    },
+    {
+      "q": "Can it miss a missing protection?",
+      "a": "It's designed to flag absences too — if a standard protection your playbook expects isn't present, it flags the gap rather than assuming it's there."
+    },
+    {
+      "q": "What happens with a risky NDA?",
+      "a": "It rates the risk, recommends a lawyer-required review, and routes the agreement to legal with the flagged clauses, so the ones that need a lawyer reach one faster."
+    },
+    {
+      "q": "Does it replace legal review?",
+      "a": "No. It speeds up triage and routing, but a qualified lawyer reviews before signing. The disclaimer is attached to every output for exactly that reason."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Evaluation (Research → Evaluate)",
+    "worstCaseAction": "Misflags an NDA clause or misjudges standardness, surfaced for human review. It cannot sign, approve, or send an NDA — execution tools are absent from its registry.",
+    "authorityBoundary": "Reviews an NDA, flags non-standard clauses against your playbook, and recommends standard language for review. It never signs, approves, or sends. A reviewer decides.",
+    "verificationTest": "Attempt to call a sign, approve, or send tool → confirm it is absent from the agent's registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: signing/sending tools absent. Human gates: a reviewer decides. Confidence escalation: unusual clauses flagged. Cost ceiling: bounded. Audit trail: flags and playbook refs logged. Escalation path: non-standard NDAs routed to counsel.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "nda-triage-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Evaluation",
+      "worst_case_action": "Misflags an NDA clause for human review. Cannot sign, approve, or send NDAs.",
+      "authority_boundary": "Reviews NDAs against a playbook and flags issues; signing/sending tools absent.",
+      "tags": [
+        "legal",
+        "nda",
+        "contract-review",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_nda",
+          "compare_playbook",
+          "flag_nonstandard",
+          "suggest_standard"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "nda_sign",
+          "nda_approve",
+          "nda_send"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.25,
+        "alert_threshold_usd": 0.16
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "non_standard_clause",
+          "missing_clause",
+          "low_confidence"
+        ],
+        "destination": "legal_review_queue"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "flags",
+          "playbook_refs"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Classifies a non-standard NDA as routine, slipping a risky term through.",
+      "detection": "Terms are checked against acceptable positions and deviations are flagged.",
+      "mitigation": "It triages and flags only; legal handles anything non-standard.",
+      "recovery": "Legal reviews the flagged deviations."
+    },
+    {
+      "mode": "Misses a deviation because a clause is phrased unusually.",
+      "detection": "Clause matching carries confidence and low confidence is flagged for legal.",
+      "mitigation": "Positioned as a first-pass sort, not a legal decision.",
+      "recovery": "Legal catches it and the standard set is updated."
+    },
+    {
+      "mode": "Accepts terms on the company's behalf.",
+      "detection": "It has no tool to accept or sign.",
+      "mitigation": "It never accepts terms — routing only.",
+      "recovery": "Structurally prevented; legal owns acceptance."
+    }
+  ],
+  "evaluation": {
+    "primary": "Deviation recall is primary — catching non-standard terms — because a slipped risky term is the expensive error.",
+    "metrics": [
+      {
+        "name": "Deviation recall",
+        "description": "Of clauses deviating from acceptable positions, the share flagged."
+      },
+      {
+        "name": "Precision",
+        "description": "Of clauses flagged, the share that are real deviations — noise resistance."
+      },
+      {
+        "name": "Classification accuracy",
+        "description": "Share of NDAs correctly sorted routine versus non-standard."
+      },
+      {
+        "name": "Coverage",
+        "description": "Share of clauses actually reviewed."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to triage an NDA."
+      }
+    ],
+    "approach": "Build a set of NDAs annotated against acceptable positions, including unusually-phrased deviations; measure deviation recall, precision, and classification accuracy. Verify it never accepts or signs — routing only."
+  }
+}

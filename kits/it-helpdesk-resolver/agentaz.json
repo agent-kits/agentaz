@@ -1,0 +1,55 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "it-helpdesk-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Escalation",
+  "worst_case_action": "Suggests a wrong resolution or misroutes a ticket, reviewed before action. Cannot change systems or reset credentials.",
+  "authority_boundary": "Drafts KB-based resolutions and routes tickets; system-change/credential tools absent.",
+  "tags": [
+    "itsm",
+    "helpdesk",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_ticket",
+      "search_kb",
+      "draft_resolution",
+      "route"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "credential_reset",
+      "config_change",
+      "access_modify"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.2,
+    "alert_threshold_usd": 0.14
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "privileged_request",
+      "risky_change",
+      "unresolved"
+    ],
+    "destination": "it_technician"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "resolution",
+      "routing"
+    ]
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "roi-scenario-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Evaluation",
+  "worst_case_action": "Produces a misleading ROI estimate for human review. Cannot commit budget or approve spend.",
+  "authority_boundary": "Computes ROI estimates from inputs; labels them estimates; commit/approval tools absent.",
+  "tags": [
+    "fintech",
+    "roi",
+    "analysis",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_inputs",
+      "compute_scenarios",
+      "label_estimate",
+      "surface_assumptions"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "commit_budget",
+      "approve_investment"
+    ],
+    "estimates_not_guarantees": true
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.22,
+    "alert_threshold_usd": 0.15
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "missing_input",
+      "high_sensitivity"
+    ],
+    "destination": "finance_reviewer"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "inputs",
+      "assumptions",
+      "scenarios"
+    ]
+  }
+}

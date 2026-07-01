@@ -1,0 +1,56 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "patient-intake-summary-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Synthesis",
+  "worst_case_action": "Produces an inaccurate intake summary for clinician review. Cannot diagnose or write to the EHR.",
+  "authority_boundary": "Summarizes intake info for a clinician; diagnosis/EHR-write tools absent.",
+  "tags": [
+    "healthcare",
+    "intake",
+    "hipaa",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_intake",
+      "summarize",
+      "flag_gaps",
+      "structure_history"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "diagnosis",
+      "treatment_decision",
+      "ehr_write"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.25,
+    "alert_threshold_usd": 0.16
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "missing_info",
+      "conflicting_info",
+      "red_flag_symptom"
+    ],
+    "destination": "clinician"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "summary",
+      "sources"
+    ]
+  }
+}

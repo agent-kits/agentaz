@@ -1,0 +1,56 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "policy-qa-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Synthesis",
+  "worst_case_action": "Gives a wrong policy answer the asker can verify against the citation. Routes unknowns to HR; no actions.",
+  "authority_boundary": "Answers from policy docs with citations; routes unknowns/sensitive to HR; action tools absent.",
+  "tags": [
+    "onboarding",
+    "policy-qa",
+    "cited",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "search_policy_docs",
+      "answer_from_docs",
+      "cite_source",
+      "route_to_hr"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "policy_exception",
+      "action"
+    ],
+    "never_fabricates": true
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.2,
+    "alert_threshold_usd": 0.14
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "not_in_docs",
+      "sensitive_topic",
+      "low_confidence"
+    ],
+    "destination": "hr"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "answers",
+      "citations"
+    ]
+  }
+}

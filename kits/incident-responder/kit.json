@@ -1,0 +1,378 @@
+{
+  "slug": "incident-responder",
+  "title": "AI Incident Response Agent",
+  "category": "devops-sre",
+  "shortDescription": "An on-call SRE agent: correlates alerts with metrics, logs, and recent deploys, proposes safe mitigations, drafts status updates, escalates SEV1 — with approval gates.",
+  "description": "An on-call co-pilot that turns a noisy alert into a structured response. It correlates the alert with metrics, logs, and recent deploys, forms an evidence-backed hypothesis, and proposes mitigations — executing low-risk, reversible ones automatically while gating anything risky behind human approval. It drafts clear status updates, respects blast radius and cost, and escalates and pages on real SEV1s instead of fumbling. Built so the worst case is a fast, well-summarized handoff to a human, never an unsafe automated action.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "incident-response",
+    "sre",
+    "devops",
+    "on-call",
+    "observability",
+    "autonomous-agent",
+    "runbooks",
+    "escalation",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "50 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Alert → correlate → hypothesize → mitigate → communicate: a full first-responder loop grounded in your real telemetry.",
+    "Acts only within its authority: low-risk, reversible steps run automatically; rollbacks, scaling, and anything risky require human approval.",
+    "Evidence-based: every hypothesis cites the metric, log, or deploy that supports it — no guessing at root cause.",
+    "Fails to a human, fast: real SEV1s and ambiguous, high-blast-radius incidents are escalated and paged with a clean summary and a holding status update."
+  ],
+  "whenToUse": [
+    "You run on-call and want faster triage on the flood of alerts, especially the repetitive, well-understood ones.",
+    "You have metrics, logs, and deploy history the agent can correlate to form grounded hypotheses.",
+    "You have runbooks with clearly safe, reversible steps that can be automated under guardrails.",
+    "You want consistent, timely status updates drafted during an incident.",
+    "You want the agent to handle first response and escalate the genuinely serious incidents to humans with context."
+  ],
+  "whenNotToUse": [
+    "You have no observability data for the agent to ground hypotheses in — it would be guessing.",
+    "You expect it to resolve novel SEV1s autonomously; those need experienced humans and the agent should escalate.",
+    "Your mitigations are all high-risk/irreversible with no safe automation surface.",
+    "You are unwilling to put approval gates in front of production-changing actions."
+  ],
+  "systemPrompt": "You are an Autonomous Incident Response Agent acting as a first responder for an on-call SRE team. Your job is to triage one alert/incident: understand it, mitigate what is safe, communicate clearly, and escalate fast when it is serious. You are judged on reducing time-to-mitigate AND on never taking an unsafe action and never hiding a real incident.\n\n== CORE PRINCIPLES ==\n1. Evidence first. Form a hypothesis only from telemetry you have actually queried — metrics, logs, traces, recent deploys/changes. Cite the specific signal. Never assert a cause you cannot show.\n2. Safety over speed. A fast wrong action is worse than a clean escalation. When in doubt, stabilize, communicate, and hand to a human.\n3. Smallest safe action. Prefer the least invasive, most reversible mitigation that addresses the evidence.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- ACTION TIERS: You may AUTONOMOUSLY take only low-risk, reversible, explicitly allow-listed actions (e.g. restart a stateless pod, clear a cache, scale up within a cap, silence a known-false alert). Any rollback, deploy, scale-down, data operation, traffic shift, or config change to production REQUIRES human approval — propose it, do not execute it.\n- NEVER hide severity. Do not downgrade or silence an alert that could be a real incident to make the board look clean. Suppress only alerts you can show are non-actionable, and say why.\n- BLAST RADIUS: Estimate the blast radius before any action. If an action could affect a broad scope or a critical/customer-facing service, it is not autonomous — escalate or seek approval.\n- DON'T BREAK MORE: Do not take actions that could worsen the incident (e.g. mass restarts during a thundering-herd). If unsure of an action's effect, don't take it.\n- COMMUNICATE: Keep humans informed with concise, honest status updates. Never promise a resolution time or root cause you cannot support.\n\n== SEVERITY & DECISION ==\n- Assess severity (SEV1 critical/customer-facing outage or data risk; SEV2 major degradation; SEV3 minor/limited; SEV4 noise).\n- AUTO_MITIGATE: SEV3/known-pattern with an allow-listed, reversible fix and confidence >= 0.8. Execute, verify, communicate.\n- PROPOSE: a non-allow-listed but evidence-backed mitigation (e.g. rollback the suspect deploy). Stage it for one-click human approval with the supporting evidence.\n- ESCALATE + PAGE: SEV1/SEV2, broad blast radius, data-loss/security signals, conflicting or missing evidence, or confidence < 0.6. Page on-call, post a holding update, and hand over a structured summary.\n\n== COST CONTROL ==\nQuery the smallest set of signals that tests your hypothesis; do not pull every dashboard. Stop investigating once you can decide. Cap tool calls; if exceeded, escalate with current evidence. Keep updates short.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"severity\": \"SEV1|SEV2|SEV3|SEV4\",\n  \"confidence\": <0.0-1.0>,\n  \"hypothesis\": \"<likely cause, each claim tied to a cited signal>\",\n  \"evidence\": [\"<metric/log/deploy reference>\"],\n  \"blast_radius\": \"<scope and affected services/users>\",\n  \"decision\": \"AUTO_MITIGATE|PROPOSE|ESCALATE\",\n  \"actions\": [ { \"tool\": \"<tool>\", \"args\": { ... }, \"reversible\": <bool>, \"requires_approval\": <bool> } ],\n  \"status_update\": \"<concise, honest message for the channel>\",\n  \"escalation\": { \"needed\": <bool>, \"page\": <bool>, \"reason\": \"<why>\", \"handoff\": \"<summary + suggested next steps for the human>\" }\n}\nIf decision is ESCALATE, do not execute production-changing actions; post the holding update and hand off.",
+  "architecture": [
+    {
+      "label": "Alert intake & dedup",
+      "detail": "Ingests the alert from the monitoring/paging system, deduplicates against active incidents, and normalizes it with the affected service, signal, and threshold breached."
+    },
+    {
+      "label": "Telemetry correlation",
+      "detail": "Queries metrics, logs/traces, and recent deploys/changes around the alert window to find what changed and when — the raw evidence for any hypothesis."
+    },
+    {
+      "label": "Hypothesis engine",
+      "detail": "The model proposes the most likely cause strictly from queried signals, assigns severity and a blast-radius estimate, and cites the evidence behind each claim."
+    },
+    {
+      "label": "Guarded action layer",
+      "detail": "A deterministic executor classifies each proposed action by risk and reversibility against an allow-list; only low-risk, reversible, allow-listed actions run autonomously, everything else needs approval."
+    },
+    {
+      "label": "Communication layer",
+      "detail": "Drafts and posts concise status updates to the incident channel and stakeholders, honest about what is known and unknown, with no invented ETAs or root causes."
+    },
+    {
+      "label": "Escalation & paging",
+      "detail": "For SEV1/SEV2, broad blast radius, or low confidence, pages on-call and hands over a structured summary with evidence and suggested next steps."
+    },
+    {
+      "label": "Postmortem feed",
+      "detail": "Logs the full timeline — signals, hypothesis, actions, outcomes — to seed the postmortem and to tune which patterns are safe to auto-mitigate."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_alert",
+      "purpose": "Fetch the firing alert with its service, metric, threshold, and timestamps, and check it against currently active incidents."
+    },
+    {
+      "name": "query_metrics",
+      "purpose": "Run time-series queries (latency, error rate, saturation, traffic) around the incident window to quantify impact and find anomalies."
+    },
+    {
+      "name": "search_logs",
+      "purpose": "Search logs and traces for errors, stack traces, and patterns correlated with the alert to support or refute a hypothesis."
+    },
+    {
+      "name": "list_recent_deploys",
+      "purpose": "List recent deploys, feature-flag flips, and config changes near the alert time — the most common incident trigger."
+    },
+    {
+      "name": "run_runbook_step",
+      "purpose": "Execute an allow-listed, reversible runbook action (e.g. restart a stateless service, clear a cache, scale up within a cap)."
+    },
+    {
+      "name": "rollback_deploy",
+      "purpose": "Roll back a suspect deployment. High-risk: always staged for human approval, never executed autonomously."
+    },
+    {
+      "name": "post_status_update",
+      "purpose": "Post a concise status update to the incident channel and stakeholder list with current impact and next steps."
+    },
+    {
+      "name": "page_oncall",
+      "purpose": "Escalate by paging the on-call engineer/secondary with a structured incident summary when severity or uncertainty warrants a human."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Receive and dedup the alert",
+      "body": "Pull the alert, check it against active incidents, and normalize the affected service, signal, and breach. Drop confirmed duplicates into the existing incident."
+    },
+    {
+      "title": "2. Correlate telemetry",
+      "body": "Query the minimal set of metrics, logs, and recent deploys around the alert window needed to test a hypothesis — not every dashboard."
+    },
+    {
+      "title": "3. Hypothesize and score",
+      "body": "Propose the most likely cause from the evidence, assign severity, and estimate blast radius, citing the specific signals behind each claim."
+    },
+    {
+      "title": "4. Decide within authority",
+      "body": "If a known pattern with an allow-listed reversible fix and high confidence, AUTO_MITIGATE. If a riskier but evidence-backed fix, PROPOSE for approval. Otherwise ESCALATE."
+    },
+    {
+      "title": "5. Act through the guard",
+      "body": "The executor runs only low-risk, reversible, allow-listed actions; production-changing actions are staged for one-click human approval with the evidence attached."
+    },
+    {
+      "title": "6. Communicate",
+      "body": "Post an honest, concise status update — impact, what's known, what's next — without inventing ETAs or root causes."
+    },
+    {
+      "title": "7. Escalate or resolve, then record",
+      "body": "Page on-call for SEV1/SEV2 or low confidence with a clean handoff; otherwise verify recovery and log the full timeline for the postmortem."
+    }
+  ],
+  "implementationNotes": [
+    "Define the autonomous action allow-list narrowly: only reversible, low-blast-radius steps. Everything that changes production state should be propose-and-approve, enforced outside the model.",
+    "Never let the agent silence an alert it can't prove is non-actionable. Suppression needs cited evidence and a bounded duration, or it becomes a way to hide real incidents.",
+    "Always require a blast-radius estimate before any action; broad scope or critical/customer-facing services automatically disqualify autonomous action.",
+    "Start in copilot mode (proposes only). Review proposals for a few weeks, then enable responder mode for the allow-listed actions you trust.",
+    "Status updates should state impact and the next update time, never an invented ETA or unconfirmed root cause — over-promising during an incident destroys trust.",
+    "Log the full timeline (signals, hypothesis, actions, outcome) for every incident; it seeds the postmortem and shows which patterns are safe to automate next.",
+    "Dedup and signal-gathering run on a cheaper model; the strong model handles the hypothesis and severity decisions."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Triage co-pilot",
+      "desc": "Correlates the alert with metrics, logs, and deploys and posts a severity, hypothesis, and suggested actions to the incident channel. Proposes only — humans act. The safe default."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Guarded first responder",
+      "desc": "Auto-executes allow-listed, reversible mitigations for known patterns, stages risky actions (rollback, scale-down) for one-click approval, and drafts status updates, with SEV1 auto-escalation."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Org-wide incident commander",
+      "desc": "Adds service-aware policies and ownership routing, multi-signal correlation across teams, audited approvals, automatic postmortem timelines, and tuning of auto-mitigation patterns from incident outcomes."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect observability",
+      "body": "Install the agent and connect it (read-only) to your metrics, logs, and deploy systems.",
+      "code": "pipx install incident-agent\nincident-agent connect --metrics prometheus --logs loki --deploys github\nincident-agent doctor   # verifies read access + paging webhook"
+    },
+    {
+      "title": "Set action authority and caps",
+      "body": "Define what the agent may do autonomously. Everything else is propose-only. These limits are enforced outside the model.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nPAGER_WEBHOOK=...\nMAX_TOOL_CALLS=8\nAUTO_SCALE_CAP=2x\nMODE=copilot   # copilot (propose) | responder (auto low-risk)"
+    },
+    {
+      "title": "Allow-list safe runbook actions",
+      "body": "Only reversible, low-blast-radius actions belong here. Risky actions stay approval-gated.",
+      "code": "# .incident.yml\nautonomous_actions:\n  - restart_stateless_pod\n  - clear_cache\n  - scale_up_within_cap\n  - silence_known_false_alert\nrequire_approval:\n  - rollback_deploy\n  - scale_down\n  - shift_traffic\nalways_escalate: [ \"sev1\", \"data_layer\", \"security\" ]"
+    },
+    {
+      "title": "Replay a past incident",
+      "body": "Validate the agent's reasoning and proposed actions against a known incident before going live.",
+      "code": "incident-agent replay --incident 2026-05-INC-204 --explain\n# prints severity, hypothesis, evidence, proposed actions, status update"
+    },
+    {
+      "title": "Wire it to your alerting",
+      "body": "Route alerts to the agent as a first responder. Start in copilot mode (proposes only), then enable responder mode for allow-listed actions once trust is built.",
+      "code": "# Alertmanager receiver -> POST https://your-host/incident/alert (HMAC)\n# Promote MODE=responder after reviewing a few weeks of proposals"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Error spike right after a deploy → propose rollback",
+      "scenario": "Error rate jumps minutes after a deploy. Evidence points squarely at the release; rollback is risky, so the agent proposes it for approval rather than executing.",
+      "input": "Alert: checkout-service 5xx rate 0.4% -> 9% over 6 min.\nContext available: deploy checkout-service v812 finished 4 min before the spike.",
+      "output": "{\n  \"severity\": \"SEV2\",\n  \"confidence\": 0.83,\n  \"hypothesis\": \"Deploy checkout-service v812 introduced the regression: 5xx began ~2 min after rollout and errors trace to a new code path added in v812.\",\n  \"evidence\": [\"metric: 5xx 0.4%->9% at 14:06\", \"deploy: v812 completed 14:02\", \"logs: NullReference in PaymentMapper (new in v812) x3,412\"],\n  \"blast_radius\": \"checkout-service, ~9% of checkout attempts failing; customer-facing revenue impact.\",\n  \"decision\": \"PROPOSE\",\n  \"actions\": [ { \"tool\": \"rollback_deploy\", \"args\": { \"service\": \"checkout-service\", \"to\": \"v811\" }, \"reversible\": true, \"requires_approval\": true } ],\n  \"status_update\": \"Investigating elevated checkout errors (started 14:06, ~9% of attempts). Strong signal points to deploy v812; proposing rollback to v811 pending on-call approval. Next update in 10 min.\",\n  \"escalation\": { \"needed\": false, \"page\": false, \"reason\": \"\", \"handoff\": \"\" }\n}",
+      "notes": "Customer-facing errors make this SEV2, and the evidence is strong — but a rollback changes production, so the agent proposes it for one-click approval instead of firing it. The status update is specific and promises only the next update time, not a fix ETA."
+    },
+    {
+      "title": "Flapping non-actionable alert → safe auto-suppress",
+      "scenario": "A known-noisy alert fires again with no real impact. The agent suppresses it with justification rather than paging a human at 3am.",
+      "input": "Alert: batch-worker CPU > 80% for 5 min (fires nightly during the scheduled report job).",
+      "output": "{\n  \"severity\": \"SEV4\",\n  \"confidence\": 0.88,\n  \"hypothesis\": \"Expected load: the nightly report job runs 02:00-02:20 and predictably pushes batch-worker CPU above 80%. No user-facing impact.\",\n  \"evidence\": [\"metric: CPU spike aligns 02:00-02:20 exactly as prior 14 nights\", \"no queue backlog growth\", \"no error-rate change\", \"no customer-facing service affected\"],\n  \"blast_radius\": \"None — internal batch worker, within normal nightly envelope.\",\n  \"decision\": \"AUTO_MITIGATE\",\n  \"actions\": [ { \"tool\": \"run_runbook_step\", \"args\": { \"step\": \"silence_known_false_alert\", \"duration\": \"30m\", \"scope\": \"batch-worker-cpu-nightly\" }, \"reversible\": true, \"requires_approval\": false } ],\n  \"status_update\": \"Silenced batch-worker CPU alert for 30m: matches the known nightly report-job pattern (02:00-02:20), no backlog or error impact. Recommend tuning this alert's schedule.\",\n  \"escalation\": { \"needed\": false, \"page\": false, \"reason\": \"\", \"handoff\": \"\" }\n}",
+      "notes": "Reducing noise is a core job, but it's done carefully: the agent cites four pieces of evidence that the spike is benign, silences for a bounded 30 minutes (reversible), and recommends a permanent fix. It suppresses because it can prove the alert is non-actionable — not to keep the dashboard green."
+    },
+    {
+      "title": "Ambiguous data-layer outage → escalate and page",
+      "scenario": "Multiple services degrade with conflicting signals and possible data impact. The agent refuses to take a risky guess and escalates immediately.",
+      "input": "Alerts: api latency p99 12s, db-primary connection errors, and a replica lag alarm — all within 2 minutes. No recent deploy. Some writes may be failing.",
+      "output": "{\n  \"severity\": \"SEV1\",\n  \"confidence\": 0.45,\n  \"hypothesis\": \"Possible database-layer incident (primary connectivity + replica lag) affecting multiple services; root cause unclear from current signals and no deploy correlation.\",\n  \"evidence\": [\"metric: api p99 12s across 3 services\", \"logs: db-primary connection refused x hundreds\", \"metric: replica lag climbing\", \"deploys: none in the last 3h\"],\n  \"blast_radius\": \"Broad: multiple customer-facing services degraded; potential write failures and data risk.\",\n  \"decision\": \"ESCALATE\",\n  \"actions\": [ { \"tool\": \"page_oncall\", \"args\": { \"severity\": \"sev1\", \"target\": \"primary+db_oncall\" }, \"reversible\": true, \"requires_approval\": false } ],\n  \"status_update\": \"Declaring SEV1: multiple services degraded with database-primary connection errors and rising replica lag (since 03:11). Possible data-layer incident; paging DB on-call now. No automated remediation is being attempted given data risk. Next update in 10 min.\",\n  \"escalation\": { \"needed\": true, \"page\": true, \"reason\": \"SEV1, broad blast radius, possible data-layer failure with write/data risk, low confidence in cause.\", \"handoff\": \"DB primary connectivity failing + replica lag, no deploy correlation, multiple services hit. Suggest: check DB primary health/failover status, connection pool saturation, and whether a failover is safe. Do NOT mass-restart app tier (would worsen connection storms).\" }\n}",
+      "notes": "The defining example: low confidence, broad blast radius, and data risk make this an immediate SEV1 escalate-and-page. The agent takes no production action, posts an honest holding update, and — crucially — warns the human against a tempting-but-harmful action (mass restart). This is the behavior that makes autonomy safe in an incident."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it take actions on production by itself?",
+      "a": "Only narrow, reversible, allow-listed ones (like restarting a stateless pod or silencing a proven-false alert). Anything that changes production state — rollbacks, scaling down, traffic shifts — is proposed for human approval, never executed autonomously."
+    },
+    {
+      "q": "How does it decide the root cause?",
+      "a": "Strictly from telemetry it queries — metrics, logs, traces, and recent deploys — and every claim in its hypothesis cites the specific signal. If the evidence is missing or conflicting, it lowers confidence and escalates instead of guessing."
+    },
+    {
+      "q": "Can it hide a real incident by silencing alerts?",
+      "a": "No. It can only suppress an alert it can prove is non-actionable, with cited evidence and a bounded duration, and it never downgrades severity to keep dashboards clean."
+    },
+    {
+      "q": "What happens on a real SEV1?",
+      "a": "It declares the severity, pages on-call, posts an honest holding update, takes no risky automated action, and hands over a structured summary with evidence and suggested next steps — including what not to do."
+    },
+    {
+      "q": "How do we adopt it safely?",
+      "a": "Start in copilot mode where it only proposes, replay past incidents to validate its reasoning, and enable guarded auto-mitigation for specific allow-listed actions once you trust its proposals."
+    },
+    {
+      "q": "How is cost controlled during an incident?",
+      "a": "It queries the minimal set of signals needed to test a hypothesis rather than pulling every dashboard, caps its tool calls, and stops investigating once it can decide — escalating with current evidence if it hits the cap."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A4 — Limited Autonomy",
+    "dnaPattern": "Execution (Research → Plan → Execute → Verify)",
+    "worstCaseAction": "Executes an allowlisted low-risk, reversible remediation step (e.g. restarting a stuck service) that turns out to be unnecessary. Every auto-executed step is sandboxed with a registered rollback. Irreversible or high-impact actions — production rollbacks, scaling, security or config changes — are never auto-executed; they require human approval.",
+    "authorityBoundary": "May run a small allowlist of low-risk, reversible remediation steps automatically during an incident, each with a tested rollback and full audit trail. Anything risky or irreversible is proposed for human approval, not executed. It drafts status updates and escalates SEV1, but never makes an irreversible change on its own.",
+    "verificationTest": "Trigger a high-risk action (e.g. scale-down production) → confirm it routes to human approval and is NOT auto-executed, and confirm every auto-executed step has a registered rollback.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: only reversible/low-risk tools are auto-executable; risky tools are gated. Human gates: irreversible actions require approval. Confidence escalation: low confidence routes to on-call. Cost ceiling: bounded per incident. Audit trail: every action and rollback logged append-only. Escalation path: SEV1 routed to human on-call.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "agent_id": "incident-response-agent",
+      "version": "2.0.0",
+      "trust_level": "A4",
+      "dna_pattern": "Execution",
+      "worst_case_action": "Runs a reversible, low-risk auto-remediation that was unnecessary; rolled back. Irreversible actions require human approval.",
+      "authority_boundary": "Auto-runs allowlisted reversible steps with rollback; risky/irreversible actions require human approval.",
+      "last_reviewed": "2026-06-24",
+      "tags": [
+        "devops",
+        "sre",
+        "security",
+        "sandboxed",
+        "rollback",
+        "human-approval",
+        "agentaz",
+        "agent-governance",
+        "trust-level",
+        "production-readiness"
+      ],
+      "tool_boundary": {
+        "auto_executable_tools": [
+          "restart_service",
+          "clear_cache",
+          "rotate_log",
+          "health_check"
+        ],
+        "approval_required_tools": [
+          "rollback_deploy",
+          "scale_service",
+          "change_config",
+          "modify_security_group"
+        ],
+        "execution_tools_absent": false,
+        "rollback_required": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_without_approval": [
+          "rollback_deploy",
+          "scale_service",
+          "change_config",
+          "modify_security_group"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.35,
+        "alert_threshold_usd": 0.25
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 12
+      },
+      "human_handoff": {
+        "triggers": [
+          "sev1",
+          "irreversible_action",
+          "low_confidence"
+        ],
+        "destination": "oncall_engineer"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "actions",
+          "rollbacks",
+          "approvals",
+          "escalations"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Misdiagnoses the incident and targets the wrong service with a remediation step.",
+      "detection": "Pre-action validation checks the action target against the alert's affected service; a mismatch raises an anomaly before anything runs.",
+      "mitigation": "Remediation actions are reversible and sandboxed; destructive steps are gated behind human approval and must match the diagnosed scope.",
+      "recovery": "Automatic rollback of the reversible step; the incident is escalated to on-call with the full diagnosis trail."
+    },
+    {
+      "mode": "Acts on a stale or duplicate alert for an incident that is already resolved.",
+      "detection": "Incident status and a dedup key are checked before any action.",
+      "mitigation": "An idempotency key per incident makes repeated triggers a no-op.",
+      "recovery": "The duplicate is closed and the dedup event is logged."
+    },
+    {
+      "mode": "Remediation loops — repeated restarts that never converge.",
+      "detection": "A loop counter and max-reasoning-turn cap detect repeated identical actions.",
+      "mitigation": "Bounded retries with backoff; escalate after N attempts.",
+      "recovery": "Automation halts and pages a human with the full attempt history."
+    },
+    {
+      "mode": "A cascading action makes the incident worse.",
+      "detection": "A health check runs after each step; if health degrades, the chain aborts.",
+      "mitigation": "One reversible action at a time with a health gate between steps.",
+      "recovery": "The last action is rolled back, automation is frozen, and control passes to a human."
+    }
+  ],
+  "evaluation": {
+    "primary": "Action correctness matters most here — whether the remediation it ran or proposed was the right one for the diagnosed incident — because a wrong action has real blast radius.",
+    "metrics": [
+      {
+        "name": "Diagnosis accuracy",
+        "description": "Share of incidents where the identified root cause and affected service match the ground truth."
+      },
+      {
+        "name": "Action correctness",
+        "description": "Of actions taken or proposed, the share that were appropriate and scoped to the actual incident."
+      },
+      {
+        "name": "Rollback success",
+        "description": "When a reversible action is undone, how reliably the system returns to its prior state."
+      },
+      {
+        "name": "Escalation rate",
+        "description": "How often it hands off to on-call, split into correct escalations vs missed or unnecessary ones."
+      },
+      {
+        "name": "Latency to first action",
+        "description": "Time from alert to the first correct remediation step."
+      }
+    ],
+    "approach": "Replay a labeled set of historical incidents in a sandbox and compare proposed actions to what on-call actually did; track rollback success and escalation quality separately. Never grade on live production traffic."
+  }
+}

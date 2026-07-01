@@ -1,0 +1,356 @@
+{
+  "slug": "patient-intake-summarizer",
+  "title": "Patient Intake Summary Agent",
+  "category": "healthcare-workflows",
+  "shortDescription": "A patient-intake agent that turns intake forms into a structured clinician summary, flags red-flag symptoms and missing info, and never diagnoses or gives medical advice.",
+  "description": "Converts a patient's intake information into a clear, structured summary for a clinician to review before the visit: chief complaint, history of present illness, medications, allergies, and relevant history. It summarizes faithfully and stays firmly in its lane. It is built defensively: it never diagnoses or recommends treatment, never fabricates or alters clinical information, faithfully preserves what the patient reported, flags red-flag symptoms and missing critical information for the clinician, and protects patient health information. A clinician always reviews.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "healthcare",
+    "clinical",
+    "patient-intake",
+    "summarization",
+    "ehr",
+    "autonomous-agent",
+    "documentation",
+    "triage-support",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Turns patient intake information into a structured pre-visit summary for the clinician.",
+    "Captures chief complaint, history, medications, allergies, and relevant background faithfully.",
+    "Flags red-flag symptoms and missing critical information for clinician attention.",
+    "Defensive: never diagnoses or recommends treatment, never fabricates, and protects patient data."
+  ],
+  "whenToUse": [
+    "You want intake information organized into a clean summary before a visit.",
+    "You want red-flag symptoms and missing information surfaced for the clinician.",
+    "You want a faithful summary, with the clinician making all clinical decisions.",
+    "You handle intake data and need it structured for the chart."
+  ],
+  "whenNotToUse": [
+    "You want it to diagnose or recommend treatment — it won't, by design.",
+    "You expect it to replace clinical judgment or triage decisions.",
+    "You can't have a clinician review its summaries.",
+    "You can't handle patient data with appropriate privacy safeguards."
+  ],
+  "systemPrompt": "You are a Patient Intake Summary Agent. You organize a patient's intake information into a structured summary for a CLINICIAN to review. You do not practice medicine. You are judged on a faithful, well-structured summary and on never diagnosing, advising treatment, fabricating, or mishandling patient data.\n\n== CORE PRINCIPLES ==\n1. Summarize, don't diagnose. Organize what the patient reported. Never offer a diagnosis, differential, or treatment recommendation. Clinical conclusions are the clinician's.\n2. Faithful and complete. Capture clinically relevant details exactly as reported. Don't omit, alter, downplay, or embellish symptoms, history, or medications.\n3. Flag, don't interpret. Surface red-flag symptoms and missing critical information for the clinician's attention, without interpreting what they mean.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO DIAGNOSIS / NO MEDICAL ADVICE: Never state or imply a diagnosis, never recommend treatment, medication, or what the patient \"should\" do. Route all clinical questions to the clinician.\n- NO FABRICATION: Never invent symptoms, history, medications, vitals, or results. Summarize only what's provided; mark what's missing or unclear.\n- FAITHFUL: Preserve clinically relevant information accurately. Don't drop or soften details (e.g. a reported chest pain, a missed dose).\n- FLAG RED FLAGS: Surface potential red-flag symptoms (e.g. chest pain, difficulty breathing, severe bleeding, suicidal ideation) for clinician attention, clearly labeled as a flag, not a diagnosis.\n- PRIVACY (PHI): Treat all information as protected health information; keep it in scope and disclose to no one but the care team.\n- CLINICIAN REVIEWS: The summary supports, never replaces, clinician review.\n\n== METHOD ==\n- Read the intake. Extract chief complaint, HPI, meds, allergies, relevant history. Flag red-flag symptoms and missing critical info. Note uncertainty. Produce a structured summary for clinician review.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"chief_complaint\": \"<as reported>\",\n  \"hpi\": \"<history of present illness, faithful>\",\n  \"medications\": [\"<as reported>\"],\n  \"allergies\": [\"<as reported, or 'none reported'>\"],\n  \"relevant_history\": [\"<as reported>\"],\n  \"red_flags\": [\"<potential red-flag symptoms flagged for clinician, not interpreted>\"],\n  \"missing_or_unclear\": [\"<critical info not provided or ambiguous>\"],\n  \"disclaimer\": \"Summary of patient-reported information for clinician review. Not a diagnosis or medical advice. A clinician must review.\",\n  \"phi_note\": \"Contains PHI — handle per privacy policy; care team only.\"\n}\nNever diagnose or advise treatment. Never fabricate. Flag red flags without interpreting.",
+  "architecture": [
+    {
+      "label": "Intake intake",
+      "detail": "Receives the patient's intake information under protected-health-information handling."
+    },
+    {
+      "label": "Structured extraction",
+      "detail": "Pulls chief complaint, history of present illness, medications, allergies, and relevant history as reported."
+    },
+    {
+      "label": "Faithfulness guard",
+      "detail": "Ensures clinically relevant details are preserved exactly, without omission, softening, or embellishment."
+    },
+    {
+      "label": "Red-flag detector",
+      "detail": "Surfaces potential red-flag symptoms for clinician attention, labeled as flags rather than interpreted."
+    },
+    {
+      "label": "Gap detector",
+      "detail": "Identifies missing or ambiguous critical information the clinician may need to ask about."
+    },
+    {
+      "label": "No-diagnosis guard",
+      "detail": "Blocks any diagnosis, differential, or treatment recommendation from the output."
+    },
+    {
+      "label": "Clinician handoff",
+      "detail": "Produces the structured summary with disclaimers and a privacy note for clinician review."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_intake",
+      "purpose": "Retrieve the patient's intake information under PHI handling."
+    },
+    {
+      "name": "extract_history",
+      "purpose": "Extract the history of present illness and relevant background as reported."
+    },
+    {
+      "name": "extract_symptoms",
+      "purpose": "Capture reported symptoms faithfully for the chief complaint and HPI."
+    },
+    {
+      "name": "extract_meds",
+      "purpose": "List reported medications and allergies as provided."
+    },
+    {
+      "name": "flag_red_flags",
+      "purpose": "Surface potential red-flag symptoms for clinician attention without interpreting them."
+    },
+    {
+      "name": "flag_missing",
+      "purpose": "Identify missing or ambiguous critical information."
+    },
+    {
+      "name": "structure_summary",
+      "purpose": "Assemble the structured pre-visit summary for clinician review."
+    },
+    {
+      "name": "privacy_guard",
+      "purpose": "Keep all information in scope as PHI, disclosed only to the care team."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the intake",
+      "body": "Receive the patient's intake information under PHI handling."
+    },
+    {
+      "title": "2. Extract structured fields",
+      "body": "Pull chief complaint, HPI, medications, allergies, and relevant history as reported."
+    },
+    {
+      "title": "3. Preserve faithfully",
+      "body": "Keep clinically relevant details exact; don't omit or soften them."
+    },
+    {
+      "title": "4. Flag red flags",
+      "body": "Surface potential red-flag symptoms for the clinician, labeled as flags."
+    },
+    {
+      "title": "5. Flag gaps",
+      "body": "Note missing or ambiguous critical information to ask about."
+    },
+    {
+      "title": "6. No diagnosis",
+      "body": "Exclude any diagnosis or treatment recommendation from the summary."
+    },
+    {
+      "title": "7. Hand off for review",
+      "body": "Produce the structured summary with disclaimers and a privacy note for the clinician."
+    }
+  ],
+  "implementationNotes": [
+    "Hard-block any diagnosis, differential, or treatment recommendation; the agent organizes information and the licensed clinician makes every clinical decision.",
+    "Preserve clinically relevant details faithfully and never drop or soften them — a missed allergy or downplayed symptom in a summary can cause real harm.",
+    "Flag red-flag symptoms for prompt clinician attention but label them as flags, not interpretations, so the clinician's judgment is informed, not pre-empted.",
+    "Never fabricate symptoms, medications, vitals, or results; mark missing or unclear information for the clinician to ask about.",
+    "Treat everything as PHI: keep it in scope, disclose only to the care team, and follow the applicable privacy and security requirements.",
+    "Position the summary as decision support that a clinician always reviews, never as autonomous triage.",
+    "Use model tiering thoughtfully, but keep the strong model on faithfulness and red-flag surfacing given the stakes."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Intake summarizer",
+      "desc": "Organizes patient-reported intake into a structured summary for clinician review. No diagnosis."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Summary with red-flag flags",
+      "desc": "Adds faithful preservation, red-flag and missing-info flagging, no-diagnosis guards, and PHI handling."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Clinical intake workflow",
+      "desc": "Adds EHR integration (scoped), configurable red-flag lists, structured chart-ready output, and compliance controls — clinician review throughout."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect (in-scope)",
+      "body": "Install the agent and connect intake within your compliant environment.",
+      "code": "pipx install patient-intake-agent\npatient-intake-agent connect --intake forms --ehr epic:scoped\npatient-intake-agent doctor"
+    },
+    {
+      "title": "Configure clinical guardrails",
+      "body": "No-diagnosis and faithful summarization are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nNO_DIAGNOSIS=true\nNO_TREATMENT_ADVICE=true\nFLAG_RED_FLAGS=true\nPHI_IN_SCOPE_ONLY=true"
+    },
+    {
+      "title": "Define red-flag list & template",
+      "body": "Set the red-flag symptoms to surface and the summary format.",
+      "code": "# intake.yml\nred_flags: [chest_pain, dyspnea, severe_bleeding, stroke_signs, suicidal_ideation]\nsummary_sections: [cc, hpi, meds, allergies, history, red_flags, missing]"
+    },
+    {
+      "title": "Validate on sample intakes",
+      "body": "Review summaries for faithfulness and zero diagnoses.",
+      "code": "patient-intake-agent eval --set ./sample-intakes --explain\n# checks faithfulness + a hard check: any diagnosis/advice (must be 0)"
+    },
+    {
+      "title": "Wire into the workflow",
+      "body": "Summarize intakes for clinician review before visits.",
+      "code": "# intake submitted -> structured summary -> clinician reviews before the visit"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Standard intake → faithful structured summary",
+      "scenario": "A routine intake is organized into a clean, faithful pre-visit summary.",
+      "input": "Intake: 'Sore throat and cough for 3 days, mild fever. Takes lisinopril for blood pressure. Allergic to penicillin. No other major history.'",
+      "output": "{\n  \"chief_complaint\": \"Sore throat and cough for 3 days\",\n  \"hpi\": \"Patient reports a sore throat and cough for 3 days with a mild fever. No other symptoms reported in intake.\",\n  \"medications\": [\"Lisinopril (for hypertension, per patient)\"],\n  \"allergies\": [\"Penicillin\"],\n  \"relevant_history\": [\"Hypertension (on lisinopril)\"],\n  \"red_flags\": [],\n  \"missing_or_unclear\": [\"Severity/temperature of fever not quantified\", \"No info on difficulty breathing or swallowing — clinician may wish to ask\"],\n  \"disclaimer\": \"Summary of patient-reported information for clinician review. Not a diagnosis or medical advice. A clinician must review.\",\n  \"phi_note\": \"Contains PHI — handle per privacy policy; care team only.\"\n}\n",
+      "notes": "A faithful, organized summary with the penicillin allergy preserved prominently and reasonable missing-info prompts surfaced — and notably no diagnosis (it does not say 'likely a viral URI'). The clinician gets a clean starting point."
+    },
+    {
+      "title": "Tempted to diagnose → summarize only, flag the red flag",
+      "scenario": "The intake includes a red-flag symptom. The agent flags it for the clinician without diagnosing.",
+      "input": "Intake: 'Chest tightness and shortness of breath since this morning, also some arm discomfort.'",
+      "output": "{\n  \"chief_complaint\": \"Chest tightness and shortness of breath since this morning\",\n  \"hpi\": \"Patient reports chest tightness and shortness of breath since this morning, with associated arm discomfort. Onset this morning per intake.\",\n  \"medications\": [\"None reported\"],\n  \"allergies\": [\"None reported\"],\n  \"relevant_history\": [\"None reported in intake\"],\n  \"red_flags\": [\"FLAG for clinician: chest tightness + shortness of breath + arm discomfort reported (potential red-flag symptom cluster). Flagged for prompt clinician attention. This is a flag, not a diagnosis.\"],\n  \"missing_or_unclear\": [\"No cardiac history provided\", \"Vitals not included in intake\"],\n  \"disclaimer\": \"Summary of patient-reported information for clinician review. Not a diagnosis or medical advice. A clinician must review.\",\n  \"phi_note\": \"Contains PHI — handle per privacy policy; care team only.\"\n}\n",
+      "notes": "The agent flags a potentially serious symptom cluster for prompt clinician attention but explicitly does NOT diagnose (it doesn't say 'possible heart attack') or advise. It preserves every reported symptom faithfully and labels the flag as a flag. Surfacing without interpreting is exactly the right behavior."
+    },
+    {
+      "title": "Asked for advice/diagnosis → decline, route to clinician",
+      "scenario": "Someone asks the agent what the patient should do or what they have. It refuses and routes to the clinician.",
+      "input": "Request: 'Based on this intake, what does the patient have and what should they take?'",
+      "output": "{\n  \"chief_complaint\": \"<as reported in intake>\",\n  \"hpi\": \"<faithful summary of reported symptoms>\",\n  \"medications\": [\"<as reported>\"],\n  \"allergies\": [\"<as reported>\"],\n  \"relevant_history\": [\"<as reported>\"],\n  \"red_flags\": [\"<any reported red-flag symptoms, flagged>\"],\n  \"missing_or_unclear\": [\"<gaps>\"],\n  \"disclaimer\": \"I can't provide a diagnosis or recommend what the patient should take — that's a clinical decision for the licensed clinician, who must review this summary and the patient directly. I've organized the reported information and flagged anything notable for their attention.\",\n  \"phi_note\": \"Contains PHI — handle per privacy policy; care team only.\"\n}\n",
+      "notes": "The defining defensive case: directly asked to diagnose and recommend medication. The agent declines both, restates that clinical decisions belong to the licensed clinician, and delivers only the faithful summary with flags. It will not practice medicine, regardless of how the request is framed."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Does it diagnose or recommend treatment?",
+      "a": "No, and that's its core constraint. It organizes what the patient reported into a summary for a clinician. It never offers a diagnosis, differential, or treatment recommendation — those are the licensed clinician's decisions."
+    },
+    {
+      "q": "How does it handle a serious symptom?",
+      "a": "It flags potential red-flag symptoms (such as chest pain or difficulty breathing) for prompt clinician attention, clearly labeled as a flag rather than an interpretation, while preserving every reported detail faithfully."
+    },
+    {
+      "q": "Could it leave out something important?",
+      "a": "It's designed to preserve clinically relevant details exactly and not to drop, soften, or embellish them. It also flags missing or unclear critical information so the clinician knows what to ask about."
+    },
+    {
+      "q": "Does it make up information?",
+      "a": "Never. It summarizes only what's in the intake and marks anything missing or ambiguous. It won't invent symptoms, medications, vitals, or results."
+    },
+    {
+      "q": "Is patient data protected?",
+      "a": "Yes. It treats all information as protected health information, keeps it in scope, and is intended to be used within your compliant environment with disclosure limited to the care team."
+    },
+    {
+      "q": "Does it replace the clinician?",
+      "a": "No. It's decision support that a clinician always reviews. It saves time organizing intake and surfacing flags, but every clinical judgment remains with the clinician."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Produces an inaccurate intake summary that a clinician reviews before relying on it. It cannot make a clinical or diagnostic decision and cannot write to the medical record — those tools are absent from its registry.",
+    "authorityBoundary": "Reads provided intake information and assembles a structured summary for a clinician, flagging gaps and uncertainties. It never diagnoses, never recommends treatment as a decision, and never writes to the EHR. A clinician reviews and decides.",
+    "verificationTest": "Attempt to call an EHR-write or diagnostic-decision tool → confirm it is absent; confirm the summary defers clinical judgment to a human.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: EHR-write/diagnosis tools absent. Human gates: a clinician decides. Confidence escalation: gaps and uncertainties flagged. Cost ceiling: bounded per intake. Audit trail: summary and sources logged. Escalation path: missing or conflicting info flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "patient-intake-summary-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Produces an inaccurate intake summary for clinician review. Cannot diagnose or write to the EHR.",
+      "authority_boundary": "Summarizes intake info for a clinician; diagnosis/EHR-write tools absent.",
+      "tags": [
+        "healthcare",
+        "intake",
+        "hipaa",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_intake",
+          "summarize",
+          "flag_gaps",
+          "structure_history"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "diagnosis",
+          "treatment_decision",
+          "ehr_write"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.25,
+        "alert_threshold_usd": 0.16
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "missing_info",
+          "conflicting_info",
+          "red_flag_symptom"
+        ],
+        "destination": "clinician"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "summary",
+          "sources"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Produces an inaccurate summary a clinician could rely on.",
+      "detection": "Gaps and uncertainties are flagged and the summary cites its source.",
+      "mitigation": "It summarizes only — no diagnosis, no treatment decision, no EHR write.",
+      "recovery": "A clinician reviews and decides before relying on it."
+    },
+    {
+      "mode": "Omits a red-flag symptom from the summary.",
+      "detection": "Red-flag symptom signals trigger a flag rather than a silent drop.",
+      "mitigation": "Flagged items are escalated to the clinician.",
+      "recovery": "The clinician reviews the full intake."
+    },
+    {
+      "mode": "Includes a detail from the wrong patient record.",
+      "detection": "Record-to-patient identity is verified before summarizing.",
+      "mitigation": "Identity mismatches are flagged.",
+      "recovery": "The correct record is confirmed."
+    }
+  ],
+  "evaluation": {
+    "primary": "Clinical accuracy with red-flag retention is primary — an inaccurate summary or a dropped red-flag symptom is the failure a clinician could rely on.",
+    "metrics": [
+      {
+        "name": "Summary accuracy",
+        "description": "Share of summary facts matching the intake source."
+      },
+      {
+        "name": "Red-flag recall",
+        "description": "Of red-flag symptoms present, the share retained and flagged."
+      },
+      {
+        "name": "Fabrication rate",
+        "description": "Frequency of details not in the source — should be near zero."
+      },
+      {
+        "name": "Identity correctness",
+        "description": "Share where the summary draws only from the correct patient record."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to summarize."
+      }
+    ],
+    "approach": "Use intakes with clinician-validated reference summaries and known red-flags; measure accuracy and red-flag recall and include wrong-record traps. It summarizes only — no diagnosis or EHR write — and a clinician reviews."
+  }
+}

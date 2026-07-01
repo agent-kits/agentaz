@@ -1,0 +1,354 @@
+{
+  "slug": "product-catalog-enricher",
+  "title": "Product Catalog Enrichment Agent",
+  "category": "ecommerce-ops",
+  "shortDescription": "A catalog agent that enriches product descriptions, attributes, and categories from your source data, flags missing specs for review, and never fabricates claims.",
+  "description": "An agent that turns thin product data into rich, consistent catalog entries — readable descriptions, structured attributes, clean categorization, and SEO fields — built strictly from your source data. It is built defensively: it enriches only from the product information you provide, never fabricates specs, dimensions, materials, compatibility, or claims, flags missing or uncertain attributes for review rather than guessing them, never invents safety or compatibility claims, stays faithful to the source, and keeps your taxonomy consistent.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "ecommerce",
+    "catalog",
+    "product-data",
+    "enrichment",
+    "pim",
+    "autonomous-agent",
+    "merchandising",
+    "seo",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "40 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Turns thin product data into rich descriptions, attributes, categories, and SEO fields.",
+    "Builds every entry strictly from the source data you provide.",
+    "Flags missing or uncertain specs for review instead of guessing them.",
+    "Defensive: never fabricates specs or compatibility/safety claims, and keeps the taxonomy consistent."
+  ],
+  "whenToUse": [
+    "You have thin or inconsistent product data to enrich at scale.",
+    "You want descriptions and attributes grounded in real source data.",
+    "You want missing specs flagged, not invented.",
+    "You want consistent categorization and SEO fields."
+  ],
+  "whenNotToUse": [
+    "You want it to invent specs or claims to fill gaps — it won't.",
+    "You have no source product data for it to enrich from.",
+    "You can't review flagged uncertain attributes.",
+    "You need fabricated reviews or ratings (it won't produce them)."
+  ],
+  "systemPrompt": "You are a Product Catalog Enrichment Agent. You enrich product catalog entries (descriptions, attributes, categories, SEO fields) using the PROVIDED source data. You are judged on rich, consistent, accurate entries and on never fabricating a spec, attribute, or claim.\n\n== CORE PRINCIPLES ==\n1. Enrich from source only. Build descriptions and attributes from the product data provided. Never invent specs (dimensions, materials, weight, compatibility) or claims that aren't supported by the source.\n2. Flag, don't guess. If an attribute is missing or unclear, mark it as missing/uncertain for review. A blank flagged field beats a guessed spec that's wrong on a product page.\n3. Faithful and consistent. Don't change the meaning of source data. Keep categorization and attribute naming consistent with the taxonomy.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATED SPECS: Never invent dimensions, materials, weight, capacity, or technical specs. Source-supported only; missing = flagged.\n- NO INVENTED CLAIMS: Never fabricate compatibility (\"works with all models\"), safety/regulatory (\"FDA approved\", \"UL listed\"), performance, or health claims. These carry legal risk; only state what the source supports.\n- NO FAKE SOCIAL PROOF: Never invent reviews, ratings, awards, or testimonials.\n- FLAG UNCERTAIN: Missing/ambiguous attributes -> flagged for review, not guessed.\n- FAITHFUL + CONSISTENT: Preserve source meaning; apply the taxonomy and attribute schema consistently.\n\n== METHOD ==\n- Read the source data. Write an accurate description, extract structured attributes, categorize per the taxonomy, and generate SEO fields — all source-grounded. Flag missing/uncertain attributes and any claim needing verification.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"product_id\": \"<id>\",\n  \"description\": \"<source-grounded description>\",\n  \"attributes\": { \"<attr>\": \"<value or null>\" },\n  \"category\": \"<taxonomy path>\",\n  \"seo\": { \"title\": \"<...>\", \"meta\": \"<...>\" },\n  \"flagged_for_review\": [\"<missing/uncertain attributes>\"],\n  \"claims_to_verify\": [\"<any claim needing source confirmation>\"],\n  \"note\": \"Enriched from provided source data only. No specs or claims were fabricated.\"\n}\nNever invent a spec or claim. Flag missing attributes. Keep the taxonomy consistent.",
+  "architecture": [
+    {
+      "label": "Source intake",
+      "detail": "Takes the provided product/source data that is the only allowed basis for enrichment."
+    },
+    {
+      "label": "Attribute extractor",
+      "detail": "Pulls structured attributes from the source, mapping them to the attribute schema."
+    },
+    {
+      "label": "Description writer",
+      "detail": "Writes a readable, accurate description grounded strictly in the source data."
+    },
+    {
+      "label": "Categorizer",
+      "detail": "Assigns the product to the taxonomy consistently with similar items."
+    },
+    {
+      "label": "Claim guard",
+      "detail": "Blocks fabricated compatibility, safety, and performance claims, flagging any that need verification."
+    },
+    {
+      "label": "Gap flagger",
+      "detail": "Marks missing or uncertain attributes for review rather than guessing a spec."
+    },
+    {
+      "label": "SEO field generator",
+      "detail": "Produces SEO title and meta fields from the grounded content."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_product",
+      "purpose": "Retrieve the product's source data."
+    },
+    {
+      "name": "extract_attributes",
+      "purpose": "Pull structured attributes from the source."
+    },
+    {
+      "name": "enrich_description",
+      "purpose": "Write a source-grounded product description."
+    },
+    {
+      "name": "categorize",
+      "purpose": "Assign the product to the taxonomy consistently."
+    },
+    {
+      "name": "seo_fields",
+      "purpose": "Generate SEO title and meta fields from grounded content."
+    },
+    {
+      "name": "flag_uncertain",
+      "purpose": "Flag missing or uncertain attributes for review."
+    },
+    {
+      "name": "fact_guard",
+      "purpose": "Block fabricated specs and claims; flag those needing verification."
+    },
+    {
+      "name": "validate_taxonomy",
+      "purpose": "Keep categorization and attribute naming consistent."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the source",
+      "body": "Receive the product/source data to enrich from."
+    },
+    {
+      "title": "2. Extract attributes",
+      "body": "Pull structured attributes and map them to the schema."
+    },
+    {
+      "title": "3. Write the description",
+      "body": "Draft an accurate description grounded in the source."
+    },
+    {
+      "title": "4. Categorize",
+      "body": "Assign the taxonomy consistently with similar products."
+    },
+    {
+      "title": "5. Guard claims",
+      "body": "Block fabricated specs/claims; flag any needing verification."
+    },
+    {
+      "title": "6. Flag gaps",
+      "body": "Mark missing or uncertain attributes for review rather than guessing."
+    },
+    {
+      "title": "7. Generate SEO",
+      "body": "Produce SEO fields from the grounded content."
+    }
+  ],
+  "implementationNotes": [
+    "Enrich strictly from source data and never invent specs like dimensions, materials, or weight; a guessed spec on a live product page causes returns and erodes trust.",
+    "Never fabricate compatibility, safety, or regulatory claims ('works with all', 'FDA approved'); these carry direct legal and returns risk, so flag them for verification instead.",
+    "Never invent reviews, ratings, awards, or other social proof.",
+    "Flag missing or uncertain attributes as null for review rather than filling them with plausible guesses.",
+    "Keep categorization and attribute naming consistent with the taxonomy so the catalog stays clean and filterable.",
+    "Stay faithful to the source meaning; enrich the wording, not the facts.",
+    "A cheaper model is usually enough to format and categorize clean entries, so keep the strong model for ambiguous data and claim-guarding."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Description enricher",
+      "desc": "Writes source-grounded descriptions and extracts attributes for catalog entries. On demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Guarded enrichment",
+      "desc": "Adds taxonomy categorization, SEO fields, no-fabricated-spec/claim guards, and missing-attribute flagging for review."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Catalog operations",
+      "desc": "Adds PIM integration, batch enrichment, taxonomy governance, claim-verification workflows, and audit trails across the catalog."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect PIM",
+      "body": "Install the agent and connect your catalog/PIM source.",
+      "code": "pipx install catalog-enrich-agent\ncatalog-enrich-agent connect --pim shopify --taxonomy ./taxonomy.yml\ncatalog-enrich-agent doctor"
+    },
+    {
+      "title": "Configure guardrails",
+      "body": "No fabricated specs/claims is enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nNO_FABRICATED_SPECS=true\nNO_INVENTED_CLAIMS=true\nFLAG_MISSING_ATTRIBUTES=true"
+    },
+    {
+      "title": "Define schema & taxonomy",
+      "body": "Declare attributes and categories.",
+      "code": "# taxonomy.yml\nattributes: [material, dimensions, weight, color, compatibility]\ncategories: [Home > Kitchen > Cookware, ...]"
+    },
+    {
+      "title": "Enrich samples",
+      "body": "Run a batch and review flags and claims.",
+      "code": "catalog-enrich-agent run --products ./batch.csv --explain\n# prints enriched entries + flagged_for_review + claims_to_verify"
+    },
+    {
+      "title": "Wire into the catalog",
+      "body": "Enrich incoming products; flagged fields go to review.",
+      "code": "# product in -> enrich from source -> flagged attributes/claims -> human review"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Good source data → faithful enriched entry",
+      "scenario": "Solid source data produces a rich, accurate entry with structured attributes.",
+      "input": "Source: 'Stainless steel frying pan, 28cm, induction-compatible, dishwasher safe.'",
+      "output": "{\n  \"product_id\": \"PAN-28\",\n  \"description\": \"A 28cm stainless steel frying pan suited to everyday cooking. Induction-compatible and dishwasher safe for easy use and cleanup.\",\n  \"attributes\": { \"material\": \"Stainless steel\", \"diameter_cm\": \"28\", \"induction_compatible\": \"Yes\", \"dishwasher_safe\": \"Yes\" },\n  \"category\": \"Home > Kitchen > Cookware > Frying Pans\",\n  \"seo\": { \"title\": \"28cm Stainless Steel Frying Pan — Induction Compatible\", \"meta\": \"Durable 28cm stainless steel frying pan. Induction-compatible and dishwasher safe.\" },\n  \"flagged_for_review\": [],\n  \"claims_to_verify\": [],\n  \"note\": \"Enriched from provided source data only. No specs or claims were fabricated.\"\n}",
+      "notes": "Every attribute and claim traces to the source. The description reads well but adds nothing the data doesn't support. The routine, high-volume case the agent should automate."
+    },
+    {
+      "title": "Missing spec → flag for review, don't invent it",
+      "scenario": "A key attribute isn't in the source. The agent leaves it blank and flags it rather than guessing.",
+      "input": "Source: 'Wool blend sweater, navy.' No size, fabric percentages, or care instructions provided.",
+      "output": "{\n  \"product_id\": \"SWT-NV\",\n  \"description\": \"A navy wool-blend sweater. (Additional details pending — see flagged attributes.)\",\n  \"attributes\": { \"material\": \"Wool blend\", \"color\": \"Navy\", \"fabric_composition\": null, \"sizes\": null, \"care\": null },\n  \"category\": \"Apparel > Sweaters\",\n  \"seo\": { \"title\": \"Navy Wool-Blend Sweater\", \"meta\": \"Navy wool-blend sweater.\" },\n  \"flagged_for_review\": [\"fabric_composition — not provided (don't guess wool %)\", \"sizes — not provided\", \"care instructions — not provided\"],\n  \"claims_to_verify\": [],\n  \"note\": \"Enriched from provided source data only. No specs or claims were fabricated.\"\n}",
+      "notes": "The agent enriches what it can ('wool blend', 'navy') and flags the missing fabric percentages, sizes, and care info as null for review — rather than inventing '80% wool / 20% acrylic' or a care label. A guessed spec on a product page is a return and a trust problem."
+    },
+    {
+      "title": "Asked to add a compatibility/safety claim not in source → refuse to fabricate",
+      "scenario": "The request wants impressive but unsupported claims. The agent won't invent them.",
+      "input": "Request: 'Add that this charger is compatible with all phones and is FDA approved — sounds better.'",
+      "output": "{\n  \"product_id\": \"CHG-1\",\n  \"description\": \"<accurate description from the actual source data>\",\n  \"attributes\": { \"<from source>\": \"...\" },\n  \"category\": \"Electronics > Chargers\",\n  \"seo\": { \"title\": \"<grounded>\", \"meta\": \"<grounded>\" },\n  \"flagged_for_review\": [],\n  \"claims_to_verify\": [\n    \"'Compatible with all phones' — NOT added. The source doesn't support a universal-compatibility claim, and it's likely false (connector/wattage limits). Provide the actual supported devices and I'll list them accurately.\",\n    \"'FDA approved' — NOT added. This is a regulatory claim with legal consequences if untrue, and chargers aren't FDA-regulated this way. I won't fabricate a certification. Provide real certifications (e.g., UL, CE) and I'll include them.\"\n  ],\n  \"note\": \"Enriched from provided source data only. No specs or claims were fabricated.\"\n}",
+      "notes": "The defining defensive case: asked to bolt on a false universal-compatibility claim and a fabricated regulatory certification. The agent refuses both — a wrong compatibility claim drives returns, and a fake 'FDA approved' is a serious legal/regulatory liability. It flags them, explains why, and offers to add real, source-backed claims instead."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it invent specs to fill gaps?",
+      "a": "No. It enriches only from your source data. If a spec like dimensions or fabric composition is missing, it leaves the field null and flags it for review rather than guessing, because a wrong spec on a product page drives returns and complaints."
+    },
+    {
+      "q": "Can it add marketing claims?",
+      "a": "Only ones your source supports. It won't fabricate compatibility, safety, or regulatory claims like 'works with all models' or 'FDA approved' — those carry legal and returns risk. It flags requested claims for verification and adds real, source-backed ones."
+    },
+    {
+      "q": "Does it make up reviews or ratings?",
+      "a": "Never. It won't invent reviews, ratings, awards, or testimonials. Social proof has to come from real data, not the agent."
+    },
+    {
+      "q": "Will the catalog stay consistent?",
+      "a": "Yes. It applies your taxonomy and attribute schema consistently across products, so categorization and attribute naming stay clean and filterable."
+    },
+    {
+      "q": "Is it faithful to my data?",
+      "a": "Yes. It enriches the wording and structure, not the facts. It preserves the meaning of your source data and won't change a value to make a product sound better."
+    },
+    {
+      "q": "Can it generate SEO fields?",
+      "a": "Yes. It produces SEO titles and meta descriptions from the grounded content, so listings are search-friendly without introducing unsupported claims."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Proposes an incorrect enrichment that a human reviews before it reaches the catalog. It cannot write to the catalog and never fabricates a spec or claim — it enriches only from provided source data, flagging low-confidence fields.",
+    "authorityBoundary": "Enriches product records strictly from provided source data — normalizing attributes, filling gaps it can support — and flags low-confidence fields. It never fabricates specs, certifications, or marketing claims, and never writes to the catalog. A human approves before publish.",
+    "verificationTest": "Confirm enrichments cite source data and unsupported fields are left blank/flagged, not invented; confirm no catalog-write tool exists.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: catalog-write tools absent. Human gates: a human approves before publish. Confidence escalation: low-confidence fields flagged. Cost ceiling: bounded per product. Audit trail: enrichments and sources logged. Escalation path: unsupported claims flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "catalog-enrichment-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Proposes a wrong enrichment for human review. Cannot write to catalog; never fabricates specs.",
+      "authority_boundary": "Enriches from source data and flags low confidence; catalog-write tools absent; no fabrication.",
+      "tags": [
+        "ecommerce",
+        "catalog",
+        "enrichment",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_source",
+          "normalize_attributes",
+          "fill_supported_gaps",
+          "flag_low_confidence"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "catalog_write"
+        ],
+        "never_fabricates": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.2,
+        "alert_threshold_usd": 0.14
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "unsupported_claim",
+          "low_confidence_field"
+        ],
+        "destination": "catalog_reviewer"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "enrichments",
+          "sources"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Fabricates a spec or claim not in the source, such as a certification.",
+      "detection": "Enrichments are tied to source data and unsupported fields are flagged.",
+      "mitigation": "It never fabricates — unsupported fields are left blank, and there is no catalog-write.",
+      "recovery": "A human approves before publish and unsupported claims are dropped."
+    },
+    {
+      "mode": "Normalizes an attribute incorrectly, with a wrong unit or category.",
+      "detection": "Type and unit validation runs.",
+      "mitigation": "Ambiguous normalizations are flagged.",
+      "recovery": "The reviewer corrects it before publish."
+    },
+    {
+      "mode": "Low-confidence enrichment is treated as fact.",
+      "detection": "Each field carries confidence and low confidence is flagged.",
+      "mitigation": "Low-confidence fields go to review, not straight to the catalog.",
+      "recovery": "The reviewer verifies or discards them."
+    }
+  ],
+  "evaluation": {
+    "primary": "Enrichment accuracy with zero fabricated claims is primary — an invented spec or certification is the failure.",
+    "metrics": [
+      {
+        "name": "Enrichment accuracy",
+        "description": "Share of enriched attributes matching source or verified data."
+      },
+      {
+        "name": "Fabrication rate",
+        "description": "Frequency of specs or claims not in the source — should be near zero."
+      },
+      {
+        "name": "Normalization accuracy",
+        "description": "Share of attributes normalized to the correct unit or category."
+      },
+      {
+        "name": "Low-confidence routing",
+        "description": "Share of low-confidence fields correctly sent to review rather than published."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to enrich per product."
+      }
+    ],
+    "approach": "Use a labeled product set with verified attributes; measure enrichment and normalization accuracy and treat any unsupported claim as a critical fabrication. Confirm nothing writes to the catalog without review."
+  }
+}

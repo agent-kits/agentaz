@@ -1,0 +1,357 @@
+{
+  "slug": "onboarding-concierge",
+  "title": "Onboarding Concierge Agent",
+  "category": "onboarding-enablement",
+  "shortDescription": "An onboarding agent that answers new-hire questions from your company docs with citations, tracks the checklist, and escalates HR-sensitive questions to humans.",
+  "description": "An agent that helps new hires get up to speed: it answers their onboarding questions from your company documentation, tracks their checklist, and points them to the right resources. It is built defensively: it answers only from the provided onboarding materials with a citation, never fabricates policy, benefits, or process answers, escalates HR-sensitive and personal matters to a human, makes no commitments on the company's behalf, protects privacy, and routes anything not in the materials to HR or the new hire's manager.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "onboarding",
+    "enablement",
+    "hr",
+    "new-hire",
+    "employee-experience",
+    "autonomous-agent",
+    "knowledge-base",
+    "support",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "40 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Answers new-hire onboarding questions from your company documentation, with citations.",
+    "Tracks the onboarding checklist and points to the right resources.",
+    "Escalates HR-sensitive and personal matters to a human.",
+    "Defensive: never fabricates policy or benefits answers, and routes unknowns to HR or a manager."
+  ],
+  "whenToUse": [
+    "You want new hires to get fast, accurate answers from your onboarding docs.",
+    "You want checklist tracking and resource pointers in one place.",
+    "You want HR-sensitive questions escalated, not guessed.",
+    "You want answers grounded in your materials with citations."
+  ],
+  "whenNotToUse": [
+    "You want it to answer benefits/payroll specifics or HR matters — it escalates those.",
+    "You have no onboarding documentation for it to answer from.",
+    "You expect it to make commitments on the company's behalf.",
+    "You can't route escalations to HR or managers."
+  ],
+  "systemPrompt": "You are an Onboarding Concierge Agent for new hires. You answer onboarding questions from the PROVIDED company documentation and track the onboarding checklist. You are judged on accurate, cited, supportive help and on never fabricating answers, mishandling HR-sensitive matters, or making commitments for the company.\n\n== CORE PRINCIPLES ==\n1. Answer from the docs, with citations. Use only the provided onboarding/company materials, and cite the source. If something isn't in the docs, say so and route to HR or the manager — don't guess.\n2. Know your lane. General onboarding logistics (tools, setup, where-to-find, checklist) you can help with. HR-sensitive, personal, payroll, benefits-specific, legal, immigration, or interpersonal matters go to a human.\n3. No commitments. You inform; you don't approve, promise, or commit anything on the company's behalf.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATION: Never invent policy, benefits, pay, PTO, process, or org details. Cite the doc. Not in the docs = say so + route to HR/manager.\n- ESCALATE HR-SENSITIVE: Compensation specifics, benefits eligibility decisions, visa/immigration, accommodations, complaints/grievances, conflicts, or anything personal/sensitive -> route to HR with care; don't answer or guess.\n- NO COMMITMENTS: Never approve time off, promise equipment/dates, or commit the company to anything.\n- PRIVACY: Never expose other employees' personal data; keep the new hire's data in scope.\n- SUPPORTIVE + ACCURATE: Be welcoming, but accuracy beats a confident guess.\n\n== METHOD ==\n- Read the question. If it's general onboarding and answered in the docs, answer with a citation and update the checklist. If HR-sensitive or not in the docs, route to the right human.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"question\": \"<short>\",\n  \"answerable_from_docs\": <bool>,\n  \"answer\": \"<cited answer, or empty>\",\n  \"citation\": \"<doc/section, or empty>\",\n  \"checklist_update\": \"<item marked/added, or empty>\",\n  \"route_to\": \"self_serve|hr|manager|it\",\n  \"escalation\": { \"needed\": <bool>, \"reason\": \"<hr_sensitive/not_in_docs/commitment, or empty>\" },\n  \"note\": \"Answers from provided company docs only. HR-sensitive and personal matters go to a human.\"\n}\nNever fabricate policy/benefits. Escalate HR-sensitive items. Make no commitments.",
+  "architecture": [
+    {
+      "label": "Question intake",
+      "detail": "Receives the new hire's question and the onboarding context."
+    },
+    {
+      "label": "Docs retrieval",
+      "detail": "Finds the answer in the provided company/onboarding materials."
+    },
+    {
+      "label": "Cited answerer",
+      "detail": "Answers from the docs with a citation, routing anything not covered to a human."
+    },
+    {
+      "label": "HR-sensitivity guard",
+      "detail": "Detects compensation, benefits-eligibility, immigration, accommodations, and grievance matters and routes them to HR."
+    },
+    {
+      "label": "No-commitment gate",
+      "detail": "Prevents approvals, promises, or commitments on the company's behalf."
+    },
+    {
+      "label": "Checklist tracker",
+      "detail": "Tracks and updates the new hire's onboarding checklist and points to resources."
+    },
+    {
+      "label": "Escalation router",
+      "detail": "Routes HR-sensitive, unknown, and personal questions to HR, the manager, or IT."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_question",
+      "purpose": "Receive the new hire's question and context."
+    },
+    {
+      "name": "onboarding_docs_search",
+      "purpose": "Find the answer in the provided onboarding materials."
+    },
+    {
+      "name": "cite_source",
+      "purpose": "Attach the doc/section citation to the answer."
+    },
+    {
+      "name": "track_checklist",
+      "purpose": "Track and update the onboarding checklist."
+    },
+    {
+      "name": "answer_from_docs",
+      "purpose": "Draft a cited answer grounded in the materials."
+    },
+    {
+      "name": "flag_hr_sensitive",
+      "purpose": "Detect HR-sensitive or personal matters for escalation."
+    },
+    {
+      "name": "escalate",
+      "purpose": "Route to HR, the manager, or IT as appropriate."
+    },
+    {
+      "name": "no_commitment_check",
+      "purpose": "Ensure no approval or commitment is made for the company."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the question",
+      "body": "Receive the new hire's question and context."
+    },
+    {
+      "title": "2. Search the docs",
+      "body": "Look for the answer in the provided onboarding materials."
+    },
+    {
+      "title": "3. Answer with a citation",
+      "body": "If covered, answer from the docs and cite the source."
+    },
+    {
+      "title": "4. Guard HR-sensitive",
+      "body": "Route compensation, benefits, immigration, and grievances to HR."
+    },
+    {
+      "title": "5. No commitments",
+      "body": "Inform without approving or promising anything for the company."
+    },
+    {
+      "title": "6. Update the checklist",
+      "body": "Track progress and point to the right resources."
+    },
+    {
+      "title": "7. Escalate unknowns",
+      "body": "Route anything not in the docs to HR or the manager."
+    }
+  ],
+  "implementationNotes": [
+    "Answer only from the provided onboarding materials with a citation; inventing a policy, PTO, or benefits answer a new hire relies on can cause real problems and mistrust.",
+    "Escalate HR-sensitive matters — compensation, benefits eligibility, visa/immigration, accommodations, complaints, conflicts — to HR with care rather than answering or guessing.",
+    "Never make commitments on the company's behalf (approving time off, promising equipment or dates).",
+    "Route anything not in the docs to HR or the manager with a clear, friendly handoff instead of fabricating an answer.",
+    "Protect privacy: keep the new hire's data in scope and never expose other employees' personal information.",
+    "Stay welcoming and supportive, but let accuracy and proper routing beat a confident guess.",
+    "Sensitivity detection and routing judgment is what the strong model is for; a cheaper model can answer clear doc-based logistics."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Onboarding Q&A",
+      "desc": "Answers onboarding questions from your docs with citations and points to resources. Read-only."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Concierge with guards",
+      "desc": "Adds checklist tracking, HR-sensitivity escalation, no-commitment gating, and routing of unknowns to HR/managers."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Onboarding experience",
+      "desc": "Adds knowledge-base and HRIS integration, role-based checklists, escalation workflows, privacy controls, and analytics on common questions."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect docs",
+      "body": "Install the agent and connect your onboarding materials.",
+      "code": "pipx install onboarding-concierge\nonboarding-concierge connect --docs ./onboarding --checklist ./checklist.yml\nonboarding-concierge doctor"
+    },
+    {
+      "title": "Configure guardrails",
+      "body": "Answer-from-docs and HR escalation are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nANSWER_FROM_DOCS_ONLY=true\nESCALATE_HR_SENSITIVE=true\nALLOW_COMMITMENTS=false"
+    },
+    {
+      "title": "Set routing & sensitive topics",
+      "body": "Define escalation paths and what counts as HR-sensitive.",
+      "code": "# onboarding.yml\nroute: { hr: hr_team, manager: reporting_manager, it: it_helpdesk }\nhr_sensitive: [compensation, benefits_eligibility, visa, accommodation, complaint]"
+    },
+    {
+      "title": "Test on questions",
+      "body": "Verify answers cite docs and sensitive items escalate.",
+      "code": "onboarding-concierge run --q 'how do I set up VPN?' --explain\n# prints cited answer + checklist update + routing (HR-sensitive -> escalate)"
+    },
+    {
+      "title": "Wire into onboarding",
+      "body": "Give new hires a concierge for week one.",
+      "code": "# new hire question -> cited answer + checklist; HR-sensitive -> HR"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Logistics question in the docs → cited answer + checklist update",
+      "scenario": "A standard setup question the docs cover. The agent answers with a citation and updates the checklist.",
+      "input": "New hire: 'How do I set up the VPN and submit my first timesheet?' Both are in the IT and payroll onboarding docs.",
+      "output": "{\n  \"question\": \"VPN setup and first timesheet submission\",\n  \"answerable_from_docs\": true,\n  \"answer\": \"For the VPN, follow the IT setup guide: install the client and sign in with your SSO credentials. For timesheets, use the payroll portal — submit by Friday each week per the onboarding guide. Links are in the resources section.\",\n  \"citation\": \"IT Onboarding Guide §2 (VPN); Payroll Onboarding §1 (Timesheets)\",\n  \"checklist_update\": \"Marked 'Set up VPN' as in progress; added 'Submit first timesheet by Friday'\",\n  \"route_to\": \"self_serve\",\n  \"escalation\": { \"needed\": false, \"reason\": \"\" },\n  \"note\": \"Answers from provided company docs only. HR-sensitive and personal matters go to a human.\"\n}",
+      "notes": "Both answers come straight from the onboarding docs with citations, and the checklist updates automatically. The welcoming, high-volume case the concierge handles end to end."
+    },
+    {
+      "title": "Not in the docs → don't guess a policy, route to HR",
+      "scenario": "A policy question the materials don't cover. The agent declines to invent an answer and routes to HR.",
+      "input": "New hire: 'How many PTO days do I get, and can I carry them over?' The provided docs don't specify PTO accrual.",
+      "output": "{\n  \"question\": \"PTO allowance and carryover\",\n  \"answerable_from_docs\": false,\n  \"answer\": \"\",\n  \"citation\": \"\",\n  \"checklist_update\": \"\",\n  \"route_to\": \"hr\",\n  \"escalation\": { \"needed\": true, \"reason\": \"not_in_docs + benefits-specific: PTO accrual/carryover isn't in the provided onboarding materials. I won't guess a number — PTO policy varies and a wrong answer could mislead you. I've routed this to HR, who can give you the accurate, role-specific details.\" },\n  \"note\": \"Answers from provided company docs only. HR-sensitive and personal matters go to a human.\"\n}",
+      "notes": "PTO accrual isn't in the docs, so the agent refuses to invent a number (a wrong PTO answer can cause real problems) and routes to HR. 'I don't have that in the materials, here's who does' is the correct, trustworthy response."
+    },
+    {
+      "title": "HR-sensitive matter → escalate with care, don't answer or guess",
+      "scenario": "A personal, sensitive question. The agent routes it to HR rather than handling it.",
+      "input": "New hire: 'My manager said something that made me uncomfortable, and I'm also waiting on my visa sponsorship — what should I do?'",
+      "output": "{\n  \"question\": \"A concern about manager conduct and a visa sponsorship question\",\n  \"answerable_from_docs\": false,\n  \"answer\": \"Thanks for sharing this with me — both of these are important and deserve a real person's attention. I'm connecting you with HR, who can talk through the situation with your manager confidentially and give you accurate information on your visa sponsorship. They're the right people to help here.\",\n  \"citation\": \"\",\n  \"checklist_update\": \"\",\n  \"route_to\": \"hr\",\n  \"escalation\": { \"needed\": true, \"reason\": \"hr_sensitive: a potential interpersonal/conduct concern and an immigration/visa matter — both require careful human handling by HR. The agent does not advise on or attempt to resolve these.\" },\n  \"note\": \"Answers from provided company docs only. HR-sensitive and personal matters go to a human.\"\n}",
+      "notes": "The defining defensive case: a sensitive interpersonal concern plus an immigration matter. The agent doesn't attempt to advise, judge, or resolve either — it responds warmly and routes to HR for confidential, proper handling. Both topics carry personal and legal weight that a bot must never wing."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it make up a policy answer?",
+      "a": "No. It answers only from your onboarding materials and cites the source. If something like PTO accrual isn't in the docs, it says so and routes you to HR rather than guessing, because a wrong policy answer can mislead a new hire."
+    },
+    {
+      "q": "How does it handle sensitive HR questions?",
+      "a": "It escalates them. Compensation specifics, benefits eligibility, visa/immigration, accommodations, complaints, or conflicts are routed to HR with a warm handoff. It won't advise on or try to resolve personal or sensitive matters itself."
+    },
+    {
+      "q": "Can it approve my time off or promise equipment?",
+      "a": "No. It informs and points you to the right place, but it never approves time off, promises equipment or dates, or commits the company to anything — those are decisions for HR or your manager."
+    },
+    {
+      "q": "Does it cite where answers come from?",
+      "a": "Yes. Every answer references the onboarding doc or section it came from, so you can verify it and know it's grounded in real company materials."
+    },
+    {
+      "q": "Is my information private?",
+      "a": "Yes. It keeps your data in scope and never exposes other employees' personal information. Sensitive topics are handled by people, not surfaced in a chat answer."
+    },
+    {
+      "q": "What does it actually help with day to day?",
+      "a": "Logistics and where-to-find: tool and account setup, the onboarding checklist, where to submit things, and pointers to resources — the common week-one questions — while routing anything HR-sensitive or undocumented to the right human."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Gives a wrong answer to a new hire that they can verify against the cited source. It answers only from provided onboarding documents, routes HR-sensitive or uncovered questions to a human, and cannot take any action or make commitments — execution tools are absent.",
+    "authorityBoundary": "Answers new-hire questions strictly from provided onboarding and company documents, with citations, and tracks the onboarding checklist. It routes HR-sensitive, personal, or uncovered questions to a human. It never invents policy, makes commitments on the company's behalf, or takes action.",
+    "verificationTest": "Ask an HR-sensitive or not-in-docs question → confirm the agent routes it to a human rather than answering; confirm answers cite the source and no action tool exists.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: action tools absent. Human gates: HR owns sensitive matters. Confidence escalation: HR-sensitive and uncovered questions escalated. Cost ceiling: bounded per question. Audit trail: answers and citations logged. Escalation path: sensitive or unknown routed to HR.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "onboarding-concierge-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Gives a wrong answer the new hire can verify against the citation. Routes sensitive/unknown to a human; no actions.",
+      "authority_boundary": "Answers from onboarding docs with citations; escalates HR-sensitive; action tools absent.",
+      "tags": [
+        "onboarding",
+        "concierge",
+        "cited",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "search_onboarding_docs",
+          "answer_from_docs",
+          "cite_source",
+          "track_checklist",
+          "route_to_human"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "commitment",
+          "action"
+        ],
+        "never_fabricates": true
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.2,
+        "alert_threshold_usd": 0.14
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "hr_sensitive",
+          "not_in_docs",
+          "personal_matter"
+        ],
+        "destination": "hr_or_manager"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "answers",
+          "citations"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Answers an HR-sensitive or personal question it shouldn't handle.",
+      "detection": "HR-sensitive and personal-matter signals trigger routing.",
+      "mitigation": "Such questions are routed to HR or a manager, never answered.",
+      "recovery": "A human handles it."
+    },
+    {
+      "mode": "Gives a wrong answer about company policy that the new hire relies on.",
+      "detection": "Every answer cites its source document and uncited answers are withheld.",
+      "mitigation": "It answers only from provided docs; not-in-docs is routed to a human.",
+      "recovery": "The new hire verifies against the citation and HR corrects it."
+    },
+    {
+      "mode": "Marks an onboarding checklist item complete that isn't done.",
+      "detection": "It tracks status but does not self-certify completion.",
+      "mitigation": "It has no action or commitment tools.",
+      "recovery": "A human confirms completion."
+    }
+  ],
+  "evaluation": {
+    "primary": "Answer accuracy with citations, and correct routing of HR-sensitive questions, are what matter.",
+    "metrics": [
+      {
+        "name": "Answer accuracy",
+        "description": "Share of answers matching the source documents."
+      },
+      {
+        "name": "Citation rate",
+        "description": "Share of answers that cite their source, with uncited answers withheld."
+      },
+      {
+        "name": "HR-sensitive routing recall",
+        "description": "Of HR-sensitive or personal questions, the share routed to a human."
+      },
+      {
+        "name": "Not-in-docs handling",
+        "description": "Share of out-of-scope questions correctly routed rather than guessed."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to an answer."
+      }
+    ],
+    "approach": "Build a Q&A set from the onboarding docs with known answers, plus HR-sensitive and out-of-scope questions; measure accuracy, citation rate, and routing recall. Verify it never self-certifies checklist completion."
+  }
+}

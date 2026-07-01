@@ -1,0 +1,71 @@
+{
+  "version": "1.0.0",
+  "count": 13,
+  "kits": [
+    {
+      "slug": "access-request-handler",
+      "title": "Access Request & Provisioning Agent",
+      "trustLevel": "A3 — Human-Approved"
+    },
+    {
+      "slug": "alert-triage-enricher",
+      "title": "AI SOC Alert Triage Agent",
+      "trustLevel": "A3 — Human-Approved"
+    },
+    {
+      "slug": "code-review-assistant",
+      "title": "Production-Grade AI Code Review Agent",
+      "trustLevel": "A2 — Recommend"
+    },
+    {
+      "slug": "contract-clause-reviewer",
+      "title": "AI Contract Review Agent",
+      "trustLevel": "A2 — Recommend"
+    },
+    {
+      "slug": "incident-responder",
+      "title": "AI Incident Response Agent",
+      "trustLevel": "A4 — Limited Autonomy"
+    },
+    {
+      "slug": "issue-to-pr-planner",
+      "title": "AI Bug-Fix & Draft-PR Agent",
+      "trustLevel": "A4 — Limited Autonomy"
+    },
+    {
+      "slug": "metric-anomaly-explainer",
+      "title": "Metric Anomaly Investigation Agent",
+      "trustLevel": "A2 — Recommend"
+    },
+    {
+      "slug": "nl-to-sql-analyst",
+      "title": "NL-to-SQL Analytics Agent",
+      "trustLevel": "A1 — Research"
+    },
+    {
+      "slug": "phishing-report-analyzer",
+      "title": "Phishing Triage & Response Agent",
+      "trustLevel": "A3 — Human-Approved"
+    },
+    {
+      "slug": "refund-returns-resolver",
+      "title": "Refund & Returns Resolution Agent",
+      "trustLevel": "A3 — Human-Approved"
+    },
+    {
+      "slug": "transaction-reconciler",
+      "title": "Transaction Reconciliation Agent",
+      "trustLevel": "A2 — Recommend"
+    },
+    {
+      "slug": "vendor-risk-assessor",
+      "title": "Vendor Risk Assessment Agent",
+      "trustLevel": "A2 — Recommend"
+    },
+    {
+      "slug": "workflow-router",
+      "title": "Workflow Routing Agent",
+      "trustLevel": "A2 — Recommend"
+    }
+  ]
+}

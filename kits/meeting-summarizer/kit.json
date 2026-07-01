@@ -1,0 +1,354 @@
+{
+  "slug": "meeting-summarizer",
+  "title": "Meeting Summary & Action Item Agent",
+  "category": "meeting-intelligence",
+  "shortDescription": "A meeting agent that turns a transcript into a faithful summary, cited decisions, and owned action items — never inventing a decision or owner the transcript lacks.",
+  "description": "Takes a meeting transcript into something a team can actually rely on: a faithful summary, the decisions that were truly made, and action items with the right owner and due date — without inventing any of it. It stays grounded in the transcript, attributes ownership only when it's clear, and keeps things that were merely discussed out of the decisions list. It is defensive by design: it never fabricates a decision, owner, or commitment the transcript doesn't support, flags ambiguous ownership instead of guessing, separates decisions from open discussion, and keeps confidential content in scope.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "meetings",
+    "transcription",
+    "action-items",
+    "summary",
+    "productivity",
+    "autonomous-agent",
+    "meeting-notes",
+    "decisions",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "40 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Turns a transcript into a faithful summary, a clean decisions list, and action items with owners and due dates.",
+    "Stays grounded in what was actually said — decisions and action items trace back to the transcript.",
+    "Attributes ownership only when it's clear, and flags ambiguous ones for confirmation instead of guessing.",
+    "Defensive: never invents a decision, owner, or commitment, and keeps merely-discussed items out of the decisions list."
+  ],
+  "whenToUse": [
+    "You run meetings and want reliable notes, decisions, and action items without manual write-up.",
+    "You have transcripts (or recordings you can transcribe) to work from.",
+    "You want owners and due dates captured accurately, with ambiguous ones flagged.",
+    "You need a faithful record that distinguishes real decisions from open discussion."
+  ],
+  "whenNotToUse": [
+    "You have no transcript and want notes invented from a topic — it won't fabricate.",
+    "You expect it to assign owners by guessing when the meeting didn't make them clear.",
+    "You need legally authoritative minutes without human review.",
+    "You can't keep meeting content appropriately confidential."
+  ],
+  "systemPrompt": "You are a Meeting Summary & Action Item Agent. From a meeting transcript, you produce a faithful summary, the decisions actually made, action items with owners and due dates, and open questions. You are judged on faithfulness — and on never inventing a decision, owner, action, or commitment the transcript doesn't support.\n\n== CORE PRINCIPLES ==\n1. Grounded in the transcript. Every decision, action item, and key point must trace to something actually said. If it wasn't said, it doesn't go in. When useful, cite or quote the supporting line.\n2. Decisions vs. discussion. Only list as a DECISION something the group actually agreed/concluded. Things debated but not resolved go under open questions — not decisions.\n3. Attribute carefully. Assign an action item's owner only when the transcript makes it clear. If ownership is ambiguous (\"someone should…\"), mark it unassigned and flag it for confirmation rather than guessing a name.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATION: Never invent decisions, action items, owners, due dates, numbers, or commitments. Omit what isn't supported.\n- NO MISATTRIBUTION: Don't assign a statement or task to a person unless the transcript clearly supports it. Unclear = unassigned + flag.\n- DON'T INFER COMMITMENTS: A passing \"we could…\" or \"maybe I'll…\" is not a firm action item. Capture firm commitments; mark tentative ones as tentative.\n- FLAG UNCERTAINTY: Where the transcript is unclear, garbled, or contradictory, say so rather than smoothing it into false confidence.\n- CONFIDENTIALITY/PII: Treat the transcript as confidential; keep it in scope; redact personal data where present.\n\n== METHOD ==\n- Read the transcript; segment by topic. Extract decisions (only agreed ones), action items (owner + due if stated, else flag), and open questions.\n- Attribute owners only on clear evidence. Note tentative vs firm. Produce a concise, faithful summary.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"summary\": \"<concise, faithful overview>\",\n  \"decisions\": [ { \"decision\": \"<what was agreed>\", \"evidence\": \"<short quote/paraphrase from transcript>\" } ],\n  \"action_items\": [ { \"task\": \"<action>\", \"owner\": \"<name or 'unassigned'>\", \"due\": \"<date or 'not specified'>\", \"firmness\": \"firm|tentative\", \"needs_confirmation\": <bool> } ],\n  \"open_questions\": [\"<discussed but unresolved>\"],\n  \"attribution_flags\": [\"<ambiguous ownership or unclear points to confirm>\"],\n  \"confidence\": \"high|medium|low\",\n  \"caveats\": [\"<transcript quality / unclear sections>\"]\n}\nNever list a debated-but-unresolved item as a decision. Never assign an owner you can't support — mark it unassigned and flag it.",
+  "architecture": [
+    {
+      "label": "Transcript intake",
+      "detail": "Receives the meeting transcript (with speaker labels and timestamps where available) under confidential, scoped access."
+    },
+    {
+      "label": "Topic segmentation",
+      "detail": "Segments the conversation into topics so the summary and extractions are organized and traceable to sections."
+    },
+    {
+      "label": "Decision extraction",
+      "detail": "Identifies only the items the group actually agreed on, keeping debated-but-unresolved points out of the decisions list."
+    },
+    {
+      "label": "Action-item & owner capture",
+      "detail": "Extracts firm action items with owners and due dates where the transcript makes them clear, and flags ambiguous ownership instead of guessing."
+    },
+    {
+      "label": "Faithfulness gate",
+      "detail": "Checks every decision and action item against transcript evidence, dropping or flagging anything unsupported and marking tentative commitments."
+    },
+    {
+      "label": "Summary & open questions",
+      "detail": "Produces a concise, faithful summary plus the open questions, with attribution flags for anything needing confirmation."
+    },
+    {
+      "label": "Redaction & delivery",
+      "detail": "Redacts PII as needed and delivers structured notes for review, keeping the transcript confidential."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_transcript",
+      "purpose": "Retrieve the meeting transcript with speaker labels and timestamps where available."
+    },
+    {
+      "name": "segment_topics",
+      "purpose": "Segment the transcript into coherent topic sections for organized extraction."
+    },
+    {
+      "name": "extract_decisions",
+      "purpose": "Identify decisions the group actually agreed on, with supporting transcript evidence."
+    },
+    {
+      "name": "extract_action_items",
+      "purpose": "Pull firm action items, capturing owner and due date only where clearly stated."
+    },
+    {
+      "name": "attribute_speaker",
+      "purpose": "Attribute statements/tasks to a speaker only on clear evidence; otherwise mark unassigned."
+    },
+    {
+      "name": "flag_open_questions",
+      "purpose": "Capture topics that were discussed but left unresolved."
+    },
+    {
+      "name": "summarize",
+      "purpose": "Produce a concise, faithful overview grounded in the transcript."
+    },
+    {
+      "name": "redact_pii",
+      "purpose": "Detect and redact personal data from the notes and output."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Intake the transcript",
+      "body": "Load the transcript with speaker/timestamp data under confidential access."
+    },
+    {
+      "title": "2. Segment by topic",
+      "body": "Break the conversation into topics so extractions stay traceable."
+    },
+    {
+      "title": "3. Extract real decisions",
+      "body": "Capture only items the group agreed on, with supporting evidence; keep debates in open questions."
+    },
+    {
+      "title": "4. Capture action items",
+      "body": "Pull firm commitments with owner and due date where clear; mark tentative ones and flag ambiguous ownership."
+    },
+    {
+      "title": "5. Check faithfulness",
+      "body": "Verify every decision and action item against the transcript; drop or flag anything unsupported."
+    },
+    {
+      "title": "6. Summarize & list open questions",
+      "body": "Write a concise faithful summary and list unresolved topics and attribution flags."
+    },
+    {
+      "title": "7. Redact & deliver",
+      "body": "Redact PII and deliver structured notes for review, keeping content confidential."
+    }
+  ],
+  "implementationNotes": [
+    "Require transcript evidence for every decision and action item; an unsupported note is worse than a missing one because teams act on it.",
+    "Only list agreed conclusions as decisions — debated-but-unresolved topics belong in open questions, or you manufacture consensus that didn't happen.",
+    "Never guess owners: mark ambiguous ownership unassigned and flag it, so nothing silently falls through with a wrong name attached.",
+    "Distinguish firm commitments from tentative 'maybes'; over-capturing tentative asides as action items erodes trust in the notes.",
+    "Surface transcript-quality caveats and unclear sections instead of smoothing them into false confidence.",
+    "Keep transcripts confidential and redact PII; meeting content is sensitive and shouldn't leak into shared notes.",
+    "Decision/discussion separation and attribution is what the strong model is for; a cheaper model can segment and draft the summary."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Summary & action extractor",
+      "desc": "Produces a faithful summary, decisions, and action items from a single transcript, with ambiguous owners flagged. On demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Evidence-grounded notes",
+      "desc": "Adds decision-vs-discussion separation, evidence citations, firm/tentative tagging, attribution flags, and PII redaction."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Meeting intelligence at scale",
+      "desc": "Adds automatic post-meeting processing, action-item tracking into task systems, cross-meeting follow-up, confidentiality controls, and integration with docs and calendars."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect your source",
+      "body": "Install the agent and connect it to your meeting/transcription source.",
+      "code": "pipx install meeting-summary-agent\nmeeting-summary-agent connect --source zoom,otter\nmeeting-summary-agent doctor"
+    },
+    {
+      "title": "Configure faithfulness guardrails",
+      "body": "Keep the no-fabrication and attribution posture explicit.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nREQUIRE_EVIDENCE_FOR_DECISIONS=true\nGUESS_OWNERS=false\nREDACT_PII=true"
+    },
+    {
+      "title": "Set output template",
+      "body": "Define the notes structure your team expects.",
+      "code": "# notes.yml\nsections: [summary, decisions, action_items, open_questions]\naction_items: { fields: [task, owner, due, firmness] }\nflag_unassigned: true"
+    },
+    {
+      "title": "Dry-run on a transcript",
+      "body": "Generate notes and review decisions, owners, and flags.",
+      "code": "meeting-summary-agent run --transcript ./sample.vtt --explain\n# prints decisions+evidence, action items+owners, open questions, flags"
+    },
+    {
+      "title": "Wire into your flow",
+      "body": "Auto-process finished meetings and post notes to your docs/channel for review.",
+      "code": "# meeting-end webhook -> generate notes -> post to #notes (for human confirmation)"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Clear meeting → faithful summary, decisions, owned action items",
+      "scenario": "A well-run meeting with explicit agreements and assignments. The agent captures them cleanly with evidence.",
+      "input": "Transcript excerpt: 'Maria: Let's ship the beta on the 15th. — Team: agreed. — Maria: Raj, can you finalize the release notes by the 12th? — Raj: yes, I'll have them done.'",
+      "output": "{\n  \"summary\": \"The team agreed to ship the beta on the 15th and assigned release-note finalization to Raj by the 12th.\",\n  \"decisions\": [ { \"decision\": \"Ship the beta on the 15th\", \"evidence\": \"Maria proposed the 15th; team responded 'agreed'\" } ],\n  \"action_items\": [ { \"task\": \"Finalize the release notes\", \"owner\": \"Raj\", \"due\": \"the 12th\", \"firmness\": \"firm\", \"needs_confirmation\": false } ],\n  \"open_questions\": [],\n  \"attribution_flags\": [],\n  \"confidence\": \"high\",\n  \"caveats\": []\n}",
+      "notes": "Everything traces to the transcript: a clearly agreed decision (with evidence) and a firm, explicitly-owned action item with a due date. This is the clean case — the value is that the structure is faithful, not embellished."
+    },
+    {
+      "title": "Ambiguous ownership → action item left unassigned and flagged",
+      "scenario": "An action is clearly needed but nobody explicitly took it. The agent refuses to guess an owner.",
+      "input": "Transcript: 'Someone needs to follow up with the vendor about the pricing before next week.' (No one explicitly volunteers.)",
+      "output": "{\n  \"summary\": \"The team identified that a vendor pricing follow-up is needed before next week, but no owner was assigned during the meeting.\",\n  \"decisions\": [],\n  \"action_items\": [ { \"task\": \"Follow up with the vendor about pricing\", \"owner\": \"unassigned\", \"due\": \"before next week\", \"firmness\": \"firm\", \"needs_confirmation\": true } ],\n  \"open_questions\": [\"Who will own the vendor pricing follow-up?\"],\n  \"attribution_flags\": [\"Action item 'vendor pricing follow-up' has no clear owner — confirm before distributing\"],\n  \"confidence\": \"high\",\n  \"caveats\": []\n}",
+      "notes": "The action is real, but ownership was never assigned — so the agent captures the task with owner='unassigned', flags it for confirmation, and adds an open question. Guessing a name here would create a false record and a dropped ball. Honest 'unassigned' beats a confident wrong owner."
+    },
+    {
+      "title": "Discussed but not agreed → kept OUT of decisions",
+      "scenario": "A topic was debated without resolution. The agent resists logging it as a decision and files it under open questions.",
+      "input": "Transcript: 'Alex: We should probably switch to the new vendor. — Sam: I'm not sure, the migration cost worries me. — Maria: Let's table it and revisit next week.' ",
+      "output": "{\n  \"summary\": \"The team discussed switching to a new vendor but did not decide; migration cost was raised as a concern and the topic was tabled to next week.\",\n  \"decisions\": [],\n  \"action_items\": [ { \"task\": \"Revisit the vendor-switch decision\", \"owner\": \"unassigned\", \"due\": \"next week\", \"firmness\": \"firm\", \"needs_confirmation\": true } ],\n  \"open_questions\": [\"Should we switch to the new vendor? (migration cost unresolved — tabled to next week)\"],\n  \"attribution_flags\": [],\n  \"confidence\": \"high\",\n  \"caveats\": []\n}",
+      "notes": "The defining faithfulness case: it's tempting to record 'decided to switch vendors,' but the transcript shows the opposite — it was debated and explicitly tabled. The agent logs zero decisions, puts the question under open questions, and only captures the real action (revisit next week). It reports what happened, not a tidier version of it."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it make up action items or decisions?",
+      "a": "No — that's its core constraint. Every decision and action item must trace to something actually said in the transcript; anything unsupported is omitted, and unclear points are flagged rather than invented."
+    },
+    {
+      "q": "How does it decide what's a 'decision'?",
+      "a": "Only items the group actually agreed on or concluded are listed as decisions, with supporting evidence. Topics that were debated but left unresolved go under open questions, so it never manufactures consensus."
+    },
+    {
+      "q": "What if it's unclear who owns an action?",
+      "a": "It marks the owner as 'unassigned' and flags the item for confirmation instead of guessing a name, and it adds an open question so the ownership gap is visible."
+    },
+    {
+      "q": "Does it capture every 'maybe I'll do X'?",
+      "a": "It captures firm commitments and marks tentative ones as tentative, rather than turning passing asides into hard action items that clutter the notes and erode trust."
+    },
+    {
+      "q": "Is the meeting content kept private?",
+      "a": "Yes. It treats the transcript as confidential, keeps it in scope, and redacts personal data from the output."
+    },
+    {
+      "q": "Can I trust it for official minutes?",
+      "a": "It produces a faithful, evidence-grounded draft that's an excellent starting point, but for legally authoritative minutes a human should review and confirm — especially decisions and owners."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Produces an inaccurate summary or a wrong action item that participants review and correct. It cannot send, assign, schedule, or take any action — those tools are absent from its registry.",
+    "authorityBoundary": "Reads a transcript, summarizes it, and extracts action items with owners and due dates where stated, flagging ambiguous ownership. Participants confirm. It never sends, assigns, or schedules, and it never invents owners or commitments.",
+    "verificationTest": "Provide a transcript with unclear ownership → confirm the agent flags it rather than inventing an owner; confirm no send/assign tool exists.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: send/assign/schedule tools absent. Human gates: participants confirm. Confidence escalation: ambiguous items flagged. Cost ceiling: bounded per meeting. Audit trail: summary and items logged. Escalation path: unclear ownership flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "meeting-summary-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Produces an inaccurate summary for participant review. Cannot send, assign, or schedule.",
+      "authority_boundary": "Summarizes transcripts and extracts stated action items; send/assign tools absent; no invented owners.",
+      "tags": [
+        "meeting-intelligence",
+        "summary",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_transcript",
+          "summarize",
+          "extract_action_items",
+          "flag_ambiguous"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "send",
+          "assign_task",
+          "schedule"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.2,
+        "alert_threshold_usd": 0.14
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "unclear_ownership",
+          "ambiguous_item"
+        ],
+        "destination": "meeting_owner"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "summary",
+          "action_items"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Invents an action item or owner not stated in the meeting.",
+      "detection": "Items are grounded in the transcript and unclear ownership is flagged.",
+      "mitigation": "It never invents owners or commitments; it summarizes only.",
+      "recovery": "Participants confirm and correct."
+    },
+    {
+      "mode": "Misattributes a decision to the wrong person.",
+      "detection": "Speaker attribution is grounded in the transcript.",
+      "mitigation": "Ambiguous attribution is flagged.",
+      "recovery": "Participants correct it."
+    },
+    {
+      "mode": "Buries a key decision in the summary noise.",
+      "detection": "Decisions are extracted distinctly from discussion.",
+      "mitigation": "It separates decisions from chatter.",
+      "recovery": "Participants review the full summary."
+    }
+  ],
+  "evaluation": {
+    "primary": "Faithfulness of decisions and action items is primary — an invented owner or misattributed decision is the failure.",
+    "metrics": [
+      {
+        "name": "Action-item faithfulness",
+        "description": "Share of extracted action items grounded in the transcript."
+      },
+      {
+        "name": "Owner-attribution accuracy",
+        "description": "Share of items and decisions attributed to the correct person."
+      },
+      {
+        "name": "Fabrication rate",
+        "description": "Frequency of invented items or owners — should be near zero."
+      },
+      {
+        "name": "Decision recall",
+        "description": "Of decisions made, the share captured distinctly from discussion."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to summarize."
+      }
+    ],
+    "approach": "Use meetings with reference summaries and labeled action items and owners; measure faithfulness, attribution accuracy, and decision recall against the transcript. Participants confirm — it never assigns or notifies."
+  }
+}

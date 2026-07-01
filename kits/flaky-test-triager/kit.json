@@ -1,0 +1,355 @@
+{
+  "slug": "flaky-test-triager",
+  "title": "Flaky Test Triage Agent",
+  "category": "qa-testing",
+  "shortDescription": "A flaky-test triage agent that re-runs failures in isolation, uses history to separate flakes from real regressions, and quarantines proven flakes. Never masks a bug.",
+  "description": "An agent that triages CI test failures and answers the question every engineer hates guessing: is this a flaky test or a real bug? It re-runs the failure in isolation, weighs the test's failure history and patterns, and only quarantines a test once it has evidence the test — not the code — is at fault. It is defensive by design: it never quarantines a test that might be catching a real regression, requires repeated confirmation before calling something flaky, keeps re-runs cost-bounded, never deletes tests, and escalates anything ambiguous or touching critical paths to the owner.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "flaky-tests",
+    "ci-cd",
+    "qa",
+    "testing",
+    "developer-tools",
+    "autonomous-agent",
+    "test-quarantine",
+    "devex",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Re-run → analyze history → classify → quarantine or route: turns a red build into a clear 'flake vs. real bug' verdict.",
+    "Evidence-based: it isolates the failure and weighs failure history and patterns (timing, ordering, environment) before judging.",
+    "Quarantines proven flakes behind a gate to unblock the pipeline — and routes real regressions straight to the code author.",
+    "Defensive: it never masks a real bug, needs repeated confirmation to call a test flaky, and escalates ambiguous or critical-path failures."
+  ],
+  "whenToUse": [
+    "Flaky tests are eroding trust in your CI and engineers are re-running builds or ignoring reds.",
+    "You have CI history and the ability to re-run individual tests in isolation.",
+    "You want consistent, evidence-based flaky-vs-real classification instead of gut calls.",
+    "You want proven flakes quarantined (with an issue) to unblock merges, while real regressions still reach the author."
+  ],
+  "whenNotToUse": [
+    "You can't re-run individual tests or lack failure history — classification would be guessing.",
+    "You want it to delete tests or permanently silence failures; it only quarantines reversibly, with a tracking issue.",
+    "Critical-path suites (payments/auth) where you're unwilling to keep human review on quarantines.",
+    "Your 'flaky' tests are actually catching real intermittent bugs you haven't investigated."
+  ],
+  "systemPrompt": "You are a Flaky Test Triage Agent for a CI pipeline. For ONE failing test, you determine whether it is FLAKY (the test is unreliable) or a REAL failure (the code is broken), and act accordingly. You are judged on correctly unblocking pipelines AND on never masking a real regression by mislabeling it flaky.\n\n== CORE PRINCIPLES ==\n1. Evidence before verdict. Do not call a test flaky from a single failure. Re-run it in isolation, check its failure history, and look for flakiness signatures (timing/race, test-ordering dependence, shared state, environment/network). Cite the evidence.\n2. Bias toward protecting signal. A flaky test is an annoyance; a masked regression is a shipped bug. When evidence is mixed, treat the failure as potentially REAL and route it to a human, not to quarantine.\n3. Quarantine is reversible and tracked. You never delete a test. Quarantine means skip-with-a-tracking-issue so it gets fixed, not forgotten.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- CONFIRMATION REQUIRED: Classify FLAKY only with positive evidence — e.g. the test passes on isolated re-run AND history shows intermittent pass/fail without a correlating code change, or a clear flakiness signature. A single pass-on-rerun is not enough on its own.\n- NEVER MASK A REGRESSION: If the failure reproduces consistently on re-run, or correlates with a recent change to the code under test, it is REAL — do not quarantine; route to the author.\n- CRITICAL PATHS ESCALATE: For tests covering security, auth, payments, or data integrity, do not auto-quarantine even if it looks flaky — escalate to the owner with your evidence.\n- NO DELETION / BOUNDED COST: Never delete or rewrite tests. Cap the number of re-runs per test; if still ambiguous after the cap, escalate.\n- TRACK EVERYTHING: Every quarantine creates a tracking issue with the evidence and an owner.\n\n== DECISION POLICY (calibrated confidence 0.0-1.0) ==\n- QUARANTINE_FLAKY: positive flakiness evidence, not a critical path, confidence >= 0.85. Skip-with-issue to unblock; assign an owner to fix.\n- REAL_FAILURE: reproduces on re-run or correlates with a recent code change. Route to the author; keep the build red.\n- ESCALATE: ambiguous after the re-run budget, critical-path test, or conflicting evidence. Hand to the owner with findings.\n\n== COST CONTROL ==\nRe-run only the failing test (isolated), not the whole suite, up to the configured cap. Reuse history already pulled. Stop once you can decide.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"test\": \"<test id/name>\",\n  \"verdict\": \"flaky|real|ambiguous\",\n  \"confidence\": <0.0-1.0>,\n  \"evidence\": [\"<isolated re-run results, history, flakiness signature, change correlation>\"],\n  \"signature\": \"<timing|ordering|shared_state|environment|none>\",\n  \"critical_path\": <bool>,\n  \"decision\": \"QUARANTINE_FLAKY|REAL_FAILURE|ESCALATE\",\n  \"actions\": [ { \"tool\": \"<tool>\", \"args\": { ... }, \"requires_approval\": <bool> } ],\n  \"issue\": \"<tracking issue title + owner if quarantining, else empty>\",\n  \"author_note\": \"<message to the code author if REAL, else empty>\",\n  \"escalation\": { \"needed\": <bool>, \"reason\": \"<critical path / ambiguity, or empty>\" }\n}\nIf verdict is ambiguous or the test is critical-path, do NOT quarantine — ESCALATE or route as REAL.",
+  "architecture": [
+    {
+      "label": "Failure intake",
+      "detail": "Receives the failing test from CI with its logs, the diff/commit under test, and the job/environment context."
+    },
+    {
+      "label": "Isolated re-run harness",
+      "detail": "Re-runs just the failing test in isolation (and a few times within a cap) to see whether the failure reproduces deterministically or intermittently."
+    },
+    {
+      "label": "History & change correlation",
+      "detail": "Pulls the test's recent pass/fail history and checks whether the failure correlates with a recent change to the code under test — the key flaky-vs-real signal."
+    },
+    {
+      "label": "Signature analysis",
+      "detail": "Looks for flakiness signatures — timing/races, test-ordering dependence, shared state, environment/network — to support (or refute) a flaky verdict."
+    },
+    {
+      "label": "Verdict & quarantine gate",
+      "detail": "The model classifies on the evidence; a deterministic gate blocks quarantine for critical-path tests and for anything that reproduces or correlates with a code change."
+    },
+    {
+      "label": "Quarantine & tracking",
+      "detail": "Reversibly skips a proven flake with an auto-filed tracking issue and owner, and routes real failures to the author — never deleting tests."
+    },
+    {
+      "label": "Feedback & flake registry",
+      "detail": "Maintains a flakiness registry and logs verdict outcomes so repeat offenders are spotted and misclassifications tune the thresholds."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_failure",
+      "purpose": "Fetch the failing test, its logs, the commit/diff under test, and the CI job/environment context."
+    },
+    {
+      "name": "rerun_test",
+      "purpose": "Re-run the single failing test in isolation (up to a cap) to check whether the failure reproduces or is intermittent."
+    },
+    {
+      "name": "failure_history",
+      "purpose": "Return the test's recent pass/fail history and flakiness rate across branches and runs."
+    },
+    {
+      "name": "analyze_pattern",
+      "purpose": "Detect flakiness signatures — timing/races, ordering dependence, shared state, environment/network sensitivity."
+    },
+    {
+      "name": "change_correlation",
+      "purpose": "Check whether the failure correlates with a recent change to the code the test covers (a strong 'real' signal)."
+    },
+    {
+      "name": "quarantine_test",
+      "purpose": "Reversibly skip a proven-flaky test (skip-with-issue). Gated: rejects critical-path tests and unconfirmed flakes."
+    },
+    {
+      "name": "file_issue",
+      "purpose": "Open a tracking issue for a quarantined flake (or a real failure) with the evidence and an assigned owner."
+    },
+    {
+      "name": "escalate_to_owner",
+      "purpose": "Route ambiguous or critical-path failures to the test/code owner with the collected evidence."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Intake the failure",
+      "body": "Pull the failing test, logs, and the diff under test from CI."
+    },
+    {
+      "title": "2. Re-run in isolation",
+      "body": "Re-run just that test (within the cap) to see if the failure reproduces deterministically or comes and goes."
+    },
+    {
+      "title": "3. Check history & change correlation",
+      "body": "Pull pass/fail history and check whether the failure lines up with a recent change to the covered code."
+    },
+    {
+      "title": "4. Look for a flakiness signature",
+      "body": "Analyze for timing/ordering/shared-state/environment causes that explain instability."
+    },
+    {
+      "title": "5. Decide on evidence",
+      "body": "Call it flaky only with positive evidence; if it reproduces or correlates with a change, it's real; if unclear or critical-path, escalate."
+    },
+    {
+      "title": "6. Act through the gate",
+      "body": "Quarantine proven flakes (skip-with-issue) to unblock, route real failures to the author, and never quarantine critical-path tests automatically."
+    },
+    {
+      "title": "7. Track & learn",
+      "body": "File the tracking issue, update the flake registry, and feed outcomes back so repeat flakes and misclassifications are caught."
+    }
+  ],
+  "implementationNotes": [
+    "Require positive, multi-signal evidence to call a test flaky (isolated pass + intermittent history or a clear signature). A single pass-on-rerun must never be enough — that's how real intermittent bugs get masked.",
+    "Always check change-correlation: a failure on a test whose covered code just changed is real until proven otherwise.",
+    "Make critical-path suites (payments/auth/data) escalate-only; the cost of masking a regression there is far higher than a slow build.",
+    "Quarantine reversibly (skip-with-issue) and never delete tests; every quarantine needs a tracking issue and an owner so flakes get fixed, not buried.",
+    "Bound re-runs per test for cost, and escalate (don't guess) once the budget is exhausted on an ambiguous case.",
+    "Maintain a flake registry and track 'masked regressions' as the key safety metric in backtests before enabling auto-quarantine.",
+    "Reserve the strong model for the flaky-vs-real judgment; a cheaper model can parse logs and pull history."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Flake classifier",
+      "desc": "Re-runs the failure, analyzes history and signatures, and reports a flaky/real verdict with evidence and a recommendation for an engineer. No auto-quarantine."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Guarded auto-quarantine",
+      "desc": "Auto-quarantines proven non-critical flakes (skip-with-issue + owner) to unblock CI, routes real failures to authors, and escalates critical-path and ambiguous cases."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Org-wide flake management",
+      "desc": "Adds a cross-repo flake registry, trend analytics, CODEOWNERS routing, quarantine SLAs and auto-expiry, and threshold tuning from masked-regression metrics at scale."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect CI",
+      "body": "Install the agent and connect it to your CI and test reporting.",
+      "code": "pipx install flaky-triage-agent\nflaky-triage-agent connect --ci github-actions --reports junit\nflaky-triage-agent doctor   # verifies isolated re-run capability"
+    },
+    {
+      "title": "Configure confirmation and caps",
+      "body": "How many isolated re-runs, and how much evidence is needed to call flaky. Enforced outside the model.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nMAX_RERUNS=5\nFLAKY_NEEDS: { isolated_pass: true, history_intermittent: true }\nMODE=advise   # advise (recommend) | act (auto-quarantine proven flakes)"
+    },
+    {
+      "title": "Mark critical-path suites",
+      "body": "These never auto-quarantine, even if they look flaky.",
+      "code": "# .flaky.yml\ncritical_paths: [\"tests/payments/**\", \"tests/auth/**\", \"tests/data_integrity/**\"]\nquarantine: skip_with_issue   # never delete\nassign_owner_from: CODEOWNERS"
+    },
+    {
+      "title": "Dry-run on recent failures",
+      "body": "Replay recent red builds to check verdicts before enabling auto-quarantine.",
+      "code": "flaky-triage-agent backtest --range 14d --explain\n# reports flaky/real accuracy and any regressions it would have masked (must be 0)"
+    },
+    {
+      "title": "Wire into the pipeline",
+      "body": "Trigger on test failures. Start in advise mode; enable auto-quarantine for non-critical proven flakes once backtests are clean.",
+      "code": "# CI failure hook -> POST https://your-host/flaky/triage (HMAC)\n# promote MODE=act after a clean backtest with zero masked regressions"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Intermittent, timing-dependent test → quarantine as flaky",
+      "scenario": "A test fails once, passes on isolated re-run, and history shows it flips pass/fail with no related code change — a classic race.",
+      "input": "Failure: test_async_notify failed in CI. No changes to the notify module in this PR.",
+      "output": "{\n  \"test\": \"test_async_notify\",\n  \"verdict\": \"flaky\",\n  \"confidence\": 0.9,\n  \"evidence\": [\"isolated re-run: passed 5/5\", \"history: failed 6 of last 80 runs across unrelated PRs\", \"logs show it asserts before an async callback completes (race)\", \"no change to the notify module in this PR\"],\n  \"signature\": \"timing\",\n  \"critical_path\": false,\n  \"decision\": \"QUARANTINE_FLAKY\",\n  \"actions\": [\n    { \"tool\": \"quarantine_test\", \"args\": { \"test\": \"test_async_notify\", \"mode\": \"skip_with_issue\" }, \"requires_approval\": false },\n    { \"tool\": \"file_issue\", \"args\": { \"title\": \"Flaky: test_async_notify (async race)\", \"owner\": \"@notify-team\" }, \"requires_approval\": false }\n  ],\n  \"issue\": \"Flaky: test_async_notify (async race) — assigned @notify-team\",\n  \"author_note\": \"\",\n  \"escalation\": { \"needed\": false, \"reason\": \"\" }\n}",
+      "notes": "Strong flaky evidence: passes 5/5 in isolation, intermittent history across unrelated PRs, a clear timing/race signature, and no related code change. It quarantines reversibly (skip-with-issue) and assigns an owner — unblocking the build without losing the test."
+    },
+    {
+      "title": "Reproduces on re-run + correlates with the change → REAL, don't quarantine",
+      "scenario": "The failure looks like it could be flaky, but it reproduces every re-run and the PR changed exactly the code under test. The agent refuses to quarantine.",
+      "input": "Failure: test_discount_calc failed. This PR modifies pricing/discount.py.",
+      "output": "{\n  \"test\": \"test_discount_calc\",\n  \"verdict\": \"real\",\n  \"confidence\": 0.92,\n  \"evidence\": [\"isolated re-run: failed 5/5 (deterministic)\", \"this PR modifies pricing/discount.py — the exact code under test\", \"history: passed 100% before this PR\", \"assertion: expected 90.0, got 99.0 (discount not applied)\"],\n  \"signature\": \"none\",\n  \"critical_path\": false,\n  \"decision\": \"REAL_FAILURE\",\n  \"actions\": [],\n  \"issue\": \"\",\n  \"author_note\": \"test_discount_calc fails deterministically (5/5) and your PR changes pricing/discount.py — expected 90.0 but got 99.0, so the 10% discount isn't being applied. This looks like a real regression, not a flake. Please check the discount calculation before merging.\",\n  \"escalation\": { \"needed\": false, \"reason\": \"\" }\n}",
+      "notes": "The core safety behavior: it would be tempting (and harmful) to quarantine a red test to unblock the PR. But the failure is deterministic and correlates exactly with the changed code, so the agent calls it REAL, keeps the build red, and hands the author a precise diagnosis. Quarantining here would have shipped a pricing bug."
+    },
+    {
+      "title": "Looks flaky but it's a payments test → escalate, never auto-quarantine",
+      "scenario": "A test on the payments path shows intermittent behavior. Even though it pattern-matches to flaky, the critical-path rule forces a human.",
+      "input": "Failure: test_payment_capture_retry intermittently fails (passed 3/5 on re-run). Covers the payment capture/retry path.",
+      "output": "{\n  \"test\": \"test_payment_capture_retry\",\n  \"verdict\": \"ambiguous\",\n  \"confidence\": 0.6,\n  \"evidence\": [\"isolated re-run: passed 3/5, failed 2/5 (intermittent)\", \"history: occasional failures\", \"covers payment capture + retry logic (critical path)\", \"possible real intermittent bug in retry/idempotency, not just test flakiness\"],\n  \"signature\": \"timing\",\n  \"critical_path\": true,\n  \"decision\": \"ESCALATE\",\n  \"actions\": [\n    { \"tool\": \"escalate_to_owner\", \"args\": { \"owner\": \"@payments\", \"priority\": \"high\" }, \"requires_approval\": false }\n  ],\n  \"issue\": \"\",\n  \"author_note\": \"\",\n  \"escalation\": { \"needed\": true, \"reason\": \"Intermittent failure on a payments-path test. It looks flaky, but intermittent failures in capture/retry can indicate a real idempotency/race bug. Not auto-quarantining a critical-path test — escalating to @payments to investigate whether the retry logic is actually correct.\" }\n}",
+      "notes": "The defining example: the test pattern-matches to flaky (passes 3/5), but it covers payments — where an 'intermittent' failure might be a real idempotency/race bug that only sometimes triggers. Auto-quarantining it could hide a money-losing defect, so the critical-path rule overrides and it escalates to the owner with that exact concern."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it hide real bugs by quarantining tests?",
+      "a": "No — that's its primary safety constraint. It only quarantines with positive flakiness evidence, treats any failure that reproduces or correlates with a code change as real, and escalates (never quarantines) tests on critical paths like payments and auth."
+    },
+    {
+      "q": "How does it decide flaky vs. real?",
+      "a": "It re-runs the failing test in isolation, checks its pass/fail history, looks for flakiness signatures (timing, ordering, shared state, environment), and correlates against recent code changes. Flaky needs positive evidence; reproducible or change-correlated failures are real."
+    },
+    {
+      "q": "Does it delete flaky tests?",
+      "a": "Never. Quarantine means a reversible skip-with-tracking-issue assigned to an owner, so the test is unblocked from CI but still gets fixed rather than forgotten."
+    },
+    {
+      "q": "What about tests on critical paths?",
+      "a": "Tests covering payments, auth, or data integrity are escalate-only — it won't auto-quarantine them even if they look flaky, because an 'intermittent' failure there can be a real bug."
+    },
+    {
+      "q": "How is the cost of re-running controlled?",
+      "a": "It re-runs only the single failing test in isolation, up to a configured cap, rather than the whole suite — and if a case is still ambiguous after the cap, it escalates instead of burning more runs."
+    },
+    {
+      "q": "How do we adopt it safely?",
+      "a": "Start in advise mode where it only recommends, backtest on recent failures to confirm it would mask zero regressions, then enable auto-quarantine for non-critical proven flakes."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Evaluation (Research → Evaluate)",
+    "worstCaseAction": "Labels a real failure as flaky (or vice versa), surfaced for an engineer to review. It cannot quarantine, disable, skip, or rerun tests autonomously — those tools are absent from its registry.",
+    "authorityBoundary": "Analyzes test history to identify likely-flaky tests with supporting evidence and recommends action. An engineer decides. It never disables, quarantines, skips, or reruns tests on its own.",
+    "verificationTest": "Attempt to call a disable-test, quarantine, or skip tool → confirm it is absent from the agent's registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: disable/quarantine tools absent. Human gates: an engineer decides. Confidence escalation: ambiguous cases flagged, never auto-quarantined. Cost ceiling: bounded per analysis. Audit trail: evidence and recommendations logged. Escalation path: suspected real failures flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "flaky-test-triage-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Evaluation",
+      "worst_case_action": "Mislabels a failure as flaky for engineer review. Cannot disable, quarantine, or skip tests.",
+      "authority_boundary": "Identifies likely-flaky tests and recommends action; disable/quarantine tools absent.",
+      "tags": [
+        "qa-testing",
+        "flaky-tests",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_test_history",
+          "detect_flakiness",
+          "gather_evidence",
+          "recommend"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "disable_test",
+          "quarantine",
+          "skip",
+          "rerun"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.2,
+        "alert_threshold_usd": 0.14
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "ambiguous_case",
+          "suspected_real_failure"
+        ],
+        "destination": "engineer"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "evidence",
+          "recommendations"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Labels a real failure as flaky, hiding a genuine bug.",
+      "detection": "Ambiguous cases are flagged and evidence is required per verdict.",
+      "mitigation": "It recommends only — it cannot disable, quarantine, or skip tests.",
+      "recovery": "An engineer reviews; suspected real failures are surfaced."
+    },
+    {
+      "mode": "Labels a flaky test as a real failure, wasting triage time.",
+      "detection": "Flakiness signals such as intermittency and environment-dependence are weighed with confidence.",
+      "mitigation": "Low-confidence verdicts are flagged, not asserted.",
+      "recovery": "The engineer corrects the label."
+    },
+    {
+      "mode": "Acts on insufficient history — too few runs to judge.",
+      "detection": "A minimum-sample check runs before a verdict.",
+      "mitigation": "Thin history yields 'insufficient data', not a guess.",
+      "recovery": "More runs are gathered before judging."
+    }
+  ],
+  "evaluation": {
+    "primary": "Correctly separating flaky from real failures is primary — labeling a real failure as flaky hides a bug.",
+    "metrics": [
+      {
+        "name": "Classification accuracy",
+        "description": "Share of failures correctly labeled flaky versus real."
+      },
+      {
+        "name": "Real-failure recall",
+        "description": "Of genuine failures, the share NOT mislabeled as flaky — the critical side."
+      },
+      {
+        "name": "Flaky precision",
+        "description": "Of failures labeled flaky, the share that truly are."
+      },
+      {
+        "name": "Insufficient-data rate",
+        "description": "Share of thin-history cases correctly marked 'insufficient data' rather than guessed."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to a verdict."
+      }
+    ],
+    "approach": "Use a labeled history of test runs with known flaky-versus-real outcomes; measure real-failure recall as the critical metric and flaky precision as the noise side. Include thin-history cases to test the abstain behavior. It never disables or quarantines tests."
+  }
+}

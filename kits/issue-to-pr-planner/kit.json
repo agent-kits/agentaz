@@ -1,0 +1,370 @@
+{
+  "slug": "issue-to-pr-planner",
+  "title": "AI Bug-Fix & Draft-PR Agent",
+  "category": "software-engineering",
+  "shortDescription": "An AI bug-fix agent: reproduces an issue, finds root cause, writes a minimal fix plus tests, and opens a focused draft PR — sandboxed, small-diff, human-gated.",
+  "description": "Turns a bug report into a reviewed pull request — safely. It reproduces the issue in a sandbox, traces the root cause through the real codebase, writes the smallest correct fix plus a regression test, and opens a draft PR with a clear explanation. It is defensive by design: it keeps diffs minimal, never force-pushes, never touches protected paths (auth, payments, migrations, infra) without a human, caps its own cost and tool calls, and escalates instead of guessing when a report is ambiguous or a fix is risky.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "bug-fix",
+    "pull-request",
+    "autonomous-agent",
+    "developer-tools",
+    "testing",
+    "ci-cd",
+    "code-generation",
+    "guardrails",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "50 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Reproduce → locate → fix → test → PR: a complete loop that ends in a focused, reviewable draft pull request, not a pile of speculative edits.",
+    "Grounded in the real repo: it reads the actual code and reproduces the bug before changing anything, so fixes target the true root cause.",
+    "Minimal and safe by default: smallest viable diff, a regression test that fails before and passes after, and no changes to protected paths without human sign-off.",
+    "Cost- and blast-radius-controlled: sandboxed execution, capped tool calls and files touched, and escalation when the fix is ambiguous or high-risk."
+  ],
+  "whenToUse": [
+    "You have a backlog of well-described, reproducible bugs that follow common patterns and drain senior time.",
+    "Your repo has a test suite and CI the agent can use to verify a fix actually works.",
+    "You want a draft PR with a real fix and test to review, not just a suggestion or a comment.",
+    "You can run the agent against a sandboxed checkout with scoped permissions.",
+    "You want automation that opens PRs for the easy-to-medium fixes and routes the hard ones to humans with a clear plan."
+  ],
+  "whenNotToUse": [
+    "The bug report has no reproduction steps and the failure cannot be reproduced — the agent should ask or escalate, not invent a fix.",
+    "The change is architectural, security-sensitive, or spans many subsystems; those need a human author.",
+    "You have no tests or CI, so a fix cannot be verified before it is proposed.",
+    "You are unwilling to keep human review on the PR and a sandbox between the agent and production."
+  ],
+  "systemPrompt": "You are an Autonomous Bug-Fix Engineer. Your job is to take ONE issue and produce a small, correct, reviewed pull request — or, when that is not safe or possible, a clear plan and an escalation. You are judged on fixes that are correct, minimal, and tested, and on never breaking the build, never widening scope, and never touching things you are not allowed to.\n\n== CORE PRINCIPLES ==\n1. Reproduce before you fix. Do not change code until you have reproduced the reported behavior (a failing test or a documented repro). If you cannot reproduce it, you do not understand it — ask for details or escalate.\n2. Smallest correct diff. Fix the root cause, not the symptom, with the minimum change. Do not refactor, reformat, rename, or \"improve\" unrelated code. A 6-line fix beats a 200-line rewrite.\n3. Evidence over guessing. Ground every claim in code you have actually read (cite path:line). If the root cause is unclear, say so and stop — never ship a speculative fix.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- PROTECTED PATHS: You must NOT modify authentication, authorization, cryptography, payments/billing, database migrations, access control, or infra/deploy config. If the fix requires touching these, STOP, write the plan, and escalate to a human.\n- TESTS REQUIRED: Every fix must include a regression test that fails on the original code and passes on the fixed code. No test, no PR.\n- NO DESTRUCTIVE GIT: Never force-push, never rewrite history, never delete branches, never commit to main directly. Work on a fresh branch and open a DRAFT PR.\n- SANDBOX ONLY: Run code and tests only in the provided sandbox. Never run untrusted scripts outside it, never exfiltrate secrets, and if you find a secret in the repo, flag it and do not echo its value.\n- SCOPE: Touch only the files needed for this one issue, within the configured file/diff budget. If the fix would exceed the budget, stop and propose splitting the work.\n\n== WORKFLOW POLICY ==\n- Step 1 Reproduce: write or run a test that demonstrates the bug. If it cannot be reproduced after a reasonable attempt, set decision=NEEDS_INFO and list exactly what you need.\n- Step 2 Locate: trace the root cause through the code; cite the responsible lines. State your hypothesis explicitly.\n- Step 3 Fix: apply the minimal change. Re-run the failing test (now passing) and the surrounding suite to check for regressions.\n- Step 4 Verify: run static analysis/type checks if available. If anything fails, fix forward only within scope, or escalate.\n- Step 5 Propose: open a draft PR with the diff, the failing→passing test, a plain-language explanation, and any risks.\n\n== DECISION (calibrated confidence 0.0-1.0) ==\n- OPEN_PR: confidence >= 0.8, reproduced, fixed, tested, no protected paths, within budget.\n- NEEDS_INFO: cannot reproduce or the report is ambiguous. Ask specific questions; make no code change.\n- ESCALATE: touches protected paths, exceeds budget/scope, security-sensitive, or confidence < 0.8 after investigation. Provide a plan a human can act on.\n\n== COST CONTROL ==\nRead only the files you need (use search before reading whole trees). Do not re-read files already in context. Cap tool calls per issue; if you would exceed the cap, escalate with what you have. Keep the PR description concise.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"decision\": \"OPEN_PR|NEEDS_INFO|ESCALATE\",\n  \"confidence\": <0.0-1.0>,\n  \"root_cause\": \"<grounded explanation with path:line, or empty>\",\n  \"reproduction\": \"<how you reproduced it / the failing test, or what's missing>\",\n  \"patch\": \"<unified diff of the minimal fix, or empty>\",\n  \"test\": \"<the regression test added, or empty>\",\n  \"files_touched\": [\"...\"],\n  \"risks\": \"<what a reviewer should double-check>\",\n  \"pr\": { \"title\": \"<concise>\", \"body\": \"<explanation + test note + risks>\", \"draft\": true },\n  \"escalation\": { \"needed\": <bool>, \"reason\": \"<protected path / scope / uncertainty, or empty>\", \"plan\": \"<next steps for a human, or empty>\" }\n}\nIf decision is NEEDS_INFO or ESCALATE, leave patch/test empty and do not modify code.",
+  "architecture": [
+    {
+      "label": "Issue intake",
+      "detail": "Pulls the issue/bug report and any linked logs, stack traces, or failing CI runs, and normalizes them into a structured task with an explicit acceptance criterion (the bug no longer happens)."
+    },
+    {
+      "label": "Sandboxed checkout",
+      "detail": "Clones the repo at the target branch into an isolated sandbox with scoped, least-privilege credentials. All execution happens here — never against production or with broad tokens."
+    },
+    {
+      "label": "Reproduction harness",
+      "detail": "Attempts to reproduce the bug via an existing test, a new failing test, or the documented steps. No code is modified until a reproduction exists or the agent gives up and asks."
+    },
+    {
+      "label": "Root-cause search",
+      "detail": "Uses semantic + symbol search to trace the failure to its source, reading only the relevant files and citing the responsible lines as evidence for the fix."
+    },
+    {
+      "label": "Fix & test engine",
+      "detail": "The model produces the minimal patch and a regression test, then runs the failing test (now passing) plus the surrounding suite and static analysis to catch regressions."
+    },
+    {
+      "label": "Policy & escalation gate",
+      "detail": "A deterministic gate checks changed paths against protected areas, enforces the file/diff budget, and requires a passing regression test before a PR can be opened; violations force ESCALATE."
+    },
+    {
+      "label": "PR publishing & feedback",
+      "detail": "Opens a draft PR with the diff, test, explanation, and risks. Reviewer accept/edit/reject outcomes are logged to tune which bug classes are safe to automate."
+    }
+  ],
+  "tools": [
+    {
+      "name": "fetch_issue",
+      "purpose": "Retrieve the issue/bug report, comments, labels, and any linked stack traces or failing CI logs as the task input."
+    },
+    {
+      "name": "search_codebase",
+      "purpose": "Semantic + symbol search to locate the code responsible for the behavior without reading the whole repo."
+    },
+    {
+      "name": "read_files",
+      "purpose": "Read specific files or line ranges identified during root-cause analysis, returning only what is needed."
+    },
+    {
+      "name": "run_tests",
+      "purpose": "Execute the affected test suite in the sandbox to reproduce the bug and verify the fix and surrounding behavior."
+    },
+    {
+      "name": "apply_patch",
+      "purpose": "Apply a unified-diff patch to the sandboxed checkout on a new branch; rejects edits to protected paths or beyond the diff budget."
+    },
+    {
+      "name": "run_static_analysis",
+      "purpose": "Run the repo's linter/type-checker over changed files as an extra correctness gate before proposing the PR."
+    },
+    {
+      "name": "open_pr",
+      "purpose": "Open a DRAFT pull request from the working branch with the diff, test, explanation, and risk notes. Never targets main directly."
+    },
+    {
+      "name": "escalate_to_human",
+      "purpose": "Hand off with a structured plan when the fix is risky, ambiguous, or touches protected paths, instead of guessing."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Intake the issue",
+      "body": "Fetch the report, logs, and acceptance criterion. Confirm it is a single, scoped bug; if it is actually several, propose splitting."
+    },
+    {
+      "title": "2. Reproduce in a sandbox",
+      "body": "Clone into the sandbox and reproduce via an existing or newly written failing test. If it cannot be reproduced, switch to NEEDS_INFO and ask precise questions."
+    },
+    {
+      "title": "3. Find the root cause",
+      "body": "Search and read only the relevant code, trace the failure to its source, and state the hypothesis with cited lines before changing anything."
+    },
+    {
+      "title": "4. Apply the minimal fix",
+      "body": "Make the smallest change that fixes the root cause. Reject anything that strays into protected paths or beyond the diff budget."
+    },
+    {
+      "title": "5. Test and verify",
+      "body": "Run the regression test (failing → passing) plus the surrounding suite and static analysis. If something breaks, fix forward in scope or escalate."
+    },
+    {
+      "title": "6. Open a draft PR",
+      "body": "Publish a draft PR with the diff, the test, a plain-language explanation, and explicit risks for the reviewer."
+    },
+    {
+      "title": "7. Learn from review",
+      "body": "Record whether the PR was merged, edited, or rejected, and use it to tune which bug classes the agent should attempt versus escalate."
+    }
+  ],
+  "implementationNotes": [
+    "Make 'a regression test that fails before and passes after' a hard merge requirement — it is the single best guard against speculative or wrong fixes.",
+    "Run everything in a sandbox with a least-privilege, single-repo token. The agent should never hold broad credentials or touch production.",
+    "Enforce protected paths and the diff budget in a deterministic gate, not just the prompt; any violation downgrades to ESCALATE with a plan.",
+    "Start with --dry-run and label-gated triggers so a human chooses which issues the agent attempts; expand the allowed bug classes as merge rates prove out.",
+    "Keep diffs tiny on purpose. Small, single-cause PRs are easy to review and safe to merge; reject the urge to bundle cleanups.",
+    "Log merged/edited/rejected outcomes per bug class. Rejection patterns tell you exactly where to tighten the prompt or stop auto-attempting.",
+    "A cheaper model is usually enough to triage and search, so keep the strong model for root-cause reasoning and patch generation."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Plan & patch suggester",
+      "desc": "Reproduces and diagnoses the bug and posts a proposed patch + test as an issue comment for a human to apply. No branch, no PR — the safest starting point."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Draft-PR author",
+      "desc": "Opens a draft PR with the minimal fix and a passing regression test, gated by protected paths, a diff budget, and a required green test run before the PR is created."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Governed fleet fixer",
+      "desc": "Runs across many repos with per-repo policies and CODEOWNERS routing, sandboxed execution, secret-scanning, full audit trails, and a feedback loop that tunes which bug classes auto-open PRs."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and create a sandbox runner",
+      "body": "Install the agent and prepare an isolated workspace it can clone into.",
+      "code": "pipx install bugfix-agent\nmkdir -p ~/.bugfix-sandbox\nbugfix-agent doctor   # checks git, test runner, sandbox isolation"
+    },
+    {
+      "title": "Configure models, repo access, and limits",
+      "body": "Use a least-privilege token. Caps live in config so the agent cannot widen its own scope.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nGITHUB_TOKEN=ghp_...            # scoped: contents:write, pull_requests:write on ONE repo\nTEST_CMD=\"pytest -q\"\nMAX_FILES=8\nMAX_DIFF_LINES=200\nREQUIRE_TEST=true"
+    },
+    {
+      "title": "Declare protected paths",
+      "body": "Anything matching these is off-limits to the agent and forces escalation.",
+      "code": "# .bugfix.yml\nprotected_paths:\n  - \"**/auth/**\"\n  - \"**/payments/**\"\n  - \"migrations/**\"\n  - \"infra/**\"\nopen_as: draft\nbase_branch: main"
+    },
+    {
+      "title": "Dry-run on a real issue",
+      "body": "Point it at an issue and inspect the plan, patch, and test before letting it open a PR.",
+      "code": "bugfix-agent run --issue 1423 --dry-run --explain\n# prints decision, root_cause, patch, test, risks"
+    },
+    {
+      "title": "Enable PR creation in CI",
+      "body": "Trigger on labeled issues so a human stays in the loop by choosing what to hand the agent.",
+      "code": "# .github/workflows/bugfix.yml\nname: Autonomous Bug Fix\non:\n  issues:\n    types: [labeled]\njobs:\n  fix:\n    if: github.event.label.name == 'agent-fix'\n    runs-on: ubuntu-latest\n    permissions: { contents: write, pull-requests: write }\n    steps:\n      - uses: actions/checkout@v4\n        with: { fetch-depth: 0 }\n      - run: pipx install bugfix-agent\n      - run: bugfix-agent run --issue ${{ github.event.issue.number }} --open-pr\n        env: { ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}, GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Reproducible null-handling bug → tested fix + draft PR",
+      "scenario": "A clear issue: an endpoint 500s when an optional field is missing. There's a stack trace and steps to reproduce.",
+      "input": "Issue #1423: GET /profile crashes when user has no avatar.\nTraceback: AttributeError: 'NoneType' object has no attribute 'url' at api/profile.py:51\nRepro: create a user without an avatar, call GET /profile -> 500.",
+      "output": "{\n  \"decision\": \"OPEN_PR\",\n  \"confidence\": 0.9,\n  \"root_cause\": \"api/profile.py:51 accesses user.avatar.url without checking that avatar exists; users without an avatar have avatar=None, raising AttributeError.\",\n  \"reproduction\": \"Added test_profile_without_avatar which creates an avatarless user and asserts GET /profile returns 200; it fails on the original code with the reported AttributeError.\",\n  \"patch\": \"--- a/api/profile.py\\n+++ b/api/profile.py\\n@@ -49,7 +49,7 @@\\n-    avatar_url = user.avatar.url\\n+    avatar_url = user.avatar.url if user.avatar else None\",\n  \"test\": \"def test_profile_without_avatar(client):\\n    u = make_user(avatar=None)\\n    r = client.get('/profile', user=u)\\n    assert r.status_code == 200\\n    assert r.json()['avatar_url'] is None\",\n  \"files_touched\": [\"api/profile.py\", \"tests/test_profile.py\"],\n  \"risks\": \"Confirm clients tolerate a null avatar_url (they should; it was previously crashing).\",\n  \"pr\": { \"title\": \"Fix 500 on /profile when user has no avatar\", \"body\": \"Guards avatar access against None and adds a regression test (fails before, passes after). Minimal change, no behavior change for users with an avatar.\", \"draft\": true },\n  \"escalation\": { \"needed\": false, \"reason\": \"\", \"plan\": \"\" }\n}",
+      "notes": "The textbook case: reproduce with a failing test, fix the exact line, keep the diff to one expression, and open a draft PR. The test is the proof — it fails on the old code and passes on the new, which is what makes the PR trustworthy."
+    },
+    {
+      "title": "Unreproducible report → NEEDS_INFO instead of a guess",
+      "scenario": "A vague report with no steps. A naive agent would invent a plausible-looking fix; this one refuses.",
+      "input": "Issue #1502: 'The dashboard is sometimes slow and sometimes wrong.' No steps, no timestamps, no account, no logs.",
+      "output": "{\n  \"decision\": \"NEEDS_INFO\",\n  \"confidence\": 0.2,\n  \"root_cause\": \"\",\n  \"reproduction\": \"Could not reproduce: no steps, no affected account/tenant, no timeframe, and 'slow' vs 'wrong' are two different problems. Tried the default dashboard with seed data and saw correct, fast results.\",\n  \"patch\": \"\",\n  \"test\": \"\",\n  \"files_touched\": [],\n  \"risks\": \"Guessing here would likely produce a fix for the wrong problem and add risk without value.\",\n  \"pr\": { \"title\": \"\", \"body\": \"\", \"draft\": true },\n  \"escalation\": { \"needed\": false, \"reason\": \"\", \"plan\": \"Need: (1) exact steps or a screen recording, (2) an affected account/tenant id, (3) approximate timestamps, (4) whether 'wrong' means missing data or incorrect numbers. With those I can reproduce and fix.\" }\n}",
+      "notes": "This is the discipline that keeps an autonomous fixer safe: with confidence 0.2 and no reproduction, it makes zero code changes and asks four specific questions. Shipping a speculative fix for an unreproducible bug is how agents erode trust."
+    },
+    {
+      "title": "Fix would touch a migration → escalate with a plan",
+      "scenario": "A real, reproducible bug whose correct fix requires a schema change. The protected-path gate forces a human.",
+      "input": "Issue #1571: duplicate orders can be created on rapid double-submit. Repro confirmed. Root cause: no unique constraint on (user_id, idempotency_key); fix needs a DB migration to add it.",
+      "output": "{\n  \"decision\": \"ESCALATE\",\n  \"confidence\": 0.86,\n  \"root_cause\": \"services/orders.py inserts without enforcing idempotency; the real fix is a unique constraint on orders(user_id, idempotency_key), which requires a migration.\",\n  \"reproduction\": \"Added a concurrency test that fires two identical submits and asserts one order; it fails today (two orders created).\",\n  \"patch\": \"\",\n  \"test\": \"tests/test_orders_idempotency.py (failing repro included in the PR plan)\",\n  \"files_touched\": [],\n  \"risks\": \"Adding a unique constraint can fail if duplicate rows already exist; needs a data backfill/cleanup step first.\",\n  \"pr\": { \"title\": \"\", \"body\": \"\", \"draft\": true },\n  \"escalation\": { \"needed\": true, \"reason\": \"Fix requires a database migration (protected path).\", \"plan\": \"1) De-dupe existing orders. 2) Add migration for UNIQUE(user_id, idempotency_key). 3) Make the insert idempotent in services/orders.py. 4) Ship the included concurrency test. I can prepare the app-code change and test now; a human should own the migration and backfill.\" }\n}",
+      "notes": "Even with high confidence in the diagnosis and a ready test, the agent stops because the correct fix touches migrations. It hands over a concrete, ordered plan and an existing failing test — maximally useful while staying inside its authority."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it merge code on its own?",
+      "a": "No. It opens a DRAFT pull request with the fix and a passing regression test; a human reviews and merges. It never commits to main or force-pushes."
+    },
+    {
+      "q": "How does it avoid shipping a wrong fix?",
+      "a": "It must reproduce the bug with a failing test before changing anything, and the fix must make that test pass without breaking the suite. If it can't reproduce or isn't confident, it asks for info or escalates instead of guessing."
+    },
+    {
+      "q": "What stops it from making sweeping changes?",
+      "a": "A deterministic diff budget and protected-path gate. It can only touch a small number of files, can't modify auth/payments/migrations/infra, and escalates with a plan when a fix would exceed those bounds."
+    },
+    {
+      "q": "Is it safe to run on our codebase?",
+      "a": "It runs in an isolated sandbox with a least-privilege, single-repo token, never executes untrusted code outside the sandbox, and flags (without echoing) any secret it encounters."
+    },
+    {
+      "q": "What kinds of bugs is it good at?",
+      "a": "Well-described, reproducible bugs that follow common patterns — null/None handling, off-by-one, validation gaps, simple logic errors. Architectural or security-sensitive changes are routed to humans."
+    },
+    {
+      "q": "How do we control cost?",
+      "a": "It searches before reading, caps tool calls and files per issue, and uses a cheaper model for triage with the strong model reserved for root-cause analysis and the patch."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A4 — Limited Autonomy",
+    "dnaPattern": "Execution (Research → Plan → Execute → Verify)",
+    "worstCaseAction": "Writes a fix on a sandboxed branch and opens a DRAFT pull request containing an incorrect change. The draft is never merged automatically; a human reviews and merges. Branch work is reversible and every run leaves an audit trail.",
+    "authorityBoundary": "Reproduces an issue, writes a candidate fix on an isolated branch, runs tests in a sandbox, and opens a draft PR for human review. It never merges to a protected branch, never force-pushes, and never deploys. A human approves and merges.",
+    "verificationTest": "Confirm the agent opens a DRAFT PR only and cannot merge to a protected branch (merge-to-main is absent/blocked); confirm branch changes are isolated and reversible.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: writes confined to an isolated branch; merge-to-main absent. Human gates: a human reviews and merges the draft. Confidence escalation: low-confidence fixes flagged in the PR. Cost ceiling: bounded per issue. Audit trail: diff, tests, and reasoning logged. Escalation path: risky changes flagged for a maintainer.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "issue-to-pr-agent",
+      "trust_level": "A4",
+      "dna_pattern": "Execution",
+      "worst_case_action": "Opens a draft PR with an incorrect fix on a sandboxed branch; never auto-merged. Human reviews and merges.",
+      "authority_boundary": "Writes fixes on an isolated branch and opens draft PRs; merge-to-main and deploy tools absent.",
+      "tags": [
+        "software-engineering",
+        "bug-fix",
+        "sandboxed",
+        "draft-pr",
+        "human-approval"
+      ],
+      "tool_boundary": {
+        "auto_executable_tools": [
+          "read_issue",
+          "write_branch",
+          "run_tests_sandbox",
+          "open_draft_pr"
+        ],
+        "approval_required_tools": [
+          "merge_pr"
+        ],
+        "execution_tools_absent": false,
+        "rollback_required": true,
+        "branch_isolated": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_without_approval": [
+          "merge_pr",
+          "deploy",
+          "force_push"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.5,
+        "alert_threshold_usd": 0.35
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 14
+      },
+      "human_handoff": {
+        "triggers": [
+          "tests_failing",
+          "risky_change",
+          "low_confidence"
+        ],
+        "destination": "maintainer"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "diff",
+          "test_results",
+          "reasoning",
+          "approvals"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Writes an incorrect fix that passes a weak test suite.",
+      "detection": "The existing suite runs in a sandbox; low coverage is flagged in the PR.",
+      "mitigation": "A draft PR only — never auto-merged; a human reviews.",
+      "recovery": "The human rejects the PR and the branch is discarded (reversible)."
+    },
+    {
+      "mode": "The fix introduces a regression elsewhere.",
+      "detection": "A full sandbox test run executes and the diff scope is checked.",
+      "mitigation": "The branch is isolated and merge-to-main is absent from the registry.",
+      "recovery": "The draft is closed and the branch is reverted."
+    },
+    {
+      "mode": "Misreads the issue and fixes the wrong thing.",
+      "detection": "The fix is linked to the issue's acceptance criteria; low confidence is flagged in the PR.",
+      "mitigation": "A human approves the merge.",
+      "recovery": "The maintainer redirects and the PR is closed."
+    },
+    {
+      "mode": "Attempts to write to a protected branch.",
+      "detection": "A branch-isolation check runs; protected-branch writes are absent from the tool registry.",
+      "mitigation": "The capability is structurally not granted.",
+      "recovery": "Prevented by construction; the attempt is logged."
+    }
+  ],
+  "evaluation": {
+    "primary": "Fix correctness verified by tests is the core metric — does the proposed change actually resolve the issue without regressions?",
+    "metrics": [
+      {
+        "name": "Resolution rate",
+        "description": "Share of draft PRs where the change resolves the issue and passes its acceptance tests."
+      },
+      {
+        "name": "Regression rate",
+        "description": "Of generated fixes, the share that introduce new failures in the full suite."
+      },
+      {
+        "name": "Issue-match accuracy",
+        "description": "Whether the fix addresses the actual issue rather than the wrong thing."
+      },
+      {
+        "name": "Human-merge rate",
+        "description": "Share of draft PRs a maintainer merges with little or no change."
+      },
+      {
+        "name": "Latency & cost",
+        "description": "Time and token cost per issue."
+      }
+    ],
+    "approach": "Use a benchmark of issues with known fixes and tests (SWE-bench-style) in a sandbox; measure resolution rate by test outcome and regression rate on the full suite. Never auto-merge during evaluation."
+  }
+}

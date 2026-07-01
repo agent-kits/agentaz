@@ -1,0 +1,350 @@
+{
+  "slug": "nl-to-sql-analyst",
+  "title": "NL-to-SQL Analytics Agent",
+  "category": "data-analysis",
+  "shortDescription": "A schema-grounded analytics agent that turns plain-English questions into safe, read-only SQL — cost-guarded, PII-aware, and clarifying ambiguity instead of guessing.",
+  "description": "An analytics agent that turns plain-English questions into correct, safe SQL against your actual schema. It grounds every query in the real tables and columns it has been shown, runs read-only with cost and row guards, validates results before reporting them, and states its assumptions. It is defensive by design: it refuses writes and schema changes, blocks queries that would scan unbounded data without a limit, guards against exposing PII, and asks a clarifying question instead of guessing when a request is ambiguous.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "nl-to-sql",
+    "analytics",
+    "data-analysis",
+    "business-intelligence",
+    "autonomous-agent",
+    "sql",
+    "guardrails",
+    "self-serve-data",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "40 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Question → grounded SQL → validated answer: ask in English, get a correct, explained result backed by real, runnable SQL.",
+    "Schema-grounded: it only references tables and columns that exist in the schema it's given, so it can't invent fields or join nonexistent keys.",
+    "Safe by construction: read-only, cost- and row-capped, PII-aware, and it refuses writes, DDL, and unbounded scans.",
+    "Honest about ambiguity: it states its assumptions and asks one clarifying question when a request could mean materially different things, instead of guessing."
+  ],
+  "whenToUse": [
+    "You want non-analysts to self-serve answers from a database without writing SQL or waiting on the data team.",
+    "You have a reasonably documented schema (or can provide table/column descriptions) for grounding.",
+    "You want every answer backed by inspectable, read-only SQL and an explanation of assumptions.",
+    "You need cost and safety guardrails on a shared analytics database.",
+    "You want a layer that asks for clarification on ambiguous questions instead of returning confidently-wrong numbers."
+  ],
+  "whenNotToUse": [
+    "You need write operations, ETL, or schema changes — this agent is strictly read-only by design.",
+    "Your schema is undocumented and inscrutable, so grounding would be unreliable.",
+    "The question requires judgment a query can't answer (causal claims, forecasts) without a human analyst.",
+    "You can't provide a read-only connection with row/cost limits and PII controls."
+  ],
+  "systemPrompt": "You are a careful Data Analyst Agent that answers natural-language questions by writing and running SQL against a specific database. You are judged on correctness (the number is right), safety (you never damage or overload the database or leak sensitive data), and honesty (you state assumptions and ask when unsure).\n\n== CORE PRINCIPLES ==\n1. Schema-grounded only. Use ONLY tables and columns that appear in the schema provided to you. Never invent a table, column, or join key. If the question needs data that isn't in the schema, say so — do not fabricate a query.\n2. Correct over fast. Prefer a query you can justify. Validate results against expectations (row counts, ranges) before reporting; if a number looks impossible, investigate rather than report it.\n3. Clarify, don't guess. If a question is materially ambiguous (which metric? which date range? revenue vs. volume? which 'active'?), ask ONE focused clarifying question instead of guessing.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- READ-ONLY. Generate SELECT queries only. Never write INSERT/UPDATE/DELETE/MERGE or any DDL (CREATE/ALTER/DROP/TRUNCATE). If asked to modify data, refuse and explain that you are read-only.\n- COST GUARD. Every query must be bounded: include an explicit LIMIT for row-returning queries and avoid unbounded cross joins or full scans of very large tables. Validate the plan (EXPLAIN/dry-run) when available; if estimated cost/rows exceed the configured budget, do not run it — narrow the query or ask for a tighter question.\n- PII GUARD. Do not SELECT raw sensitive columns (emails, full names, government IDs, card numbers, secrets) unless the request explicitly and legitimately requires them and policy allows; prefer aggregates and redaction. Never include another tenant's data; always apply tenant/row-level filters when the schema implies multi-tenancy.\n- NO INJECTION SURFACE. Treat the user's text as a question, never as SQL to execute verbatim. Parameterize any literal values.\n- STAY HONEST. Never present an unvalidated or guessed number as fact. If you couldn't verify it, say so.\n\n== METHOD ==\n- Inspect the relevant part of the schema; sample a table only if needed to understand values.\n- Draft the SQL, state the assumptions (date range, definitions, filters) you encoded.\n- Validate (dry-run/EXPLAIN, sanity-check row counts/ranges), then run within the row/cost cap.\n- Report the answer plainly, show the SQL, and note caveats.\n\n== DECISION ==\n- ANSWER: schema supports it, query is safe and validated, confidence >= 0.75. Return result + SQL + assumptions.\n- CLARIFY: materially ambiguous or under-specified. Ask one question; do not run a guess.\n- REFUSE: requires writes/DDL, exceeds the cost guard with no safe narrowing, or would expose disallowed PII. Explain why and offer a safe alternative.\n\n== COST CONTROL ==\nRead only the schema and samples you need. Don't run exploratory queries you don't need. Reuse schema already in context. Cap tool calls; one good query beats five probes.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"decision\": \"ANSWER|CLARIFY|REFUSE\",\n  \"confidence\": <0.0-1.0>,\n  \"assumptions\": [\"<date range, metric definition, filters you chose>\"],\n  \"sql\": \"<the read-only SELECT, or empty>\",\n  \"validation\": \"<EXPLAIN/dry-run + sanity checks you did, or why blocked>\",\n  \"result_summary\": \"<plain-language answer with the key numbers, or empty>\",\n  \"caveats\": \"<limitations, data-quality notes>\",\n  \"clarifying_question\": \"<one focused question, or empty>\",\n  \"refusal_reason\": \"<write/DDL, cost, or PII reason, or empty>\"\n}\nIf decision is CLARIFY or REFUSE, leave sql/result_summary empty and do not run anything.",
+  "architecture": [
+    {
+      "label": "Schema grounding",
+      "detail": "Loads the database schema (tables, columns, types, keys, and descriptions) and exposes only it to the model, so generated SQL can reference real objects and nothing else."
+    },
+    {
+      "label": "Question understanding",
+      "detail": "Parses the natural-language request into the metric, dimensions, filters, and time range it implies, and detects ambiguity that warrants a clarifying question."
+    },
+    {
+      "label": "SQL generation",
+      "detail": "Drafts a single read-only SELECT grounded in the schema, with explicit assumptions (definitions, date ranges, filters) surfaced for the user."
+    },
+    {
+      "label": "Safety & cost gate",
+      "detail": "A deterministic gate parses the SQL to reject any write/DDL, enforce a LIMIT, run EXPLAIN/dry-run, and block queries whose estimated cost or rows exceed the budget, plus PII/tenant filters."
+    },
+    {
+      "label": "Execution & validation",
+      "detail": "Runs the approved query on a read-only connection within row/cost caps, then sanity-checks the result (row counts, ranges) before it's reported."
+    },
+    {
+      "label": "Answer composition",
+      "detail": "Returns a plain-language answer with the key numbers, the exact SQL used, the assumptions encoded, and any caveats so the result is trustworthy and reproducible."
+    },
+    {
+      "label": "Audit & learning",
+      "detail": "Logs every question, SQL, cost, and outcome; thumbs-up/down and corrections feed prompt and schema-description improvements over time."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_schema",
+      "purpose": "Return tables, columns, types, primary/foreign keys, and human descriptions for the relevant part of the database to ground the query."
+    },
+    {
+      "name": "sample_table",
+      "purpose": "Fetch a few example rows or distinct values for a column to understand its meaning/format (e.g. status codes) without scanning the table."
+    },
+    {
+      "name": "validate_sql",
+      "purpose": "Static-check and EXPLAIN/dry-run the generated SQL: reject writes/DDL, confirm a LIMIT, and estimate cost/rows against the budget before any execution."
+    },
+    {
+      "name": "run_query",
+      "purpose": "Execute the approved read-only SELECT on a least-privilege connection within strict row and cost/time limits."
+    },
+    {
+      "name": "summarize_results",
+      "purpose": "Turn the result set into a concise, plain-language answer with the key numbers and any notable patterns."
+    },
+    {
+      "name": "clarify_question",
+      "purpose": "Ask the user one focused clarifying question when the request is materially ambiguous, instead of guessing."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Understand the question",
+      "body": "Parse the request into a metric, dimensions, filters, and time range. If it's materially ambiguous, ask one clarifying question and stop."
+    },
+    {
+      "title": "2. Ground in the schema",
+      "body": "Load the relevant tables/columns; sample a column only if needed to understand its values. Confirm the data to answer the question actually exists."
+    },
+    {
+      "title": "3. Draft SQL + assumptions",
+      "body": "Write a single read-only SELECT and explicitly state the assumptions encoded (definitions, date range, filters)."
+    },
+    {
+      "title": "4. Validate and gate",
+      "body": "Run the safety/cost gate: reject any write/DDL, require a LIMIT, EXPLAIN/dry-run, and block if estimated cost or rows exceed the budget or would expose disallowed PII."
+    },
+    {
+      "title": "5. Execute within caps",
+      "body": "Run the approved query on a read-only connection inside row/cost/time limits."
+    },
+    {
+      "title": "6. Sanity-check results",
+      "body": "Validate row counts and value ranges against expectations; if a number looks impossible, investigate rather than report it."
+    },
+    {
+      "title": "7. Answer and log",
+      "body": "Return the plain-language answer, the SQL, the assumptions, and caveats, and log the question/SQL/cost/outcome for audit and tuning."
+    }
+  ],
+  "implementationNotes": [
+    "Connect with a least-privilege, read-only database role. Enforcement starts at the database: even if a write somehow slipped past the prompt, the role can't execute it.",
+    "Enforce read-only, LIMIT, cost/row caps, and PII rules in a deterministic gate that parses the SQL — never rely on the model alone to be safe.",
+    "Invest in schema descriptions and a small semantic layer (metric definitions like 'active user', 'revenue'). This is the single biggest driver of accuracy and consistency.",
+    "Validate before trusting: EXPLAIN/dry-run for cost, and sanity-check result row counts and ranges; an impossible number should trigger investigation, not a report.",
+    "Make 'clarify on ambiguity' a first-class behavior. One good question prevents a class of confidently-wrong answers and builds user trust.",
+    "Apply tenant/row-level filters automatically wherever the schema implies multi-tenancy, so a question can never return another customer's data.",
+    "Log every question, SQL, cost, and rating; corrections are gold for improving schema descriptions and prompts. Use model tiering — a cheaper model can do schema lookup, the strong model writes and validates the SQL."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Read-only Q&A",
+      "desc": "Answers natural-language questions with grounded, read-only SQL, shows the query and assumptions, and enforces row/cost caps. The simplest safe self-serve layer."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Semantic-layer analyst",
+      "desc": "Adds a governed metric/semantic layer (canonical definitions of revenue, active user, etc.), result validation, and clarification on ambiguity for consistent, trustworthy answers across a team."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Governed self-serve analytics",
+      "desc": "Adds row-level security and tenant isolation, per-role data policies, PII controls, full query audit, cost governance across a warehouse, and feedback-driven tuning of the semantic layer."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect read-only",
+      "body": "Install the agent and connect it with a least-privilege, read-only database role.",
+      "code": "pipx install nlsql-agent\n# create a read-only role first:\n# CREATE ROLE analyst_ro LOGIN PASSWORD '...'; GRANT SELECT ON ALL TABLES IN SCHEMA public TO analyst_ro;\nnlsql-agent connect --dsn postgres://analyst_ro:***@host/db"
+    },
+    {
+      "title": "Configure model and guardrails",
+      "body": "Set the cost/row caps and PII policy. These are enforced by the gate, not the prompt.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nDIALECT=postgres\nMAX_ROWS=10000\nMAX_SCAN_ROWS=5000000\nQUERY_TIMEOUT_S=20\nBLOCK_PII_COLUMNS=\"email,full_name,ssn,card_number\""
+    },
+    {
+      "title": "Ground the schema (descriptions help a lot)",
+      "body": "Index the schema and add short descriptions for non-obvious tables/columns — this is the single biggest accuracy lever.",
+      "code": "nlsql-agent index-schema --with-comments\n# optionally add a semantic layer of metric definitions:\n# echo 'active_user: logged_in within 30 days' >> semantics.yml"
+    },
+    {
+      "title": "Ask a question on the CLI",
+      "body": "Test grounded answers and inspect the SQL and assumptions before exposing it to users.",
+      "code": "nlsql-agent ask \"top 10 customers by revenue last quarter\" --explain\n# prints assumptions, SQL, validation, and the answer"
+    },
+    {
+      "title": "Expose it to your team",
+      "body": "Drop it into Slack or an internal app. Keep it read-only and start with a small, trusted user group.",
+      "code": "# Slack: /ask top 5 products by units sold in May\n# -> answer + collapsible SQL + assumptions"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Clear question → grounded SQL with stated assumptions",
+      "scenario": "A well-formed analytics question that maps cleanly to the schema. The agent answers and shows its work.",
+      "input": "Question: who were our top 10 customers by revenue last quarter?",
+      "output": "{\n  \"decision\": \"ANSWER\",\n  \"confidence\": 0.86,\n  \"assumptions\": [\"'last quarter' = 2026-01-01 to 2026-03-31 (most recently completed calendar quarter)\", \"revenue = SUM(orders.amount) for orders with status='paid'\", \"customer = customers.id\"],\n  \"sql\": \"SELECT c.id, c.name, SUM(o.amount) AS revenue\\nFROM orders o JOIN customers c ON c.id = o.customer_id\\nWHERE o.status = 'paid' AND o.created_at >= '2026-01-01' AND o.created_at < '2026-04-01'\\nGROUP BY c.id, c.name\\nORDER BY revenue DESC\\nLIMIT 10;\",\n  \"validation\": \"EXPLAIN estimates ~120k rows scanned via index on orders.created_at, within budget. Result returned 10 rows; revenue values in a plausible range (top customer $48,200).\",\n  \"result_summary\": \"Top 10 customers by paid revenue for Q1 2026 (Jan–Mar). #1 Northwind Co ($48,200), #2 Acme ($41,750), … full list returned. Combined they were 22% of quarterly revenue.\",\n  \"caveats\": \"Counts only orders with status='paid'; refunds are not netted out. Tell me if you want net-of-refunds.\",\n  \"clarifying_question\": \"\",\n  \"refusal_reason\": \"\"\n}",
+      "notes": "Note the explicit assumptions — 'last quarter', the revenue definition, and the paid-only filter are all surfaced, so the user can correct them. The SQL is bounded with a LIMIT, validated via EXPLAIN, and the result is sanity-checked. That transparency is what makes a NL-to-SQL answer trustworthy."
+    },
+    {
+      "title": "Ambiguous question → one clarifying question, no guess",
+      "scenario": "A short question that could mean two very different things. The agent asks instead of silently choosing one and returning a confidently-wrong number.",
+      "input": "Question: what are our best products?",
+      "output": "{\n  \"decision\": \"CLARIFY\",\n  \"confidence\": 0.4,\n  \"assumptions\": [],\n  \"sql\": \"\",\n  \"validation\": \"Not run — 'best' is undefined and would produce different top lists depending on the metric.\",\n  \"result_summary\": \"\",\n  \"caveats\": \"\",\n  \"clarifying_question\": \"Do you mean best by revenue, by units sold, or by profit margin — and over what time period (e.g. last 30 days, this year)?\",\n  \"refusal_reason\": \"\"\n}",
+      "notes": "'Best' is the trap. Revenue, units, and margin can yield completely different rankings, so the agent asks one focused question rather than guessing. This single behavior prevents a large share of confidently-wrong analytics answers — and builds user trust faster than a fast wrong number ever could."
+    },
+    {
+      "title": "Unsafe request → refuse the write and the unbounded scan",
+      "scenario": "The request mixes a data modification with an unbounded read. The agent refuses both and offers a safe alternative.",
+      "input": "Question: delete all orders older than 2020, and also show me every row in the events table so I can look around.",
+      "output": "{\n  \"decision\": \"REFUSE\",\n  \"confidence\": 0.95,\n  \"assumptions\": [],\n  \"sql\": \"\",\n  \"validation\": \"Blocked at the gate: (1) DELETE is a write operation; this agent is read-only. (2) 'every row in events' is an unbounded scan of a ~2.1B-row table, far over the cost budget and with no LIMIT.\",\n  \"result_summary\": \"\",\n  \"caveats\": \"\",\n  \"clarifying_question\": \"\",\n  \"refusal_reason\": \"I can't modify data (no DELETE/UPDATE/DDL) — that needs a DBA with proper backups and a migration. And I won't scan the entire events table (~2.1B rows); if you tell me what you're looking for (a time window, an event type, a user), I'll write a fast, bounded query. For the cleanup, I can instead show you how many orders predate 2020 so the team can plan a safe deletion.\"\n}",
+      "notes": "Two distinct guardrails fire at once: read-only (refuses the DELETE) and the cost guard (refuses the 2.1B-row scan). Critically, it doesn't just say no — it offers a safe path for each (a bounded exploratory query, and a count to support a planned, human-run cleanup). Defensive but still helpful."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Can it modify or delete data?",
+      "a": "No. It generates read-only SELECT queries only and refuses any INSERT/UPDATE/DELETE or DDL. It's also intended to run on a least-privilege, read-only database role, so writes are blocked at the database too."
+    },
+    {
+      "q": "How does it avoid making up tables or columns?",
+      "a": "It's grounded in the schema you provide and may only reference tables and columns that actually exist there. If the data needed isn't in the schema, it tells you rather than inventing a query."
+    },
+    {
+      "q": "What stops a runaway, expensive query?",
+      "a": "A deterministic cost gate: every query must be bounded with a LIMIT, it's EXPLAIN/dry-run-checked, and anything whose estimated cost or rows exceed your budget is blocked and narrowed or refused — never run blindly."
+    },
+    {
+      "q": "How does it handle ambiguous questions?",
+      "a": "It asks one focused clarifying question instead of guessing. Vague asks like 'best products' (revenue? units? margin? what period?) get a quick question so you get the answer you actually meant."
+    },
+    {
+      "q": "How does it protect sensitive data?",
+      "a": "It avoids selecting raw PII columns unless explicitly required and allowed, prefers aggregates and redaction, and applies tenant/row-level filters where the schema implies multi-tenancy so it can't return another customer's data."
+    },
+    {
+      "q": "How accurate is it?",
+      "a": "Accuracy depends heavily on schema quality — adding column/table descriptions and a small set of canonical metric definitions is the biggest lever. It also states its assumptions and validates results, so you can verify and correct any answer."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A1 — Research",
+    "dnaPattern": "Research (Research → Verify)",
+    "worstCaseAction": "Runs an incorrect read-only query and returns wrong figures for a human to interpret. It cannot insert, update, delete, or alter data — only read-only queries are permitted and write tools are absent from its registry.",
+    "authorityBoundary": "Translates a question into a read-only SQL query, runs it against the analytics database, and returns the result with the query shown. It never writes, updates, deletes, or alters schema. Read-only by construction.",
+    "verificationTest": "Attempt to run an INSERT/UPDATE/DELETE/DDL statement → confirm it is rejected and that only read-only queries are permitted (write tools absent).",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: read-only access; write/DDL tools absent. Human gates: results are for human interpretation. Confidence escalation: ambiguous questions clarified, not guessed. Cost ceiling: query and token budgets enforced. Audit trail: every query logged. Escalation path: ambiguous or sensitive queries flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "nl-to-sql-agent",
+      "trust_level": "A1",
+      "dna_pattern": "Research",
+      "worst_case_action": "Returns wrong figures from a read-only query for human interpretation. Cannot modify data.",
+      "authority_boundary": "Runs read-only SQL and returns results; write/DDL tools absent.",
+      "tags": [
+        "data-analysis",
+        "nl-to-sql",
+        "read-only",
+        "analytics"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "generate_sql",
+          "run_readonly_query",
+          "show_query",
+          "summarize_result"
+        ],
+        "execution_tools_absent": true,
+        "read_only": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "insert",
+          "update",
+          "delete",
+          "ddl"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.25,
+        "alert_threshold_usd": 0.16
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "ambiguous_question",
+          "sensitive_table",
+          "low_confidence"
+        ],
+        "destination": "data_team"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "queries",
+          "row_counts"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Generates a query that returns the wrong figure (mis-joined tables or a wrong filter).",
+      "detection": "The generated SQL is shown alongside the result, with row-count sanity checks, so the number can be verified.",
+      "mitigation": "Read-only by construction; ambiguous questions are clarified, never guessed.",
+      "recovery": "The user inspects the SQL and re-asks — no data was mutated."
+    },
+    {
+      "mode": "An expensive or unbounded query hits the production database.",
+      "detection": "A cost/row estimate and a statement timeout run before execution.",
+      "mitigation": "A query budget and LIMIT guards are enforced; sensitive tables are flagged.",
+      "recovery": "The query aborts on timeout and returns a partial result with a warning."
+    },
+    {
+      "mode": "A query would expose a sensitive column the asker shouldn't see.",
+      "detection": "A sensitive-table/column list is checked before the query runs.",
+      "mitigation": "Sensitive queries are routed to the data team instead of executed.",
+      "recovery": "The query is withheld and the escalation is logged."
+    }
+  ],
+  "evaluation": {
+    "primary": "Execution accuracy is primary — whether the generated query returns the correct result for the question — because a confidently-wrong number is the failure a human must catch.",
+    "metrics": [
+      {
+        "name": "Execution accuracy",
+        "description": "Share of questions where the query's result set matches the expected answer."
+      },
+      {
+        "name": "Query validity",
+        "description": "Share of generated queries that execute without error."
+      },
+      {
+        "name": "Clarification rate",
+        "description": "How often it asks for clarification instead of guessing on an ambiguous question."
+      },
+      {
+        "name": "Latency",
+        "description": "Time from natural-language question to returned result."
+      },
+      {
+        "name": "Cost per query",
+        "description": "Token and database cost per question, with expensive queries flagged."
+      }
+    ],
+    "approach": "Use a benchmark of natural-language questions paired with verified answers (Spider-style) and compare result sets, not query strings. Include deliberately ambiguous questions to test the clarify-vs-guess behavior."
+  }
+}

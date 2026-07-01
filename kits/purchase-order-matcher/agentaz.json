@@ -1,0 +1,57 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "po-matching-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Synthesis",
+  "worst_case_action": "Produces an incorrect match for human review. Cannot approve, post, or pay.",
+  "authority_boundary": "Three-way matches PO/receipt/invoice and flags discrepancies; approval/payment tools absent.",
+  "tags": [
+    "supply-chain",
+    "procurement",
+    "reconciliation",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_po",
+      "read_receipt",
+      "read_invoice",
+      "match",
+      "flag_discrepancy"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "approve_match",
+      "ledger_post",
+      "payment"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.22,
+    "alert_threshold_usd": 0.15
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "partial_match",
+      "quantity_mismatch",
+      "price_mismatch"
+    ],
+    "destination": "ap_review"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "matches",
+      "discrepancies"
+    ]
+  }
+}

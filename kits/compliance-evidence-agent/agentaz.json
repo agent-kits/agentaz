@@ -1,0 +1,67 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "1.0.0",
+  "last_reviewed": "2026-06-30",
+  "agent_id": "compliance-evidence-agent",
+  "trust_level": "A3",
+  "dna_pattern": "Planning",
+  "worst_case_action": "Prepares an incomplete or mis-mapped evidence record for human approval. Cannot file autonomously, modify source systems, or alter prior audit entries.",
+  "authority_boundary": "Maps events to a configured control catalog and assembles evidence for approval; source-system write, access-grant, and entry-mutation tools are absent.",
+  "tags": [
+    "compliance",
+    "audit-trail",
+    "evidence",
+    "human-approval",
+    "tamper-evident"
+  ],
+  "tool_boundary": {
+    "auto_executable_tools": [
+      "get_event",
+      "resolve_actor",
+      "classify_resource",
+      "lookup_controls",
+      "collect_artifacts",
+      "score_completeness"
+    ],
+    "approval_required_tools": [
+      "request_signoff",
+      "commit_evidence"
+    ],
+    "execution_tools_absent": false,
+    "rollback_required": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "source_system_write",
+      "grant_access",
+      "audit_entry_mutation"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.3,
+    "alert_threshold_usd": 0.2
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "incomplete_evidence",
+      "regulated_resource",
+      "low_mapping_confidence"
+    ],
+    "destination": "compliance_owner"
+  },
+  "audit": {
+    "append_only": true,
+    "tamper_evident": "hmac_chain",
+    "logs": [
+      "event",
+      "mapping",
+      "evidence",
+      "completeness_score",
+      "approvals"
+    ]
+  }
+}

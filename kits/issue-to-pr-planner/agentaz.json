@@ -1,0 +1,63 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "issue-to-pr-agent",
+  "trust_level": "A4",
+  "dna_pattern": "Execution",
+  "worst_case_action": "Opens a draft PR with an incorrect fix on a sandboxed branch; never auto-merged. Human reviews and merges.",
+  "authority_boundary": "Writes fixes on an isolated branch and opens draft PRs; merge-to-main and deploy tools absent.",
+  "tags": [
+    "software-engineering",
+    "bug-fix",
+    "sandboxed",
+    "draft-pr",
+    "human-approval"
+  ],
+  "tool_boundary": {
+    "auto_executable_tools": [
+      "read_issue",
+      "write_branch",
+      "run_tests_sandbox",
+      "open_draft_pr"
+    ],
+    "approval_required_tools": [
+      "merge_pr"
+    ],
+    "execution_tools_absent": false,
+    "rollback_required": true,
+    "branch_isolated": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_without_approval": [
+      "merge_pr",
+      "deploy",
+      "force_push"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.5,
+    "alert_threshold_usd": 0.35
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 14
+  },
+  "human_handoff": {
+    "triggers": [
+      "tests_failing",
+      "risky_change",
+      "low_confidence"
+    ],
+    "destination": "maintainer"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "diff",
+      "test_results",
+      "reasoning",
+      "approvals"
+    ]
+  }
+}

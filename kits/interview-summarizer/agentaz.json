@@ -1,0 +1,56 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "interview-summary-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Synthesis",
+  "worst_case_action": "Produces an inaccurate interview summary for recruiter review. Cannot decide, advance, or reject.",
+  "authority_boundary": "Summarizes interviews into job-relevant observations; decision/contact tools absent.",
+  "tags": [
+    "hr",
+    "interview",
+    "summary",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_notes",
+      "summarize",
+      "structure_observations",
+      "flag_thin_evidence"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "advance",
+      "reject",
+      "hiring_decision",
+      "contact_candidate"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.22,
+    "alert_threshold_usd": 0.15
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "thin_evidence",
+      "ambiguous_signal"
+    ],
+    "destination": "recruiter"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "summary",
+      "sources"
+    ]
+  }
+}

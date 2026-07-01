@@ -1,0 +1,63 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "agent_id": "prior-authorization-agent",
+  "version": "2.0.0",
+  "trust_level": "A3",
+  "dna_pattern": "Synthesis",
+  "worst_case_action": "Assembles an incomplete packet for human review. Cannot submit to a payer or write to the EHR.",
+  "authority_boundary": "Assembles prior-auth packets for human approval and submission. Submission and EHR-write tools absent.",
+  "last_reviewed": "2026-06-24",
+  "tags": [
+    "healthcare",
+    "prior-authorization",
+    "hipaa",
+    "human-approval",
+    "read-only-ehr",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_clinical_inputs",
+      "read_payer_rules",
+      "assemble_packet",
+      "check_completeness",
+      "flag_gaps"
+    ],
+    "execution_tools_absent": true,
+    "absent_tools_note": "payer_submit and ehr_write are intentionally absent from the registry"
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "payer_submission",
+      "ehr_write",
+      "coverage_determination"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.3,
+    "alert_threshold_usd": 0.2
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 10
+  },
+  "human_handoff": {
+    "triggers": [
+      "missing_documentation",
+      "uncertain_field",
+      "completeness_below_threshold"
+    ],
+    "destination": "prior_auth_reviewer"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "assembly_steps",
+      "flags",
+      "completeness"
+    ]
+  }
+}

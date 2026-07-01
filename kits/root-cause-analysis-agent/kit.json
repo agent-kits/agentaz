@@ -1,0 +1,370 @@
+{
+  "slug": "root-cause-analysis-agent",
+  "title": "Incident Root-Cause Analysis Agent",
+  "category": "devops-sre",
+  "shortDescription": "Pulls logs, metrics, traces, and recent changes into one timeline, ranks root-cause hypotheses, and gates any published RCA behind a human. Diagnoses, never remediates.",
+  "description": "An agent that turns a production incident into a structured, evidence-backed root-cause analysis. It pulls logs, metrics, traces, and recent changes for the incident window, correlates them into a single timeline, ranks candidate root causes by evidence support, and prepares an RCA — but it takes no remediation action. It cannot roll back, restart, scale, deploy, or change config; those tools are absent. Publishing the RCA or updating a status page is gated behind a human, and anything low-confidence or under-evidenced escalates to the incident commander instead of concluding.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "incident-response",
+    "root-cause-analysis",
+    "rca",
+    "sre",
+    "observability",
+    "postmortem",
+    "human-in-the-loop",
+    "audit-trail",
+    "on-call",
+    "devops"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "55 min",
+  "version": "1.0.0",
+  "updated": "2026-06-30",
+  "overview": [
+    "When a service breaks at 3am, the slow part is rarely the fix — it's reconstructing what happened: which deploy, which config change, which dependency, in what order, and whether the obvious correlation is actually the cause. This agent automates that reconstruction. It gathers the evidence for the incident window, aligns it into one timeline, and ranks root-cause hypotheses by how well the evidence supports each — so the on-call engineer starts from a defensible analysis instead of a blank page.",
+    "It is deliberately a diagnostician, not a responder. It holds no tool that can roll back a deploy, restart a service, scale infrastructure, or change config — those are absent from its registry, not merely discouraged. Its only writes are publishing the RCA and updating a status page, and both are gated behind a human. That keeps it at Trust Level A3: the worst it can do is prepare an incorrect analysis or a misleading status update that a person reviews before it goes out.",
+    "The agent prefers escalating to concluding. If the evidence window is incomplete, the leading hypothesis is weakly supported, or the incident is high-severity, it routes to the incident commander with what it has — candidate causes, the timeline, and the gaps — rather than publishing a confident guess. A wrong but confident official RCA is the failure mode it is built to avoid."
+  ],
+  "whenToUse": [
+    "You want on-call to start an incident with a correlated timeline and ranked hypotheses instead of assembling evidence by hand.",
+    "Your logs, metrics, traces, and change history are queryable and you want them pulled and aligned automatically for the incident window.",
+    "You want a consistent, evidence-linked RCA format for postmortems — with the analysis gated behind a human before it's published.",
+    "You need an audit trail of what evidence was examined and what was concluded, for compliance or postmortem review."
+  ],
+  "whenNotToUse": [
+    "You want an agent that auto-remediates — rolls back, restarts, or scales. This one diagnoses and escalates; it holds no remediation tools by design.",
+    "Your telemetry isn't queryable by an agent; without evidence sources it can only guess, which is exactly what it's built not to do.",
+    "You need a guaranteed-correct root cause with no human review — it ranks hypotheses and gates publishing; a human still confirms the cause."
+  ],
+  "systemPrompt": "You are an Incident Root-Cause Analysis agent. Your job is to turn a production incident into a structured, evidence-backed root-cause analysis — and to escalate rather than guess whenever the evidence is thin or the leading hypothesis is weak. You diagnose; you do not remediate. You publish nothing and change no system without explicit human approval.\n\nFor each incident:\n\n1. Scope it. Read the incident signal and establish the affected service, severity, blast radius, and the time window to investigate. Ground every fact in the incident or a tool result; never assume.\n\n2. Gather evidence. Pull logs, metrics, traces, and the recent change history (deploys, config changes) for the window. Note what you could retrieve and, explicitly, what you could not.\n\n3. Correlate a timeline. Align the events — change events, error onset, metric inflections, dependency failures — into a single ordered timeline. Correlation is not causation: mark which links are temporal-only versus evidence-backed.\n\n4. Rank hypotheses. Form candidate root causes and score each by how well the evidence supports it. Surface the competing hypotheses, not just the top one. If the leading hypothesis is weakly supported, the margin over the runner-up is small, the evidence window is incomplete, or the incident is high-severity, you MUST escalate to the incident commander rather than conclude.\n\n5. Gate any output. Publishing the RCA and updating a status page are consequential. You may not do either yourself: call request approval (publish_rca, update_status_page) so a human reviews the analysis and the proposed public wording before anything goes out. If approval is denied or times out, nothing is published and the reason is logged.\n\n6. Hand off remediation. You have no tool that can roll back, restart, scale, deploy, or change config — and you must not imply you do. When the analysis points to a fix, page the on-call/owner with the recommended action; a human performs it.\n\nHard rules: prefer 'the evidence does not yet support a confident root cause' over a confident wrong one — a misleading official RCA is the most damaging output you can produce. Distinguish temporal correlation from causation in everything you write. Log the evidence examined, each hypothesis, its score, and its basis.",
+  "architecture": [
+    {
+      "label": "Incident intake",
+      "detail": "Receives the incident signal (alert, error spike, SLO breach) with the affected service, severity, and an initial time window."
+    },
+    {
+      "label": "Scope & severity resolution",
+      "detail": "Establishes the affected service, blast radius, severity, and the precise window to investigate — which sets how strict the evidence bar is."
+    },
+    {
+      "label": "Evidence gathering",
+      "detail": "Pulls logs, metrics, traces, and recent change history for the window (read-only), recording what was retrievable and what was missing."
+    },
+    {
+      "label": "Timeline correlation",
+      "detail": "Aligns change events, error onset, metric inflections, and dependency failures into one ordered timeline, marking temporal-only versus evidence-backed links."
+    },
+    {
+      "label": "Hypothesis ranking",
+      "detail": "Forms candidate root causes and scores each by evidence support; surfaces competing hypotheses and flags weak leads or thin margins."
+    },
+    {
+      "label": "Review & publish gate",
+      "detail": "A human (incident commander / on-call) reviews the RCA and any proposed status-page wording. Publishing is blocked until explicit approval."
+    },
+    {
+      "label": "Publish, record & hand off",
+      "detail": "On approval, posts the RCA to the incident record, appends a tamper-evident audit entry, and pages on-call with the recommended remediation for a human to perform."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_incident",
+      "purpose": "Fetch the incident: affected service, severity, signal, and the initial time window."
+    },
+    {
+      "name": "fetch_logs",
+      "purpose": "Pull application and system logs for the affected service over the incident window. Read-only."
+    },
+    {
+      "name": "fetch_metrics",
+      "purpose": "Pull metric series (latency, error rate, saturation) for the window to locate inflection points. Read-only."
+    },
+    {
+      "name": "fetch_traces",
+      "purpose": "Pull distributed traces to find the failing span or dependency. Read-only."
+    },
+    {
+      "name": "list_recent_changes",
+      "purpose": "List recent deploys and config changes touching the service in the window — the usual suspects. Read-only."
+    },
+    {
+      "name": "correlate_timeline",
+      "purpose": "Align change events, error onset, and metric inflections into one ordered timeline, marking temporal vs evidence-backed links."
+    },
+    {
+      "name": "score_hypotheses",
+      "purpose": "Score candidate root causes by evidence support and compute the margin between the top hypotheses."
+    },
+    {
+      "name": "page_oncall",
+      "purpose": "Escalate to the on-call engineer / incident commander with the analysis and recommended remediation. The safe handoff path."
+    },
+    {
+      "name": "publish_rca",
+      "purpose": "Publish the root-cause analysis to the incident record. Approval-gated — never runs without human sign-off."
+    },
+    {
+      "name": "update_status_page",
+      "purpose": "Post or update a public status-page entry for the incident. Approval-gated — public wording is always human-approved."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Scope the incident",
+      "body": "Read the signal; establish affected service, severity, blast radius, and the time window. Ground every fact in the incident or a tool result."
+    },
+    {
+      "title": "2. Gather evidence",
+      "body": "Pull logs, metrics, traces, and recent changes for the window. Record what was retrievable and, explicitly, what was missing."
+    },
+    {
+      "title": "3. Correlate the timeline",
+      "body": "Align change events, error onset, and metric inflections into one ordered timeline. Mark temporal-only links separately from evidence-backed ones."
+    },
+    {
+      "title": "4. Rank hypotheses",
+      "body": "Form candidate root causes, score each by evidence support, and surface the competing ones. Weak leads, thin margins, or incomplete evidence force escalation."
+    },
+    {
+      "title": "5. Gate any publish",
+      "body": "Call publish_rca / update_status_page to route the analysis and proposed wording to a human. Nothing goes out without approval; denial or timeout is logged."
+    },
+    {
+      "title": "6. Record and hand off",
+      "body": "On approval, post the RCA, append a tamper-evident audit entry, and page on-call with the recommended remediation for a human to perform."
+    },
+    {
+      "title": "7. Distinguish correlation from cause",
+      "body": "In every conclusion, separate 'happened at the same time' from 'evidence shows it caused this' — and say which you have."
+    }
+  ],
+  "implementationNotes": [
+    "The agent is read-only over your telemetry and change history; its only writes are publish_rca and update_status_page, both approval-gated. There is intentionally no rollback, restart, scale, deploy, or config-change tool — the absence is the safety property and what keeps it at A3.",
+    "Wire the read tools to whatever you already run: logs (Loki/Elastic/CloudWatch), metrics (Prometheus/Datadog), traces (Tempo/Jaeger/Honeycomb), and a change feed (your CD system's deploy/config history). The agent maps to your sources; it ships no opinion about your stack.",
+    "The hardest correctness problem is correlation-vs-causation. Keep score_hypotheses honest: a tight time correlation is a lead, not a verdict. Surface competing hypotheses and the margin between them so a human can judge.",
+    "Escalation thresholds are yours to tune: leading-hypothesis confidence, margin over the runner-up, evidence completeness for the window, and severity. Any one below threshold should block the publish gate and page a human.",
+    "publish_rca and update_status_page route to wherever incidents live (the incident record, Statuspage, a Slack channel). A denied or timed-out approval must leave nothing published.",
+    "The audit log is append-only and tamper-evident: the incident, the evidence examined, the ranked hypotheses, and the approvals are recorded so the postmortem and any compliance review can verify what was looked at and concluded."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Timeline + hypotheses assistant",
+      "desc": "Pulls logs, metrics, and recent changes for one service, builds the timeline, and ranks hypotheses for a human to review. The fastest way to skip manual evidence-gathering."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Multi-source with gated publish",
+      "desc": "Adds traces and a change feed across services, enforces confidence/margin/completeness thresholds, gates the published RCA and status updates, and pages on-call with a recommended fix."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Postmortem-grade evidence pipeline",
+      "desc": "Subscribes to the incident stream, maintains a tamper-evident, queryable evidence store for postmortems and compliance, routes approvals to the incident commander, and keeps remediation strictly human-performed."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Connect read-only telemetry",
+      "body": "Give fetch_logs / fetch_metrics / fetch_traces / list_recent_changes read access to your logging, metrics, tracing, and CD-change sources. Read-only — the agent never needs write access to systems."
+    },
+    {
+      "title": "Define escalation thresholds",
+      "body": "Set the confidence, hypothesis-margin, evidence-completeness, and severity thresholds that force an escalation instead of a published conclusion."
+    },
+    {
+      "title": "Wire the publish gate",
+      "body": "Point publish_rca and update_status_page at your incident record / status page, behind a human approver. Ensure denial or timeout leaves nothing published."
+    },
+    {
+      "title": "Wire escalation",
+      "body": "Connect page_oncall to your on-call tool (PagerDuty/Opsgenie/Slack) so the agent can hand off recommended remediation to a person."
+    },
+    {
+      "title": "Validate before trusting",
+      "body": "Replay past incidents with known root causes and confirm the agent reproduces them; feed an incident with a deliberately incomplete evidence window and confirm it escalates rather than concluding."
+    }
+  ],
+  "examples": [
+    {
+      "title": "Deploy-correlated latency spike, evidenced",
+      "scenario": "Checkout latency jumps 5x. A deploy landed two minutes before the inflection; traces show the new code path dominating.",
+      "input": "Incident: checkout p99 latency 5x · window 14:02–14:20 · severity SEV2",
+      "output": "Timeline aligns the 14:04 deploy with the 14:05 latency inflection; traces confirm the new code path is the slow span. Leading hypothesis (regression in the 14:04 deploy) scores high with a clear margin. Routed for sign-off; on approval, RCA published and on-call paged with 'recommend rollback of 14:04 deploy' — which a human performs.",
+      "notes": "The clean case: a strong, evidence-backed cause — but the rollback recommendation goes to a human, not executed by the agent."
+    },
+    {
+      "title": "Two suspects, thin margin — escalated, not published",
+      "scenario": "An error spike coincides with both a config change and an upstream dependency degradation; evidence supports each about equally.",
+      "input": "Incident: 4xx spike · window 09:10–09:40 · candidates: config-change@09:11, upstream-degraded@09:09",
+      "output": "Both hypotheses score closely; the margin is below threshold. The agent does NOT publish an RCA. It escalates to the incident commander with the timeline, both candidates, their scores, and the missing evidence that would disambiguate them.",
+      "notes": "The important case: when the evidence can't separate two causes, it escalates instead of picking one — avoiding a confident wrong RCA."
+    },
+    {
+      "title": "Incomplete evidence window — escalated",
+      "scenario": "Trace retention only covers part of the incident window, so the failing span can't be confirmed.",
+      "input": "Incident: intermittent 500s · window 02:00–02:45 · traces available only after 02:30",
+      "output": "The agent reports the evidence window is incomplete (traces missing for the first 30 minutes), provides the partial timeline and leading-but-unconfirmed hypothesis, and escalates rather than publishing. It requests the missing traces be made available for a re-run.",
+      "notes": "Incomplete evidence blocks a published conclusion — the agent says what it doesn't know instead of guessing past it."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Can it fix the incident automatically?",
+      "a": "No. It diagnoses and recommends; a human remediates. It holds no tool that can roll back, restart, scale, deploy, or change config — that absence is deliberate and is what keeps it at Trust Level A3."
+    },
+    {
+      "q": "How does it avoid mistaking correlation for cause?",
+      "a": "It scores hypotheses by evidence support, surfaces competing candidates and the margin between them, and explicitly marks temporal-only links versus evidence-backed ones. Thin margins or weak leads force escalation instead of a published conclusion."
+    },
+    {
+      "q": "What requires human approval?",
+      "a": "Publishing the RCA and updating a public status page. Both are gated; a human reviews the analysis and the proposed public wording before anything goes out. Paging on-call (escalation) is allowed, since that's the safe direction."
+    },
+    {
+      "q": "What does it connect to?",
+      "a": "Your existing telemetry and change history — logs, metrics, traces, and a deploy/config feed — all read-only. It maps to whatever you run; it ships no opinion about your stack."
+    },
+    {
+      "q": "What happens when evidence is missing?",
+      "a": "It records what it could and couldn't retrieve, scores completeness against the incident window, and escalates with the gaps itemized rather than concluding from a partial picture."
+    },
+    {
+      "q": "What's the worst thing it can do?",
+      "a": "Prepare an incorrect analysis or a misleading status update that a human reviews before it's published. It cannot perform remediation, so it can't make an incident worse by acting."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A3 — Human-Approved",
+    "dnaPattern": "Planning (Gather → Correlate → Hypothesize)",
+    "worstCaseAction": "Prepares an incorrect root-cause analysis or a misleading incident status update that a human reviews before it is published. It cannot perform any remediation — rollback, restart, scale, deploy, and config-change tools are absent from its registry — so it cannot worsen an incident by acting.",
+    "authorityBoundary": "Reads telemetry and change history and prepares an RCA for human approval; publishing the RCA and updating the status page are the only writes, both approval-gated. No remediation, no self-published conclusions, no system changes.",
+    "verificationTest": "Feed an incident with two near-equally-evidenced causes and confirm the agent escalates instead of publishing; remove part of the evidence window and confirm it reports incompleteness and escalates rather than concluding.",
+    "lastReviewed": "2026-06-30",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: remediation tools (rollback, restart, scale, deploy, config-change) are absent; only the gated publish and status-update writes exist. Human gates: publish_rca and update_status_page require explicit human approval before anything goes out. Confidence escalation: weak leads, thin hypothesis margins, or incomplete evidence route to a human rather than publishing. Cost ceiling: bounded reasoning turns and a per-trace spend cap. Audit trail: the incident, evidence examined, ranked hypotheses, and approvals are recorded in an append-only log. Escalation path: high-severity or under-evidenced incidents escalate to the incident commander / on-call.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "1.0.0",
+      "last_reviewed": "2026-06-30",
+      "agent_id": "root-cause-analysis-agent",
+      "trust_level": "A3",
+      "dna_pattern": "Planning",
+      "worst_case_action": "Prepares an incorrect root-cause analysis or misleading status update for human approval. Cannot remediate, publish autonomously, or change any system.",
+      "authority_boundary": "Reads telemetry and change history and prepares an RCA for approval; remediation tools (rollback, restart, scale, deploy, config-change) are absent.",
+      "tags": [
+        "incident",
+        "rca",
+        "sre",
+        "observability",
+        "human-approval"
+      ],
+      "tool_boundary": {
+        "auto_executable_tools": [
+          "get_incident",
+          "fetch_logs",
+          "fetch_metrics",
+          "fetch_traces",
+          "list_recent_changes",
+          "correlate_timeline",
+          "score_hypotheses",
+          "page_oncall"
+        ],
+        "approval_required_tools": [
+          "publish_rca",
+          "update_status_page"
+        ],
+        "execution_tools_absent": false,
+        "rollback_required": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "rollback",
+          "restart",
+          "scale",
+          "deploy",
+          "config_change"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.35,
+        "alert_threshold_usd": 0.22
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 10
+      },
+      "human_handoff": {
+        "triggers": [
+          "low_confidence_hypothesis",
+          "thin_hypothesis_margin",
+          "incomplete_evidence",
+          "high_severity"
+        ],
+        "destination": "incident_commander"
+      },
+      "audit": {
+        "append_only": true,
+        "tamper_evident": "hmac_chain",
+        "logs": [
+          "incident",
+          "evidence",
+          "timeline",
+          "hypotheses",
+          "approvals"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Anchors on a correlation that isn't the cause — a confident wrong root cause.",
+      "detection": "Hypotheses are scored by evidence support; competing candidates and the top-two margin are surfaced, and temporal-only links are marked as such.",
+      "mitigation": "A thin margin or weak leading hypothesis blocks the publish gate; the agent escalates with alternatives instead of publishing.",
+      "recovery": "The incident commander selects or corrects the cause; the decision and its basis are logged to calibrate future scoring."
+    },
+    {
+      "mode": "Publishes a misleading status update — wrong scope or severity to a public page.",
+      "detection": "Status updates require the publish gate; proposed scope and severity are cross-checked against the gathered evidence.",
+      "mitigation": "The gate blocks any auto-publish; public wording is always human-approved before it goes out.",
+      "recovery": "A corrected update is re-routed for approval; the prior draft and the correction are logged."
+    },
+    {
+      "mode": "Concludes from an incomplete evidence window.",
+      "detection": "Evidence completeness is scored against the incident window; missing sources (e.g. trace retention gaps) are itemized.",
+      "mitigation": "Below-completeness evidence escalates rather than concluding; the partial timeline and gaps are handed to a human.",
+      "recovery": "The window is re-pulled once the missing sources are available and the RCA is re-scored before any publish."
+    }
+  ],
+  "evaluation": {
+    "primary": "Root-cause correctness together with never publishing a confident wrong cause — a misleading official RCA is the silent risk, so the agent is judged on escalating under-evidenced incidents, not just on producing an answer.",
+    "metrics": [
+      {
+        "name": "Root-cause agreement",
+        "description": "Agreement of the agent's top hypothesis with the human postmortem's confirmed root cause on a labeled incident set."
+      },
+      {
+        "name": "Hypothesis calibration",
+        "description": "Whether the agent's confidence tracks reality — high-confidence calls are right, low-confidence calls escalate."
+      },
+      {
+        "name": "False-confident-RCA rate",
+        "description": "Rate of published RCAs later judged wrong — the metric to drive toward zero."
+      },
+      {
+        "name": "Escalation rate",
+        "description": "Share of incidents correctly escalated for thin margins, weak evidence, or high severity."
+      },
+      {
+        "name": "Evidence completeness",
+        "description": "Share of incident windows for which the required telemetry was actually retrieved before concluding."
+      }
+    ],
+    "approach": "Replay labeled past incidents with known root causes and measure top-hypothesis agreement and calibration. Separately, feed incidents with deliberately ambiguous or incomplete evidence and confirm the agent escalates rather than publishing a conclusion."
+  }
+}

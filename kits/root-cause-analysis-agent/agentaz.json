@@ -1,0 +1,72 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "1.0.0",
+  "last_reviewed": "2026-06-30",
+  "agent_id": "root-cause-analysis-agent",
+  "trust_level": "A3",
+  "dna_pattern": "Planning",
+  "worst_case_action": "Prepares an incorrect root-cause analysis or misleading status update for human approval. Cannot remediate, publish autonomously, or change any system.",
+  "authority_boundary": "Reads telemetry and change history and prepares an RCA for approval; remediation tools (rollback, restart, scale, deploy, config-change) are absent.",
+  "tags": [
+    "incident",
+    "rca",
+    "sre",
+    "observability",
+    "human-approval"
+  ],
+  "tool_boundary": {
+    "auto_executable_tools": [
+      "get_incident",
+      "fetch_logs",
+      "fetch_metrics",
+      "fetch_traces",
+      "list_recent_changes",
+      "correlate_timeline",
+      "score_hypotheses",
+      "page_oncall"
+    ],
+    "approval_required_tools": [
+      "publish_rca",
+      "update_status_page"
+    ],
+    "execution_tools_absent": false,
+    "rollback_required": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "rollback",
+      "restart",
+      "scale",
+      "deploy",
+      "config_change"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.35,
+    "alert_threshold_usd": 0.22
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 10
+  },
+  "human_handoff": {
+    "triggers": [
+      "low_confidence_hypothesis",
+      "thin_hypothesis_margin",
+      "incomplete_evidence",
+      "high_severity"
+    ],
+    "destination": "incident_commander"
+  },
+  "audit": {
+    "append_only": true,
+    "tamper_evident": "hmac_chain",
+    "logs": [
+      "incident",
+      "evidence",
+      "timeline",
+      "hypotheses",
+      "approvals"
+    ]
+  }
+}

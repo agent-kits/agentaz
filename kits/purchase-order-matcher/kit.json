@@ -1,0 +1,357 @@
+{
+  "slug": "purchase-order-matcher",
+  "title": "Purchase Order Matching Agent",
+  "category": "supply-chain",
+  "shortDescription": "A 3-way-match agent that reconciles invoice, PO, and receipt, flags price and quantity variances and duplicates, and approves matches within tolerance or escalates.",
+  "description": "An agent that runs the three-way match at the heart of accounts payable: it reconciles each invoice against its purchase order and goods receipt, checks quantities, prices, and terms against tolerance, and catches the things that cost money — price variances, over-receipts, duplicate invoices, invoices with no PO. It approves clean matches within tolerance for payment and routes everything else to a human. It is defensive by design: it never approves an invoice over tolerance or without a matching PO and receipt, never pays a duplicate, cites the exact variance on every flag, and escalates suspected fraud as an evidence-backed indicator rather than an accusation.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "accounts-payable",
+    "three-way-match",
+    "procurement",
+    "supply-chain",
+    "invoice",
+    "autonomous-agent",
+    "finance-ops",
+    "duplicate-detection",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Three-way match done consistently: invoice vs. purchase order vs. goods receipt, with quantities, prices, and terms checked against tolerance.",
+    "Catches the costly exceptions: price variances, over-receipts, duplicate invoices, and invoices with no PO — each flag cites the exact variance.",
+    "Approves clean matches within tolerance for payment, and routes mismatches and exceptions to a human.",
+    "Defensive: never pays a duplicate, never approves over tolerance or without a matching PO and receipt, and flags fraud as evidence, not accusation."
+  ],
+  "whenToUse": [
+    "Accounts payable processes a high volume of PO-backed invoices and the matching work is repetitive.",
+    "You have POs, goods receipts, and invoices the agent can reconcile, plus a tolerance policy.",
+    "You want consistent, documented three-way matching with a clear approval trail.",
+    "You want to auto-clear clean matches and surface only the genuine exceptions, duplicates, and variances to humans."
+  ],
+  "whenNotToUse": [
+    "You lack structured PO/receipt/invoice data for the agent to match against.",
+    "You expect it to approve non-PO or over-tolerance invoices autonomously — those require a human.",
+    "Your spend is mostly non-PO/maverick, where there's nothing to three-way match.",
+    "You can't keep approval gates on exceptions, duplicates, and large variances."
+  ],
+  "systemPrompt": "You are a Purchase Order Matching Agent in an accounts-payable workflow. For ONE invoice, you perform a three-way match against its purchase order (PO) and goods receipt and decide: approve for payment, hold, or escalate. You are judged on catching real mismatches, duplicates, and fraud, and on never approving an invoice you shouldn't.\n\n== CORE PRINCIPLES ==\n1. Match before you pay. Approve only when the invoice reconciles to a PO and a goods receipt within tolerance on quantity, price, and terms. No PO + receipt match means no auto-approval.\n2. Evidence-cited exceptions. Every flag states the exact variance (e.g. \"invoice unit price $12.50 vs PO $10.00, +25%, tolerance 5%\"). Do not invent matches or variances.\n3. Duplicates are never paid. Treat possible duplicate invoices as a hard stop for auto-payment, with the matching evidence, routed to a human.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- TOLERANCE-GATED APPROVAL: Auto-approve ONLY when quantity, price, and terms match within the configured tolerance AND the invoice total is at or below the auto-approval cap. Anything over tolerance or over cap requires a human.\n- REQUIRE PO + RECEIPT: Do not auto-approve an invoice without a matching PO and a goods receipt confirming the goods/services were received. Missing either = hold/escalate.\n- NO DUPLICATE PAYMENT: If the invoice may duplicate one already received/paid (same number, or same vendor+amount+PO), do not approve — flag with evidence and escalate.\n- NO UNFOUNDED FRAUD CLAIMS: Suspected fraud is flagged as an evidence-based indicator and routed to a human; never assert wrongdoing.\n- DATA: Treat vendor and financial data as sensitive; keep it in scope.\n\n== METHOD ==\n- Load the invoice, its PO, and the goods receipt. Compare line items: quantity invoiced vs ordered vs received; unit price invoiced vs PO; terms.\n- Run tolerance checks and a duplicate-invoice check. Decide per line and for the invoice.\n\n== DECISION POLICY (calibrated confidence 0.0-1.0) ==\n- APPROVE: full three-way match within tolerance, no duplicate, total <= cap, confidence >= 0.85.\n- HOLD: a specific line is over tolerance or a receipt/PO detail is missing — hold the invoice (or the line) and state what's needed.\n- ESCALATE: duplicate suspicion, no PO, large variance, possible fraud, or conflicting data.\n\n== COST CONTROL ==\nPull only the PO/receipt this invoice needs; reuse loaded data across lines. Cap tool calls; if exceeded, escalate with current findings.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"invoice_id\": \"<id>\",\n  \"decision\": \"APPROVE|HOLD|ESCALATE\",\n  \"confidence\": <0.0-1.0>,\n  \"match\": { \"po\": \"<id or 'missing'>\", \"receipt\": \"<id or 'missing'>\", \"status\": \"matched|partial|unmatched\" },\n  \"line_findings\": [ { \"line\": \"<item>\", \"check\": \"qty|price|terms\", \"result\": \"ok|variance\", \"detail\": \"<exact variance vs tolerance, or empty>\" } ],\n  \"duplicate\": { \"suspected\": <bool>, \"evidence\": \"<matching invoice, or empty>\" },\n  \"approved_amount_usd\": <number>,\n  \"actions\": [ { \"tool\": \"<tool>\", \"args\": { ... }, \"requires_approval\": <bool> } ],\n  \"vendor_note\": \"<neutral status, if any>\",\n  \"escalation\": { \"needed\": <bool>, \"reason\": \"<duplicate/no-po/variance/fraud, or empty>\" }\n}\nIf there is no matching PO+receipt, a duplicate is suspected, or a variance exceeds tolerance, do NOT APPROVE.",
+  "architecture": [
+    {
+      "label": "Invoice intake",
+      "detail": "Receives the invoice (vendor, lines, amounts, PO reference) and normalizes it for matching."
+    },
+    {
+      "label": "PO & receipt retrieval",
+      "detail": "Pulls the referenced purchase order and the goods receipt that confirms what was actually received — the two documents the invoice is matched against."
+    },
+    {
+      "label": "Three-way match engine",
+      "detail": "Compares quantity ordered vs received vs invoiced, unit price invoiced vs PO, and terms, line by line."
+    },
+    {
+      "label": "Tolerance & duplicate checks",
+      "detail": "Applies the tolerance policy to each variance and runs a duplicate-invoice check against received/paid history."
+    },
+    {
+      "label": "Approval gate",
+      "detail": "A deterministic gate enforces tolerance, the PO+receipt requirement, the duplicate block, and the auto-approval cap; only clean matches pass."
+    },
+    {
+      "label": "Payment routing & holds",
+      "detail": "Approves clean matched invoices for payment within limits, holds specific variance lines, and routes duplicates/exceptions to AP with the evidence."
+    },
+    {
+      "label": "Audit trail",
+      "detail": "Logs every match decision with the cited variances and outcome for finance controls and audit."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_invoice",
+      "purpose": "Fetch the invoice: vendor, line items, quantities, unit prices, totals, and PO reference."
+    },
+    {
+      "name": "get_po",
+      "purpose": "Retrieve the referenced purchase order: ordered items, quantities, agreed prices, and terms."
+    },
+    {
+      "name": "get_receipt",
+      "purpose": "Retrieve the goods receipt confirming what was actually received against the PO."
+    },
+    {
+      "name": "three_way_match",
+      "purpose": "Compare invoice vs PO vs receipt line by line on quantity, price, and terms."
+    },
+    {
+      "name": "tolerance_check",
+      "purpose": "Apply the tolerance policy to each variance and determine pass/fail."
+    },
+    {
+      "name": "duplicate_invoice_check",
+      "purpose": "Check whether this invoice may duplicate one already received or paid (number, or vendor+amount+PO)."
+    },
+    {
+      "name": "approve_for_payment",
+      "purpose": "Approve a clean matched invoice for payment. Hard-gated: rejects over-tolerance, over-cap, unmatched, or duplicate invoices."
+    },
+    {
+      "name": "escalate_exception",
+      "purpose": "Route duplicates, no-PO invoices, large variances, and possible fraud to an AP reviewer with the evidence."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Intake the invoice",
+      "body": "Load the invoice and its PO reference and normalize the line items."
+    },
+    {
+      "title": "2. Retrieve PO and receipt",
+      "body": "Pull the purchase order and the goods receipt the invoice must match against."
+    },
+    {
+      "title": "3. Run the three-way match",
+      "body": "Compare quantity ordered/received/invoiced, unit price vs PO, and terms for each line."
+    },
+    {
+      "title": "4. Apply tolerance & duplicate checks",
+      "body": "Test each variance against tolerance and check for a duplicate invoice in history."
+    },
+    {
+      "title": "5. Decide per line and invoice",
+      "body": "Approve clean lines, hold lines over tolerance, and decide the invoice outcome within the cap."
+    },
+    {
+      "title": "6. Act through the gate",
+      "body": "Auto-approve clean matches for payment; hold variance lines; escalate duplicates, no-PO, and large variances with evidence."
+    },
+    {
+      "title": "7. Record the trail",
+      "body": "Log the match result with cited variances for finance controls and audit."
+    }
+  ],
+  "implementationNotes": [
+    "Enforce tolerance, the PO+receipt requirement, the duplicate block, and the approval cap in a deterministic gate; the model matches, the gate controls what can be paid.",
+    "Cite the exact variance (values, percentage, and the tolerance) on every flag — a finding without numbers isn't auditable.",
+    "Make duplicate detection a hard stop on auto-payment; duplicate payments are among the most common and recoverable AP losses.",
+    "Require a goods receipt, not just a PO: paying for goods that were ordered but never received is a classic leakage point.",
+    "Treat suspected fraud as an evidence-based indicator routed to a human, with neutral vendor-facing language.",
+    "Backtest against paid-invoice history with duplicate/over-tolerance approvals as a hard-zero metric before enabling auto-approval.",
+    "Spend the strong model on variance judgment and the escalation decision — a cheaper model can extract and align line items."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Match & flag assistant",
+      "desc": "Performs the three-way match, applies tolerance, runs duplicate detection, and returns flagged exceptions with cited variances for an AP clerk. No auto-approval."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Guarded auto-approval",
+      "desc": "Auto-approves clean within-tolerance, within-cap matches for payment, holds variance lines, and escalates duplicates, no-PO invoices, and large variances."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Governed AP automation",
+      "desc": "Adds ERP integration, multi-currency and partial-receipt handling, vendor-level analytics, full audit trails and SLAs, fraud-pattern detection, and tuning from AP outcomes."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect your ERP/AP system",
+      "body": "Install the agent and connect it to the system holding POs, receipts, and invoices.",
+      "code": "pipx install po-match-agent\npo-match-agent connect --erp netsuite\npo-match-agent doctor"
+    },
+    {
+      "title": "Configure tolerance and cap",
+      "body": "Tolerance, the PO+receipt requirement, and the cap are enforced deterministically, not by the model.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nPRICE_TOLERANCE_PCT=5\nQTY_TOLERANCE_PCT=0\nAUTO_APPROVE_CAP_USD=10000\nREQUIRE_PO_AND_RECEIPT=true"
+    },
+    {
+      "title": "Define matching & duplicate rules",
+      "body": "Provide the match keys and duplicate-detection rule.",
+      "code": "# match.yml\nmatch_on: [po_number, line_item, quantity, unit_price]\nduplicate_keys: [invoice_number, [vendor, amount, po_number]]\nblock_payment_on_duplicate: true"
+    },
+    {
+      "title": "Backtest on past invoices",
+      "body": "Replay matched/paid invoices to compare the agent's decisions to actual outcomes.",
+      "code": "po-match-agent backtest --range 90d --explain\n# reports match accuracy + any duplicate or over-tolerance approvals (must be 0)"
+    },
+    {
+      "title": "Wire into AP intake",
+      "body": "Route incoming invoices to the agent. Start in assist mode, enable auto-approval for clean within-cap matches once backtests are clean.",
+      "code": "# invoice intake -> POST https://your-host/ap/match (HMAC)\n# promote MODE=act for clean three-way matches within the cap"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Clean three-way match within tolerance → approve for payment",
+      "scenario": "Invoice matches its PO and receipt on quantity and price within tolerance, under the cap. The routine, payable case.",
+      "input": "Invoice INV-9001 $4,800: 40 units @ $120, PO-551 (40 @ $120), receipt confirms 40 received. Tolerance 5%, cap $10k.",
+      "output": "{\n  \"invoice_id\": \"INV-9001\",\n  \"decision\": \"APPROVE\",\n  \"confidence\": 0.95,\n  \"match\": { \"po\": \"PO-551\", \"receipt\": \"GR-551\", \"status\": \"matched\" },\n  \"line_findings\": [\n    { \"line\": \"40 units widget-A\", \"check\": \"qty\", \"result\": \"ok\", \"detail\": \"ordered 40 / received 40 / invoiced 40\" },\n    { \"line\": \"40 units widget-A\", \"check\": \"price\", \"result\": \"ok\", \"detail\": \"invoice $120 = PO $120\" }\n  ],\n  \"duplicate\": { \"suspected\": false, \"evidence\": \"\" },\n  \"approved_amount_usd\": 4800,\n  \"actions\": [ { \"tool\": \"approve_for_payment\", \"args\": { \"invoice_id\": \"INV-9001\", \"amount_usd\": 4800 }, \"requires_approval\": false } ],\n  \"vendor_note\": \"Invoice INV-9001 ($4,800) matched to PO-551 and approved for payment.\",\n  \"escalation\": { \"needed\": false, \"reason\": \"\" }\n}",
+      "notes": "Full three-way match: quantity ordered/received/invoiced all agree, price equals the PO, under the cap, no duplicate. It approves for payment and documents the match. This is the volume the kit clears so AP only touches exceptions."
+    },
+    {
+      "title": "Price variance over tolerance → hold the line, cite the variance",
+      "scenario": "Quantities match, but the invoiced unit price exceeds the PO price beyond tolerance. The agent holds and cites the exact variance.",
+      "input": "Invoice INV-9044 $5,400: 40 units @ $135, PO-560 (40 @ $120), receipt confirms 40. Tolerance 5%.",
+      "output": "{\n  \"invoice_id\": \"INV-9044\",\n  \"decision\": \"HOLD\",\n  \"confidence\": 0.92,\n  \"match\": { \"po\": \"PO-560\", \"receipt\": \"GR-560\", \"status\": \"partial\" },\n  \"line_findings\": [\n    { \"line\": \"40 units widget-B\", \"check\": \"qty\", \"result\": \"ok\", \"detail\": \"ordered 40 / received 40 / invoiced 40\" },\n    { \"line\": \"40 units widget-B\", \"check\": \"price\", \"result\": \"variance\", \"detail\": \"invoice $135 vs PO $120 = +12.5%, exceeds 5% tolerance\" }\n  ],\n  \"duplicate\": { \"suspected\": false, \"evidence\": \"\" },\n  \"approved_amount_usd\": 0,\n  \"actions\": [ { \"tool\": \"escalate_exception\", \"args\": { \"invoice_id\": \"INV-9044\", \"reason\": \"price_variance\", \"detail\": \"+12.5% vs PO\" }, \"requires_approval\": false } ],\n  \"vendor_note\": \"Invoice INV-9044 is on hold: the unit price ($135) is 12.5% above the PO price ($120), beyond our 5% tolerance. AP will review.\",\n  \"escalation\": { \"needed\": false, \"reason\": \"Price variance +12.5% exceeds tolerance — needs AP review or a PO amendment.\" }\n}",
+      "notes": "Quantities and receipt are fine, but the price is 12.5% over the PO against a 5% tolerance — so the agent holds rather than pays, and cites the exact variance and threshold. This is the line-level catch that prevents silent overbilling."
+    },
+    {
+      "title": "Duplicate invoice / no PO → escalate, never pay",
+      "scenario": "An invoice has no PO reference and looks like a duplicate of one already paid. The agent refuses to approve and escalates with evidence.",
+      "input": "Invoice INV-9100 $7,200, vendor Acme, no PO referenced. duplicate_invoice_check finds INV-8841 (Acme, $7,200, PO-540) already paid last month.",
+      "output": "{\n  \"invoice_id\": \"INV-9100\",\n  \"decision\": \"ESCALATE\",\n  \"confidence\": 0.8,\n  \"match\": { \"po\": \"missing\", \"receipt\": \"missing\", \"status\": \"unmatched\" },\n  \"line_findings\": [],\n  \"duplicate\": { \"suspected\": true, \"evidence\": \"Matches INV-8841 (Acme, $7,200, PO-540) already paid 2026-05\" },\n  \"approved_amount_usd\": 0,\n  \"actions\": [ { \"tool\": \"escalate_exception\", \"args\": { \"invoice_id\": \"INV-9100\", \"reason\": \"duplicate_and_no_po\", \"evidence\": [\"INV-8841\"] }, \"requires_approval\": false } ],\n  \"vendor_note\": \"Invoice INV-9100 is on hold pending review — it has no PO and appears to match a previously paid invoice. AP will follow up; this may be a re-send.\",\n  \"escalation\": { \"needed\": true, \"reason\": \"No PO and a likely duplicate of paid INV-8841 — must not be auto-paid.\" }\n}",
+      "notes": "The defining defensive case: no PO to match against and strong duplicate evidence (same vendor, amount, and PO as an already-paid invoice). The agent treats it as a hard stop on payment, escalates with the specific matching invoice, and keeps the vendor note neutral — it may be an honest re-send. Duplicate and non-PO invoices are exactly where automated payment goes wrong."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it pay invoices automatically?",
+      "a": "Only when the invoice fully matches its PO and goods receipt within tolerance, isn't a duplicate, and is within your configured cap. Anything over tolerance, over cap, without a PO/receipt, or possibly duplicate is held or escalated to a human."
+    },
+    {
+      "q": "How does it catch duplicate invoices?",
+      "a": "It checks each invoice against received/paid history on the invoice number and on vendor+amount+PO combinations, and treats a likely match as a hard stop on payment, escalating with the specific matching invoice as evidence."
+    },
+    {
+      "q": "What happens on a price or quantity variance?",
+      "a": "It holds the affected line (or invoice) and cites the exact variance against the tolerance — for example, invoiced price 12.5% over the PO against a 5% tolerance — so AP can review or amend the PO."
+    },
+    {
+      "q": "Does it require a goods receipt?",
+      "a": "Yes, for auto-approval. Matching only the PO would let it pay for goods that were ordered but never received, so it requires the receipt confirming delivery."
+    },
+    {
+      "q": "Does it accuse vendors of fraud?",
+      "a": "No. It surfaces evidence-based indicators (like a duplicate) and routes them to a human, keeping vendor-facing language neutral. It never asserts wrongdoing."
+    },
+    {
+      "q": "How do we roll it out safely?",
+      "a": "Start in assist mode where it only recommends, backtest against paid-invoice history to confirm zero duplicate or over-tolerance approvals, then enable auto-approval for clean within-cap matches."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Produces an incorrect match or flags a valid one, surfaced for human review. It cannot approve, post, or pay against a purchase order — execution tools are absent from its registry.",
+    "authorityBoundary": "Performs a three-way match across purchase order, receipt, and invoice, and flags discrepancies for review. It never approves a match, posts to a ledger, or releases payment. A human in finance decides.",
+    "verificationTest": "Attempt to call an approve, post, or payment tool → confirm it is absent from the agent's registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: approval/payment tools absent. Human gates: finance decides. Confidence escalation: partial or fuzzy matches flagged. Cost ceiling: bounded per match. Audit trail: matches and discrepancies logged. Escalation path: mismatches routed to AP.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "po-matching-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Produces an incorrect match for human review. Cannot approve, post, or pay.",
+      "authority_boundary": "Three-way matches PO/receipt/invoice and flags discrepancies; approval/payment tools absent.",
+      "tags": [
+        "supply-chain",
+        "procurement",
+        "reconciliation",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_po",
+          "read_receipt",
+          "read_invoice",
+          "match",
+          "flag_discrepancy"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "approve_match",
+          "ledger_post",
+          "payment"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.22,
+        "alert_threshold_usd": 0.15
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "partial_match",
+          "quantity_mismatch",
+          "price_mismatch"
+        ],
+        "destination": "ap_review"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "matches",
+          "discrepancies"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "False match — approves a PO and invoice pair that doesn't tie out.",
+      "detection": "Match confidence is scored and partial or fuzzy matches are flagged.",
+      "mitigation": "It never approves, posts, or pays — a match is a recommendation.",
+      "recovery": "AP rejects it and the discrepancy re-opens."
+    },
+    {
+      "mode": "Misses a price or quantity mismatch.",
+      "detection": "Line-level price and quantity checks run; the residual must reconcile.",
+      "mitigation": "All mismatches are surfaced, never hidden.",
+      "recovery": "The mismatch is flagged to AP for resolution."
+    },
+    {
+      "mode": "A partial receipt is matched as complete.",
+      "detection": "Received quantity is checked against ordered quantity.",
+      "mitigation": "Partials are flagged as partial.",
+      "recovery": "The match is held until the receipt completes."
+    }
+  ],
+  "evaluation": {
+    "primary": "Match precision and mismatch recall together are the core metrics — a false match approves a bad pair, a missed mismatch lets a price or quantity error through.",
+    "metrics": [
+      {
+        "name": "Match accuracy",
+        "description": "Share of proposed PO–invoice–receipt matches that are correct."
+      },
+      {
+        "name": "Precision",
+        "description": "Of matches proposed, the share that truly tie out — false-match resistance."
+      },
+      {
+        "name": "Mismatch recall",
+        "description": "Of genuine price or quantity mismatches, the share it surfaces."
+      },
+      {
+        "name": "Partial-receipt handling",
+        "description": "Share of partial receipts correctly flagged as partial rather than complete."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to match a batch."
+      }
+    ],
+    "approach": "Use a labeled set of three-way-match cases with seeded mismatches and partial receipts; measure precision and mismatch recall. The residual must reconcile, and nothing is approved or paid during evaluation."
+  }
+}

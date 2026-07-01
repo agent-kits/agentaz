@@ -1,0 +1,58 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "support-triage-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Escalation",
+  "worst_case_action": "Drafts a wrong reply or misroutes a ticket, caught before send. Cannot send or take account actions.",
+  "authority_boundary": "Classifies, drafts replies, and routes tickets; send and account-action tools absent.",
+  "tags": [
+    "customer-support",
+    "triage",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_ticket",
+      "classify",
+      "prioritize",
+      "draft_reply",
+      "route"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "send_message",
+      "refund",
+      "cancel",
+      "account_change"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.22,
+    "alert_threshold_usd": 0.15
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "sensitive_issue",
+      "account_action_needed",
+      "low_confidence"
+    ],
+    "destination": "support_agent"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "classification",
+      "draft",
+      "routing"
+    ]
+  }
+}

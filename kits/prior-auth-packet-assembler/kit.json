@@ -1,0 +1,363 @@
+{
+  "slug": "prior-auth-packet-assembler",
+  "title": "Prior Authorization Agent",
+  "category": "healthcare-workflows",
+  "shortDescription": "An administrative prior-auth agent: checks requests against payer rules, flags missing docs, and assembles a review-ready packet. No clinical or coverage decisions.",
+  "description": "An administrative agent that takes the busywork out of prior authorization: it checks a request against the payer's documented requirements, finds exactly what's missing, and assembles a review-ready packet — without ever making a clinical or coverage decision. It is built defensively for a regulated setting: it is administrative only, follows minimum-necessary PHI handling, never approves or denies care, never determines medical necessity, and escalates anything requiring clinical judgment to a qualified human.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "healthcare",
+    "prior-authorization",
+    "administrative",
+    "payer-rules",
+    "hipaa",
+    "autonomous-agent",
+    "documentation",
+    "revenue-cycle",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "50 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Checks a prior-auth request against the payer's documented checklist, identifies missing documentation precisely, and assembles a review-ready packet.",
+    "Administrative only: it verifies completeness against payer rules — it does not approve, deny, or determine medical necessity.",
+    "Minimum-necessary PHI: pulls only the data the payer requires and keeps it within scope.",
+    "Escalates clinical judgment to humans: borderline medical-necessity calls go to a clinician, never to the agent."
+  ],
+  "whenToUse": [
+    "Your staff spend hours assembling prior-auth packets and chasing missing documents before submission.",
+    "You have payer rules/checklists and access (with appropriate controls) to the request and supporting documentation.",
+    "You want consistent, complete submissions that reduce avoidable denials for missing information.",
+    "You want automation for the administrative completeness work while clinicians retain all clinical decisions."
+  ],
+  "whenNotToUse": [
+    "You expect it to decide medical necessity, approve, or deny — those are clinical/payer decisions it must never make.",
+    "You can't provide payer rules or appropriate, controlled access to the necessary documentation.",
+    "The case requires clinical judgment that should go straight to a clinician.",
+    "You can't support HIPAA-appropriate handling of PHI in your environment."
+  ],
+  "systemPrompt": "You are an administrative Prior Authorization Agent in a healthcare revenue-cycle workflow. Your ONLY job is to check a prior-authorization request against the payer's documented requirements, identify missing documentation, and assemble a complete, review-ready packet. You are administrative support. You do NOT practice medicine, determine medical necessity, or make coverage decisions.\n\n== ABSOLUTE BOUNDARIES (NON-NEGOTIABLE) ==\n- NOT A CLINICAL OR COVERAGE DECISION-MAKER. You never approve, deny, or recommend approval/denial of care. You never determine medical necessity. You check administrative completeness against the payer's checklist only.\n- ADMINISTRATIVE ONLY. If a step requires clinical judgment (e.g. whether a treatment is medically appropriate, interpreting clinical findings), you STOP and escalate to a qualified clinician. Do not infer or fabricate clinical conclusions.\n- MINIMUM-NECESSARY PHI. Retrieve and include only the protected health information the payer's requirement explicitly needs. Do not pull or expose extra PHI. Keep PHI within the packet and scope.\n- NO FABRICATION. Never invent a document, value, code, or clinical statement. If a required item is absent, mark it MISSING. If a value is unclear, flag it for human confirmation.\n- HIPAA POSTURE. Handle all data as PHI: least access, no leakage outside the workflow, redaction in any non-essential output.\n\n== METHOD ==\n- Identify the payer, the service/procedure (codes), and the payer's documented prior-auth requirement set for it.\n- Inventory the documents and data present in the request.\n- Compare present vs. required: list exactly what is satisfied and what is MISSING (e.g. specific clinical notes, imaging report, conservative-treatment history, lab values, signed order).\n- If complete, assemble the packet in the payer's expected structure. If incomplete, produce a precise gap list so staff (or the requesting provider) can supply the items.\n- If a requirement involves a clinical determination, route to a clinician — do not judge it yourself.\n\n== DECISION POLICY ==\n- READY: all administratively required items are present and the packet is assembled. (This is a completeness status, NOT an approval.)\n- INCOMPLETE: one or more required items missing. Provide the exact gap list and hold.\n- ESCALATE: a clinical-judgment question, an ambiguous/conflicting record, suspected urgent/expedited need, or anything outside administrative scope. Route to a clinician/qualified human.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"payer\": \"<payer>\",\n  \"service\": \"<procedure/service + codes>\",\n  \"administrative_status\": \"READY|INCOMPLETE|ESCALATE\",\n  \"requirements_checked\": [ { \"item\": \"<required item>\", \"present\": <true|false>, \"source\": \"<where found, or empty>\" } ],\n  \"missing\": [\"<exact items still needed>\"],\n  \"packet\": \"<assembled packet reference/structure if READY, else empty>\",\n  \"phi_note\": \"Only minimum-necessary PHI was used.\",\n  \"human_note\": \"<what staff should do next>\",\n  \"escalation\": { \"needed\": <bool>, \"to\": \"clinician|staff|none\", \"reason\": \"<why, or empty>\" },\n  \"disclaimer\": \"Administrative completeness check only — not a coverage or medical-necessity determination.\"\n}\nNever output an approval/denial or a medical-necessity judgment. If unsure whether something is clinical, treat it as clinical and ESCALATE.",
+  "architecture": [
+    {
+      "label": "Request intake",
+      "detail": "Receives the prior-auth request with the patient reference, payer, ordering provider, and the requested service/procedure codes, normalized into a structured task."
+    },
+    {
+      "label": "Payer-rule lookup",
+      "detail": "Retrieves the payer's documented prior-auth requirement set for that service/code — the administrative checklist the packet must satisfy."
+    },
+    {
+      "label": "Document inventory",
+      "detail": "Catalogs the documents and data present in the request (clinical notes, imaging, labs, orders) using minimum-necessary access, without interpreting their clinical content."
+    },
+    {
+      "label": "Completeness engine",
+      "detail": "Compares present items against the payer checklist and produces a precise present/missing breakdown — a purely administrative comparison, no clinical inference."
+    },
+    {
+      "label": "Clinical-judgment gate",
+      "detail": "A deterministic guard routes anything requiring medical-necessity interpretation or clinical judgment to a clinician; the agent never makes those calls."
+    },
+    {
+      "label": "Packet assembly",
+      "detail": "When administratively complete, assembles the documentation into the payer's expected structure, ready for human submission."
+    },
+    {
+      "label": "PHI & audit controls",
+      "detail": "Enforces minimum-necessary access, logs what was used, and keeps PHI within scope for HIPAA-aligned auditability."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_request",
+      "purpose": "Fetch the prior-auth request: patient reference, payer, ordering provider, and requested service/procedure codes."
+    },
+    {
+      "name": "payer_rules_lookup",
+      "purpose": "Return the payer's documented prior-auth documentation requirements for the specific service/code."
+    },
+    {
+      "name": "document_inventory",
+      "purpose": "List the documents/data attached to the request without interpreting clinical content (minimum-necessary)."
+    },
+    {
+      "name": "ehr_fetch",
+      "purpose": "Retrieve a specific, required document or value from the EHR under minimum-necessary access (e.g. a named imaging report)."
+    },
+    {
+      "name": "criteria_check",
+      "purpose": "Compare present documentation against the payer's administrative checklist and produce a present/missing breakdown."
+    },
+    {
+      "name": "packet_assemble",
+      "purpose": "Assemble the required documentation into the payer's expected packet structure when administratively complete."
+    },
+    {
+      "name": "submit_to_payer",
+      "purpose": "Submit the assembled packet to the payer. Human-approved; the agent never submits a clinical or coverage decision."
+    },
+    {
+      "name": "escalate_to_clinician",
+      "purpose": "Route to a clinician/qualified human for any clinical-judgment, medical-necessity, or ambiguous-record question."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Intake the request",
+      "body": "Capture the patient reference, payer, ordering provider, and the requested service/procedure codes as a structured task."
+    },
+    {
+      "title": "2. Look up payer rules",
+      "body": "Retrieve the payer's documented prior-auth requirement set for that exact service/code — the administrative checklist."
+    },
+    {
+      "title": "3. Inventory documents",
+      "body": "Catalog the documents and data present using minimum-necessary access, without interpreting their clinical meaning."
+    },
+    {
+      "title": "4. Check completeness",
+      "body": "Compare present vs. required and produce a precise present/missing list. This is administrative completeness only — not a necessity judgment."
+    },
+    {
+      "title": "5. Gate clinical questions",
+      "body": "If any requirement needs clinical judgment or the record is ambiguous, escalate to a clinician rather than deciding."
+    },
+    {
+      "title": "6. Assemble or hold",
+      "body": "If complete, assemble the packet in the payer's structure for human submission. If incomplete, return the exact gap list and hold."
+    },
+    {
+      "title": "7. Log PHI & outcome",
+      "body": "Record what minimum-necessary PHI was used and the administrative status for HIPAA-aligned audit, and feed denials-for-missing-info back to tighten checklists."
+    }
+  ],
+  "implementationNotes": [
+    "Lock 'administrative only' in configuration and reinforce it in the prompt: the agent must never approve, deny, or determine medical necessity. Those boundaries should be enforced, not trusted to the model.",
+    "Make the clinical-judgment gate aggressive — if it's unclear whether something is clinical, treat it as clinical and escalate. Over-escalating is safe; a wrong clinical call is not.",
+    "Enforce minimum-necessary PHI access and log exactly what was used; this is both a HIPAA requirement and an auditability win.",
+    "Drive completeness from per-payer, per-code documentation checklists. Keeping these current is what reduces denials-for-missing-information.",
+    "Never fabricate a document or value; a missing item is MISSING, and an ambiguous value is flagged for human confirmation.",
+    "Keep submission human-approved; the agent assembles and staff submit, so a person always stands between the agent and the payer.",
+    "Spend the strong model on ambiguous-completeness reasoning and escalation framing — a cheaper model can inventory documents and match the checklist."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Completeness checker",
+      "desc": "Checks a request against the payer's documentation checklist and returns a precise present/missing breakdown for staff. No assembly, no submission, administrative only."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Packet assembler",
+      "desc": "Adds review-ready packet assembly for complete requests, a clinical-judgment escalation gate, and minimum-necessary PHI handling — staff still approve and submit."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Governed prior-auth operation",
+      "desc": "Adds multi-payer rule libraries, EHR integration under least access, full HIPAA audit trails, denials-for-missing-info analytics, and checklist tuning from outcomes — humans retain all clinical and submission decisions."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect in a HIPAA-aligned environment",
+      "body": "Install the agent inside your compliant environment and connect it under minimum-necessary access.",
+      "code": "pipx install priorauth-agent\npriorauth-agent connect --ehr epic --payer-rules ./payer-rules/\npriorauth-agent doctor   # checks access scope + audit logging"
+    },
+    {
+      "title": "Configure boundaries and PHI handling",
+      "body": "Lock the agent to administrative scope. These boundaries are enforced in config, not just the prompt.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nADMINISTRATIVE_ONLY=true       # cannot approve/deny or judge necessity\nMINIMUM_NECESSARY_PHI=true\nESCALATE_CLINICAL=true\nSUBMIT_REQUIRES_APPROVAL=true"
+    },
+    {
+      "title": "Load payer requirement sets",
+      "body": "Provide each payer's documented prior-auth checklists per service/code so completeness checks are accurate.",
+      "code": "# payer-rules/acme-health.yml\nMRI_lumbar_72148:\n  required: [\"conservative_treatment_6wk\", \"recent_clinical_note\", \"prior_imaging_report\", \"signed_order\"]\n# (administrative documentation items only — no necessity criteria to 'decide')"
+    },
+    {
+      "title": "Dry-run on a request",
+      "body": "Run a completeness check and review the present/missing breakdown before any submission.",
+      "code": "priorauth-agent check --request REQ-8841 --explain\n# prints requirements_checked, missing[], administrative_status, disclaimer"
+    },
+    {
+      "title": "Wire into intake (human submits)",
+      "body": "Route new requests for a completeness pass; staff review and submit. The agent never submits a decision.",
+      "code": "# intake webhook -> POST https://your-host/priorauth/check\n# READY packets queue for staff review + approved submission"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Complete request → assemble a review-ready packet",
+      "scenario": "A request that meets every documented payer requirement. The agent assembles the packet — explicitly as a completeness status, not an approval.",
+      "input": "Request REQ-8841: MRI lumbar spine (72148), payer Acme Health. Attached: clinical note (2026-06-12), 6-week conservative-treatment record, prior X-ray report, signed order.",
+      "output": "{\n  \"payer\": \"Acme Health\",\n  \"service\": \"MRI lumbar spine (CPT 72148)\",\n  \"administrative_status\": \"READY\",\n  \"requirements_checked\": [\n    { \"item\": \"Conservative treatment >= 6 weeks documented\", \"present\": true, \"source\": \"PT record 2026-04-30 to 2026-06-11\" },\n    { \"item\": \"Recent clinical note\", \"present\": true, \"source\": \"Office note 2026-06-12\" },\n    { \"item\": \"Prior imaging report\", \"present\": true, \"source\": \"Lumbar X-ray report 2026-05-20\" },\n    { \"item\": \"Signed order\", \"present\": true, \"source\": \"Signed order 2026-06-12\" }\n  ],\n  \"missing\": [],\n  \"packet\": \"Assembled in Acme Health PA structure: cover sheet + 4 required documents (REQ-8841-packet)\",\n  \"phi_note\": \"Only minimum-necessary PHI was used.\",\n  \"human_note\": \"Packet is administratively complete and ready for staff review and submission.\",\n  \"escalation\": { \"needed\": false, \"to\": \"none\", \"reason\": \"\" },\n  \"disclaimer\": \"Administrative completeness check only — not a coverage or medical-necessity determination.\"\n}",
+      "notes": "Note the careful framing: 'READY' is an administrative completeness status, and the disclaimer makes explicit this is not an approval or a necessity determination. The agent matched each documented requirement to a source and assembled the packet for a human to submit."
+    },
+    {
+      "title": "Missing document → precise gap list, hold",
+      "scenario": "The request is almost complete but missing one payer-required item. The agent names exactly what's needed rather than guessing or proceeding.",
+      "input": "Request REQ-8907: MRI lumbar spine (72148), payer Acme Health. Attached: clinical note (2026-06-14), prior X-ray report, signed order. No conservative-treatment documentation found.",
+      "output": "{\n  \"payer\": \"Acme Health\",\n  \"service\": \"MRI lumbar spine (CPT 72148)\",\n  \"administrative_status\": \"INCOMPLETE\",\n  \"requirements_checked\": [\n    { \"item\": \"Conservative treatment >= 6 weeks documented\", \"present\": false, \"source\": \"\" },\n    { \"item\": \"Recent clinical note\", \"present\": true, \"source\": \"Office note 2026-06-14\" },\n    { \"item\": \"Prior imaging report\", \"present\": true, \"source\": \"Lumbar X-ray report\" },\n    { \"item\": \"Signed order\", \"present\": true, \"source\": \"Signed order 2026-06-14\" }\n  ],\n  \"missing\": [\"Documentation of >= 6 weeks of conservative treatment (e.g. PT records or provider notes covering the period)\"],\n  \"packet\": \"\",\n  \"phi_note\": \"Only minimum-necessary PHI was used.\",\n  \"human_note\": \"Hold submission. Request the conservative-treatment documentation from the ordering provider; once attached, re-run for packet assembly.\",\n  \"escalation\": { \"needed\": false, \"to\": \"staff\", \"reason\": \"\" },\n  \"disclaimer\": \"Administrative completeness check only — not a coverage or medical-necessity determination.\"\n}",
+      "notes": "Rather than submitting an incomplete packet (a common denial cause) or fabricating the missing record, the agent names the exact missing item and the likely source, and holds. This is the bread-and-butter time-saver: precise gap-chasing instead of manual checklist review."
+    },
+    {
+      "title": "Clinical-judgment question → escalate to a clinician",
+      "scenario": "A requirement hinges on a medical-necessity interpretation. The agent refuses to make the clinical call and escalates.",
+      "input": "Request REQ-9012: a payer rule for this procedure requires that 'imaging is medically necessary given failed conservative therapy and progressive neurological deficit.' The chart shows conservative therapy and some new symptoms, but whether they constitute a 'progressive neurological deficit' is a clinical interpretation.",
+      "output": "{\n  \"payer\": \"Acme Health\",\n  \"service\": \"Advanced imaging (per payer necessity rule)\",\n  \"administrative_status\": \"ESCALATE\",\n  \"requirements_checked\": [\n    { \"item\": \"Conservative therapy documented\", \"present\": true, \"source\": \"PT + provider notes\" },\n    { \"item\": \"Clinical determination: progressive neurological deficit\", \"present\": false, \"source\": \"requires clinician interpretation\" }\n  ],\n  \"missing\": [],\n  \"packet\": \"\",\n  \"phi_note\": \"Only minimum-necessary PHI was used.\",\n  \"human_note\": \"A clinician must determine whether the documented symptoms meet the payer's 'progressive neurological deficit' / medical-necessity criterion. I have prepared the administrative documents but cannot and will not make this clinical determination.\",\n  \"escalation\": { \"needed\": true, \"to\": \"clinician\", \"reason\": \"Requirement depends on a medical-necessity / clinical interpretation, which is outside administrative scope.\" },\n  \"disclaimer\": \"Administrative completeness check only — not a coverage or medical-necessity determination.\"\n}",
+      "notes": "The crucial boundary example: the payer requirement turns on a clinical interpretation (is this a 'progressive neurological deficit'?), so the agent stops and routes it to a clinician. It explicitly states it cannot and will not make the medical-necessity call — exactly the line an administrative agent must hold in a regulated setting."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Does it decide whether to approve prior authorizations?",
+      "a": "No. It never approves, denies, or determines medical necessity. It performs an administrative completeness check against the payer's documentation checklist and assembles a packet for a human to review and submit."
+    },
+    {
+      "q": "How does it stay within administrative scope?",
+      "a": "It's locked to administrative-only by configuration, and anything requiring clinical judgment or medical-necessity interpretation is escalated to a clinician. If it's unclear whether something is clinical, it treats it as clinical and escalates."
+    },
+    {
+      "q": "How is PHI protected?",
+      "a": "It uses minimum-necessary access — pulling only the data a specific requirement needs — keeps PHI within the packet and workflow, logs what was used, and is intended to run inside your HIPAA-aligned environment."
+    },
+    {
+      "q": "What does it do when a document is missing?",
+      "a": "It returns a precise list of exactly what's missing and the likely source, then holds — instead of submitting an incomplete packet (a common denial cause) or fabricating the document."
+    },
+    {
+      "q": "Will it submit to the payer automatically?",
+      "a": "Submission is human-approved by default. The agent assembles the review-ready packet; your staff review and submit, so a person always stands between the agent and the payer."
+    },
+    {
+      "q": "How does it reduce denials?",
+      "a": "Most avoidable prior-auth denials are for missing or incomplete documentation. By checking every request against the payer's exact checklist and flagging gaps before submission, it helps ensure complete packets the first time."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A3 — Human-Approved",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Assembles an incomplete or incorrect prior-authorization packet that a human reviews before submission. It cannot submit to a payer, cannot make a clinical or coverage determination, and cannot alter the medical record — submission and EHR-write tools are absent from its registry.",
+    "authorityBoundary": "Reads clinical and administrative inputs, assembles a structured prior-auth packet against payer requirements, and flags gaps and missing documentation for review. A human approves and submits. It never submits to a payer, never makes a clinical or coverage decision, and never writes to the EHR.",
+    "verificationTest": "Attempt to call a payer-submission or EHR-write tool → confirm it is absent from the agent's tool registry (not merely disabled).",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: submission and EHR-write tools absent. Human gates: approval required before submission. Confidence escalation: missing or uncertain fields routed to a reviewer. Cost ceiling: bounded per packet. Audit trail: assembly steps and flags logged. Escalation path: incomplete packets routed to a human reviewer.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "agent_id": "prior-authorization-agent",
+      "version": "2.0.0",
+      "trust_level": "A3",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Assembles an incomplete packet for human review. Cannot submit to a payer or write to the EHR.",
+      "authority_boundary": "Assembles prior-auth packets for human approval and submission. Submission and EHR-write tools absent.",
+      "last_reviewed": "2026-06-24",
+      "tags": [
+        "healthcare",
+        "prior-authorization",
+        "hipaa",
+        "human-approval",
+        "read-only-ehr",
+        "agentaz",
+        "agent-governance",
+        "trust-level",
+        "production-readiness"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_clinical_inputs",
+          "read_payer_rules",
+          "assemble_packet",
+          "check_completeness",
+          "flag_gaps"
+        ],
+        "execution_tools_absent": true,
+        "absent_tools_note": "payer_submit and ehr_write are intentionally absent from the registry"
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "payer_submission",
+          "ehr_write",
+          "coverage_determination"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.3,
+        "alert_threshold_usd": 0.2
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 10
+      },
+      "human_handoff": {
+        "triggers": [
+          "missing_documentation",
+          "uncertain_field",
+          "completeness_below_threshold"
+        ],
+        "destination": "prior_auth_reviewer"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "assembly_steps",
+          "flags",
+          "completeness"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Assembles a packet missing a required clinical document, causing a denial.",
+      "detection": "A required-document checklist is verified against the payer's requirements.",
+      "mitigation": "Gaps are flagged and the packet is prepared, not submitted, until complete.",
+      "recovery": "Missing documents are requested before submission."
+    },
+    {
+      "mode": "Includes a wrong or mismatched diagnosis or procedure code.",
+      "detection": "Codes are cross-checked against the clinical record and mismatches are flagged.",
+      "mitigation": "Codes are a recommendation a human confirms; there is no auto-submit.",
+      "recovery": "The reviewer corrects the code."
+    },
+    {
+      "mode": "Uses an outdated payer requirement set.",
+      "detection": "The requirement version and effective date are checked.",
+      "mitigation": "The packet is flagged if requirements may have changed.",
+      "recovery": "Requirements are refreshed before submission."
+    }
+  ],
+  "evaluation": {
+    "primary": "Packet completeness against payer requirements is primary — a missing required document causes denial.",
+    "metrics": [
+      {
+        "name": "Completeness rate",
+        "description": "Share of assembled packets containing every payer-required document."
+      },
+      {
+        "name": "Code accuracy",
+        "description": "Accuracy of included diagnosis and procedure codes against the clinical record."
+      },
+      {
+        "name": "Requirement currency",
+        "description": "Share assembled against the current payer requirement set."
+      },
+      {
+        "name": "Gap-flagging recall",
+        "description": "Of missing required documents, the share flagged before submission."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to assemble a packet."
+      }
+    ],
+    "approach": "Use a set of cases with known payer requirements and complete clinical records; measure completeness and code accuracy, and include cases with missing documents and outdated requirements to test gap-flagging. Packets are prepared, not submitted, during evaluation."
+  }
+}

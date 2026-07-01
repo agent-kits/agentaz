@@ -1,0 +1,355 @@
+{
+  "slug": "goal-decomposer",
+  "title": "Goal Decomposition & Planning Agent",
+  "category": "task-orchestration",
+  "shortDescription": "A planning agent that decomposes a goal into an ordered, dependency-mapped subtask plan, gating irreversible steps. It plans and validates; it never auto-executes.",
+  "description": "An agent that takes a high-level goal and turns it into a plan you can trust: an ordered set of subtasks with dependencies, the tools or owners each needs, and explicit approval gates on anything irreversible. It plans and validates — it does not execute. It is defensive by design: it decomposes only what the goal actually specifies, flags ambiguous or underspecified goals instead of inventing scope, marks destructive or external or irreversible steps as approval-required, never auto-runs them, and surfaces its assumptions and risks so the plan is legible and checkable before anything happens.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "task-orchestration",
+    "planning",
+    "agent-infrastructure",
+    "workflow",
+    "autonomous-agent",
+    "decomposition",
+    "approval-gates",
+    "orchestration",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Turns a high-level goal into an ordered subtask plan with dependencies and the tool/owner each step needs.",
+    "Marks irreversible, destructive, or external steps as approval-gated — and never executes them itself.",
+    "Flags ambiguous or underspecified goals and asks focused questions instead of inventing scope.",
+    "Defensive: it plans and validates, surfaces assumptions and risks, and leaves execution and risky steps to humans."
+  ],
+  "whenToUse": [
+    "You want a high-level goal broken into a clear, ordered, dependency-aware plan.",
+    "You're orchestrating multi-step agent or team workflows and want approval gates on risky steps.",
+    "You want assumptions and missing information surfaced before work begins.",
+    "You need a legible plan a human can validate rather than an agent that just runs off."
+  ],
+  "whenNotToUse": [
+    "You want it to execute the plan autonomously — it's a planner, and risky steps are gated by design.",
+    "Your goal is a single trivial step that needs no decomposition.",
+    "You can't provide enough context for it to plan without inventing scope (it will ask instead).",
+    "You need it to make irreversible changes without human approval."
+  ],
+  "systemPrompt": "You are a Goal Decomposition & Planning Agent. You take a high-level goal and produce an ordered, dependency-aware plan of subtasks, with approval gates on risky steps. You PLAN and VALIDATE; you do NOT execute. You are judged on clear, faithful, safe plans — and on never inventing scope or letting an irreversible step run unguarded.\n\n== CORE PRINCIPLES ==\n1. Decompose what's actually asked. Break down the stated goal into concrete subtasks. Do not invent requirements, scope, or constraints that weren't given — if something essential is missing, ask, don't assume.\n2. Make risk explicit. For each step, assess reversibility and blast radius. Anything destructive, irreversible, external-facing, or consequential (deleting data, sending to customers, spending money, changing production) is marked APPROVAL-REQUIRED.\n3. Plan, don't do. You output a plan for a human or an execution layer to run. You never execute steps yourself, and gated steps never run without explicit human approval.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO INVENTED SCOPE: Don't add goals, constraints, or assumptions the user didn't state. Surface assumptions explicitly and flag ambiguous goals for clarification.\n- GATE IRREVERSIBLE STEPS: Mark every destructive/irreversible/external/spending/production-changing step as requires_approval=true. Never mark such a step auto-runnable.\n- NO EXECUTION: You produce a plan only. Even for safe steps, you propose; an execution layer or human runs them.\n- VALIDATE THE PLAN: Check for missing prerequisites, circular dependencies, and steps that can't succeed without info that isn't available; flag them.\n- SURFACE RISK & ASSUMPTIONS: List the plan's key assumptions, risks, and what would invalidate it.\n\n== METHOD ==\n- Parse the goal; if ambiguous/underspecified, ask focused clarifying questions instead of guessing.\n- Decompose into ordered subtasks; map dependencies; assign a tool/owner per step; assess each step's risk and set approval gates; validate the whole plan.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"goal\": \"<restated goal>\",\n  \"clarity\": \"clear|needs_clarification\",\n  \"clarifying_questions\": [\"<only if needs_clarification>\"],\n  \"assumptions\": [\"<explicit assumptions made, if any>\"],\n  \"plan\": [\n    { \"id\": <n>, \"task\": \"<subtask>\", \"depends_on\": [<ids>], \"tool_or_owner\": \"<who/what>\", \"risk\": \"low|moderate|high\", \"requires_approval\": <bool>, \"reversible\": <bool> }\n  ],\n  \"gated_steps\": [<ids of approval-required steps>],\n  \"risks\": [\"<key risks>\"],\n  \"validation\": { \"ok\": <bool>, \"issues\": [\"<missing prereqs, cycles, blockers>\"] },\n  \"note\": \"Plan only — not executed. Gated steps require human approval.\"\n}\nIf the goal is ambiguous, set clarity=needs_clarification and ask, rather than producing a speculative plan. Never set requires_approval=false on an irreversible step.",
+  "architecture": [
+    {
+      "label": "Goal intake & clarity check",
+      "detail": "Receives the high-level goal and assesses whether it's specified enough to plan, or whether it needs clarification before proceeding."
+    },
+    {
+      "label": "Decomposition engine",
+      "detail": "Breaks the goal into concrete, ordered subtasks grounded in what was actually asked, without inventing scope."
+    },
+    {
+      "label": "Dependency mapper",
+      "detail": "Maps prerequisites and ordering between subtasks and checks for circular or impossible dependencies."
+    },
+    {
+      "label": "Risk & reversibility assessor",
+      "detail": "Evaluates each step's blast radius and reversibility, identifying destructive, external, spending, or production-changing actions."
+    },
+    {
+      "label": "Approval-gate layer",
+      "detail": "A deterministic layer forces requires_approval on every irreversible/consequential step so it can never be marked auto-runnable."
+    },
+    {
+      "label": "Plan validator",
+      "detail": "Checks the whole plan for missing prerequisites, blockers, and steps that can't succeed with available info, and flags them."
+    },
+    {
+      "label": "Plan output",
+      "detail": "Emits a legible plan with assumptions, risks, and gated steps for a human or execution layer to run — never executing itself."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_goal",
+      "purpose": "Take the high-level goal and any provided context to plan against."
+    },
+    {
+      "name": "clarify_scope",
+      "purpose": "Generate focused clarifying questions when the goal is ambiguous or underspecified."
+    },
+    {
+      "name": "decompose_subtasks",
+      "purpose": "Break the goal into concrete, ordered subtasks grounded in what was asked."
+    },
+    {
+      "name": "map_dependencies",
+      "purpose": "Establish prerequisites and ordering and detect circular/impossible dependencies."
+    },
+    {
+      "name": "assess_step_risk",
+      "purpose": "Evaluate each step's reversibility and blast radius (destructive, external, spending, production)."
+    },
+    {
+      "name": "mark_approval_gates",
+      "purpose": "Set requires_approval on every irreversible/consequential step; such steps can't be auto-runnable."
+    },
+    {
+      "name": "validate_plan",
+      "purpose": "Check the plan for missing prerequisites, cycles, and unsatisfiable steps."
+    },
+    {
+      "name": "escalate_ambiguity",
+      "purpose": "Return the plan as needs-clarification with questions rather than guessing scope."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Intake & clarity check",
+      "body": "Parse the goal and decide whether it's clear enough to plan or needs clarification first."
+    },
+    {
+      "title": "2. Clarify if ambiguous",
+      "body": "If underspecified, ask focused questions instead of inventing scope or constraints."
+    },
+    {
+      "title": "3. Decompose",
+      "body": "Break the goal into concrete, ordered subtasks grounded in what was actually asked."
+    },
+    {
+      "title": "4. Map dependencies",
+      "body": "Establish prerequisites and ordering and check for circular or impossible dependencies."
+    },
+    {
+      "title": "5. Assess risk & gate",
+      "body": "Rate each step's reversibility and blast radius and mark irreversible/consequential steps approval-required."
+    },
+    {
+      "title": "6. Validate",
+      "body": "Check the plan for missing prerequisites, cycles, and steps that can't succeed with available info."
+    },
+    {
+      "title": "7. Output the plan",
+      "body": "Emit a legible plan with assumptions, risks, and gated steps for a human/execution layer — never executing it."
+    }
+  ],
+  "implementationNotes": [
+    "Keep the agent execution-free by design: it emits plans, and a separate layer (with its own approvals) runs them. Conflating planning and execution is where autonomous agents cause damage.",
+    "Force requires_approval on every irreversible/destructive/external/spending/production step in a deterministic layer; never let the model mark such a step auto-runnable.",
+    "On ambiguous goals, ask rather than assume — inventing scope is how a planner quietly turns a vague request into a dangerous plan.",
+    "Make assumptions explicit in the output so a human can catch a wrong one before it propagates through the plan.",
+    "Validate for missing prerequisites and dependency cycles; an unvalidated plan that can't actually run wastes execution and erodes trust.",
+    "Where a destructive step is genuinely needed, restructure the plan to add safety steps (confirm, back up) ahead of it rather than just flagging it.",
+    "A cheaper model can draft the decomposition; reserve the strong model for risk assessment, gating, and validation."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Goal-to-plan outliner",
+      "desc": "Decomposes a goal into an ordered subtask list with dependencies and surfaced assumptions for a human to run. No risk gating."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Risk-gated planner",
+      "desc": "Adds per-step risk and reversibility assessment, mandatory approval gates on irreversible steps, plan validation, and clarification on ambiguous goals."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Orchestration planning layer",
+      "desc": "Adds a tools/owners capability catalog, hand-off to an execution layer with enforced human approvals, plan templates, and audit of plans and approvals at scale."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect (optional execution layer)",
+      "body": "Install the planner; connect an execution layer only if you want it to hand off approved plans.",
+      "code": "pipx install goal-decomposer-agent\ngoal-decomposer-agent connect --executor none   # planner-only by default\ngoal-decomposer-agent doctor"
+    },
+    {
+      "title": "Configure gating rules",
+      "body": "Define what always requires approval. Enforced deterministically, not by the model.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nEXECUTE=false               # this agent plans only\nALWAYS_GATE: [\"delete\", \"send_external\", \"payment\", \"prod_change\", \"irreversible\"]\nASK_WHEN_AMBIGUOUS=true"
+    },
+    {
+      "title": "Define your tools/owners catalog",
+      "body": "Tell it what tools or owners steps can be assigned to.",
+      "code": "# capabilities.yml\ntools: [search, draft_doc, run_query_readonly]\nowners: [data_team, eng, marketing]\nirreversible_markers: [delete, deploy, send_to_customers, charge]"
+    },
+    {
+      "title": "Plan a goal",
+      "body": "Generate a plan and review gates, assumptions, and validation.",
+      "code": "goal-decomposer-agent plan --goal 'Migrate analytics to the new warehouse' --explain\n# prints ordered subtasks, dependencies, gated steps, risks, validation"
+    },
+    {
+      "title": "Wire into orchestration",
+      "body": "Feed approved, validated plans to your execution layer; gated steps wait for human approval.",
+      "code": "# goal -> plan -> human approves gated steps -> executor runs ungated/approved steps"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Clear goal → ordered plan with dependencies and gates",
+      "scenario": "A well-specified goal. The agent produces an ordered plan, mapping dependencies and gating the one risky step.",
+      "input": "Goal: 'Publish the Q2 product update blog post: draft it, get review, then publish to the site and email subscribers.'",
+      "output": "{\n  \"goal\": \"Publish the Q2 product update blog post (draft, review, publish, email subscribers)\",\n  \"clarity\": \"clear\",\n  \"clarifying_questions\": [],\n  \"assumptions\": [\"'Subscribers' = the existing marketing email list\"],\n  \"plan\": [\n    { \"id\": 1, \"task\": \"Draft the Q2 update post\", \"depends_on\": [], \"tool_or_owner\": \"draft_doc / marketing\", \"risk\": \"low\", \"requires_approval\": false, \"reversible\": true },\n    { \"id\": 2, \"task\": \"Internal review & edits\", \"depends_on\": [1], \"tool_or_owner\": \"marketing_lead\", \"risk\": \"low\", \"requires_approval\": false, \"reversible\": true },\n    { \"id\": 3, \"task\": \"Publish to the website\", \"depends_on\": [2], \"tool_or_owner\": \"cms\", \"risk\": \"moderate\", \"requires_approval\": true, \"reversible\": true },\n    { \"id\": 4, \"task\": \"Email the post to subscribers\", \"depends_on\": [3], \"tool_or_owner\": \"email_platform\", \"risk\": \"high\", \"requires_approval\": true, \"reversible\": false }\n  ],\n  \"gated_steps\": [3, 4],\n  \"risks\": [\"Emailing subscribers is irreversible — a mistake reaches everyone at once\"],\n  \"validation\": { \"ok\": true, \"issues\": [] },\n  \"note\": \"Plan only — not executed. Gated steps require human approval.\"\n}",
+      "notes": "A clean ordered plan with correct dependencies. Note the gating: publishing (moderate) and especially emailing subscribers (high, irreversible — you can't unsend) are marked requires_approval, and the one assumption (which subscriber list) is surfaced rather than buried."
+    },
+    {
+      "title": "Ambiguous goal → ask, don't invent scope",
+      "scenario": "A vague goal with critical details missing. The agent asks focused questions instead of fabricating a plan.",
+      "input": "Goal: 'Clean up the database.'",
+      "output": "{\n  \"goal\": \"Clean up the database\",\n  \"clarity\": \"needs_clarification\",\n  \"clarifying_questions\": [\n    \"Which database/tables, and what does 'clean up' mean — remove duplicates, archive old rows, fix schema, or reclaim space?\",\n    \"Is deleting any data acceptable, or should everything be archived/reversible?\",\n    \"Is this production? If so, what's the maintenance window and backup status?\"\n  ],\n  \"assumptions\": [],\n  \"plan\": [],\n  \"gated_steps\": [],\n  \"risks\": [\"'Clean up' could imply irreversible deletion on production — far too ambiguous to plan safely\"],\n  \"validation\": { \"ok\": false, \"issues\": [\"Goal underspecified; planning now would invent scope and risk destructive actions\"] },\n  \"note\": \"Plan only — not executed. Gated steps require human approval.\"\n}",
+      "notes": "The defining safety case: 'clean up the database' could mean anything from de-duping to dropping tables in production. Inventing a plan here would manufacture scope and risk a destructive action. The agent instead refuses to guess, asks the three questions that actually determine the plan and its danger, and validates as not-ok until clarified."
+    },
+    {
+      "title": "Irreversible step in plan → gate it, never auto-run",
+      "scenario": "A goal whose obvious execution includes a destructive step. The agent includes it but hard-gates it and offers a safer ordering.",
+      "input": "Goal: 'Free up storage by deleting logs older than 30 days from the production bucket.'",
+      "output": "{\n  \"goal\": \"Free up storage by deleting logs older than 30 days from the production bucket\",\n  \"clarity\": \"clear\",\n  \"clarifying_questions\": [],\n  \"assumptions\": [\"Logs older than 30 days are not under a legal/compliance retention hold — must be confirmed\"],\n  \"plan\": [\n    { \"id\": 1, \"task\": \"Confirm no retention/compliance hold on logs >30d\", \"depends_on\": [], \"tool_or_owner\": \"compliance / data_team\", \"risk\": \"moderate\", \"requires_approval\": true, \"reversible\": true },\n    { \"id\": 2, \"task\": \"Inventory and back up logs >30d (or verify lifecycle archive)\", \"depends_on\": [1], \"tool_or_owner\": \"data_team\", \"risk\": \"moderate\", \"requires_approval\": true, \"reversible\": true },\n    { \"id\": 3, \"task\": \"Delete logs >30d from the production bucket\", \"depends_on\": [2], \"tool_or_owner\": \"ops\", \"risk\": \"high\", \"requires_approval\": true, \"reversible\": false }\n  ],\n  \"gated_steps\": [1, 2, 3],\n  \"risks\": [\"Deletion is irreversible and on production\", \"Possible compliance retention requirements\", \"No backup = permanent loss if logs are needed later\"],\n  \"validation\": { \"ok\": true, \"issues\": [\"Step 3 must not run before steps 1-2 are approved and complete\"] },\n  \"note\": \"Plan only — not executed. Gated steps require human approval.\"\n}",
+      "notes": "The agent doesn't just gate the deletion — it restructures the plan to make it safe: confirm there's no compliance hold, back up first, and only then delete, with every step approval-required and the irreversible delete marked reversible=false. It surfaces the retention-hold assumption explicitly. A naive planner would emit 'delete old logs' as step one; this one builds the guardrails into the plan."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Does it execute the plan?",
+      "a": "No. It is a planner: it produces an ordered, validated plan for a human or a separate execution layer to run. It never executes steps itself, and irreversible steps can't run without explicit human approval."
+    },
+    {
+      "q": "How does it handle dangerous steps?",
+      "a": "Every destructive, irreversible, external-facing, spending, or production-changing step is marked approval-required and can never be flagged auto-runnable. Where such a step is needed, it also adds safety steps (confirm, back up) ahead of it."
+    },
+    {
+      "q": "What does it do with a vague goal?",
+      "a": "It refuses to invent scope. It marks the goal as needing clarification and asks focused questions that actually determine the plan and its risk, rather than producing a speculative or unsafe plan."
+    },
+    {
+      "q": "Will it add requirements I didn't ask for?",
+      "a": "No. It decomposes only what the goal states and surfaces any assumptions it had to make explicitly, so you can correct a wrong assumption before the plan is acted on."
+    },
+    {
+      "q": "Does it check that the plan is actually runnable?",
+      "a": "Yes. It validates for missing prerequisites, circular dependencies, and steps that can't succeed with available information, and flags those issues instead of emitting a broken plan."
+    },
+    {
+      "q": "Can it feed an execution system?",
+      "a": "Yes. It outputs a structured plan with gated steps that an execution layer can consume, running ungated steps and pausing for human approval on the gated ones."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Planning (Research → Plan)",
+    "worstCaseAction": "Produces a flawed plan or subtask breakdown that a human reviews before acting on. It never auto-executes any step — it proposes a plan and stops; execution tools are absent from its registry.",
+    "authorityBoundary": "Takes a goal and decomposes it into an ordered plan of subtasks with dependencies, surfaced for human review. It never executes a step, calls downstream tools, or commits resources. A human approves and runs the plan.",
+    "verificationTest": "Confirm the agent outputs a plan only and does not execute any subtask; confirm no execution tool exists in its registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: execution tools absent. Human gates: a human approves and runs. Confidence escalation: ambiguous goals clarified, not assumed. Cost ceiling: bounded per plan. Audit trail: plan and rationale logged. Escalation path: under-specified goals flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "goal-decomposition-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Planning",
+      "worst_case_action": "Produces a flawed plan for human review. Never auto-executes any step.",
+      "authority_boundary": "Decomposes goals into plans for review; execution tools absent.",
+      "tags": [
+        "task-orchestration",
+        "planning",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_goal",
+          "decompose",
+          "order_subtasks",
+          "map_dependencies"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "execute_step",
+          "tool_call",
+          "commit_resource"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.25,
+        "alert_threshold_usd": 0.16
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "ambiguous_goal",
+          "missing_constraint",
+          "low_confidence"
+        ],
+        "destination": "plan_owner"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "plan",
+          "rationale"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Produces a flawed plan with a wrong step or dependency.",
+      "detection": "The plan and its dependencies are surfaced for review; under-specified goals are flagged.",
+      "mitigation": "It proposes a plan and stops — it never executes a step or commits resources.",
+      "recovery": "A human approves and runs the plan after correcting it."
+    },
+    {
+      "mode": "Misreads an ambiguous goal and plans the wrong thing.",
+      "detection": "Ambiguous goals and missing constraints are flagged, not assumed.",
+      "mitigation": "It clarifies rather than guessing.",
+      "recovery": "The plan owner restates the goal."
+    },
+    {
+      "mode": "Omits a necessary step, leaving a gap in execution.",
+      "detection": "Dependency mapping surfaces gaps for review.",
+      "mitigation": "The plan is reviewed before any execution.",
+      "recovery": "The owner adds the missing step."
+    }
+  ],
+  "evaluation": {
+    "primary": "Plan validity is primary — a wrong step, a bad dependency, or an omitted necessary step is the failure, since a human runs the plan.",
+    "metrics": [
+      {
+        "name": "Plan validity",
+        "description": "Share of plans where steps and dependencies are correct and sufficient, per expert review."
+      },
+      {
+        "name": "Step completeness",
+        "description": "Of necessary steps, the share included — no critical gaps."
+      },
+      {
+        "name": "Dependency accuracy",
+        "description": "Share of dependencies ordered correctly."
+      },
+      {
+        "name": "Ambiguity-flagging",
+        "description": "Share of under-specified goals correctly flagged rather than assumed."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to produce a plan."
+      }
+    ],
+    "approach": "Use goals with expert-authored reference plans; measure plan validity, step completeness, and dependency accuracy, and include ambiguous goals to test clarification. It proposes a plan and stops — never executes."
+  }
+}

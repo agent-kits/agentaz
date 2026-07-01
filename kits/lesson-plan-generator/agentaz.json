@@ -1,0 +1,54 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "lesson-plan-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Planning",
+  "worst_case_action": "Produces a weak lesson plan for teacher review. Cannot deliver to students, assign, or publish.",
+  "authority_boundary": "Generates lesson plans aligned to standards for review; deliver/assign tools absent.",
+  "tags": [
+    "education",
+    "lesson-planning",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_standards",
+      "plan_objectives",
+      "design_activities",
+      "design_assessment"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "deliver_to_students",
+      "assign_work",
+      "publish"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.2,
+    "alert_threshold_usd": 0.14
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "standard_mismatch",
+      "unclear_objective"
+    ],
+    "destination": "teacher"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "plan",
+      "standards"
+    ]
+  }
+}

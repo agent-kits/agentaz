@@ -1,0 +1,55 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "alert-noise-reducer-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Evaluation",
+  "worst_case_action": "Recommends suppressing a meaningful alert for review. Cannot auto-suppress; criticals never suppressed.",
+  "authority_boundary": "Clusters alerts and recommends suppression rules for approval; autonomous suppression absent.",
+  "tags": [
+    "devops-sre",
+    "alerting",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_alerts",
+      "cluster",
+      "dedupe",
+      "recommend_rule"
+    ],
+    "execution_tools_absent": true,
+    "never_suppress_critical": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "silence_alert",
+      "auto_suppress",
+      "close_alert"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.2,
+    "alert_threshold_usd": 0.14
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "uncertain_grouping",
+      "critical_severity"
+    ],
+    "destination": "oncall_engineer"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "groupings",
+      "recommendations"
+    ]
+  }
+}

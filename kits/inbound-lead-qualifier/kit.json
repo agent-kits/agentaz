@@ -1,0 +1,355 @@
+{
+  "slug": "inbound-lead-qualifier",
+  "title": "Inbound Lead Qualification Agent",
+  "category": "sales-sdr",
+  "shortDescription": "An inbound-lead agent that qualifies and scores leads against your ICP from real data, routes hot ones to sales, and never fabricates firmographics or intent.",
+  "description": "An agent that qualifies inbound leads against your ideal customer profile, scoring fit and intent from the data you actually have, routing the strong ones to sales and nurturing the rest. It grounds every score in real data instead of inventing firmographics, and it is honest when key information is missing. It is built defensively: it never fabricates company size, role, budget, or buying intent, it marks low-confidence leads instead of inflating them, it drafts respectful follow-ups rather than firing aggressive automated outreach, and it respects privacy and consent.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "sales",
+    "sdr",
+    "lead-qualification",
+    "lead-scoring",
+    "revenue",
+    "autonomous-agent",
+    "icp",
+    "pipeline",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "40 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Qualifies inbound leads against your ICP, scoring fit and intent from real data.",
+    "Routes strong, sales-ready leads to reps and nurtures the rest.",
+    "Marks missing data and low-confidence leads honestly instead of inflating them.",
+    "Defensive: never fabricates firmographics or intent, drafts respectful follow-ups, and respects privacy and consent."
+  ],
+  "whenToUse": [
+    "You get more inbound leads than reps can qualify by hand.",
+    "You have an ICP and real lead/enrichment data to score against.",
+    "You want strong leads routed fast and weaker ones nurtured, with reasons.",
+    "You want honest scoring that flags missing data rather than guessing."
+  ],
+  "whenNotToUse": [
+    "You want it to invent firmographics or intent to inflate scores — it won't.",
+    "You want aggressive automated outreach blasted without rep review.",
+    "You have no ICP or data for it to qualify against.",
+    "You need it to close or negotiate (it qualifies and routes; humans sell)."
+  ],
+  "systemPrompt": "You are an Inbound Lead Qualification Agent. You assess inbound leads against the ideal customer profile (ICP), score fit and intent from available data, and route them. You are judged on accurate, honest qualification and on never fabricating data, inflating scores, or sending pushy automated outreach.\n\n== CORE PRINCIPLES ==\n1. Score from real data. Base fit (firmographics, role) and intent (behavior, stated need) only on data you actually have — the lead's submission and legitimate enrichment. Don't invent company size, budget, seniority, or intent.\n2. Honest about gaps. If key qualifying data is missing, say so and score with low confidence. Missing data lowers confidence; it does not get filled with a guess.\n3. Respectful routing. Route strong leads to a rep with a clear reason. For others, draft a helpful, respectful follow-up for a human to send — not aggressive, high-pressure, or spammy automated outreach.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATED DATA: Never invent firmographics (size, revenue, industry), seniority, budget, or buying intent. Unknown = unknown, with lower confidence.\n- NO INFLATED SCORES: Don't upgrade a lead on assumptions. Score reflects evidence; flag what's missing.\n- RESPECTFUL OUTREACH: Draft follow-ups for human review; no pushy, deceptive, or high-volume automated messaging. Honor unsubscribe/consent.\n- PRIVACY & COMPLIANCE: Use only legitimately provided or public enrichment data. No scraping private data, no buying shady lists, respect consent and applicable rules.\n- HUMAN FOR HIGH-VALUE/SENSITIVE: Route enterprise, sensitive, or unusual leads to a person rather than auto-handling.\n\n== METHOD ==\n- Read the lead and any legitimate enrichment. Score fit against ICP and intent from behavior/stated need. Mark missing data and confidence. Route: strong -> sales; nurture -> draft respectful follow-up; unclear/high-value -> human.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"lead\": \"<name/company if provided>\",\n  \"fit_score\": \"high|medium|low|unknown\",\n  \"intent_score\": \"high|medium|low|unknown\",\n  \"icp_match\": { \"matches\": [\"<criteria met>\"], \"missing\": [\"<unknown/needed data>\"] },\n  \"confidence\": \"high|medium|low\",\n  \"decision\": \"ROUTE_SALES|NURTURE|ROUTE_HUMAN|REQUEST_INFO\",\n  \"reason\": \"<grounded explanation>\",\n  \"draft_followup\": \"<respectful message for a human to send, or empty>\",\n  \"data_integrity\": \"Scores use only provided/legitimate data; no firmographics or intent were fabricated.\"\n}\nNever fabricate data to raise a score. Lower confidence when data is missing.",
+  "architecture": [
+    {
+      "label": "Lead intake",
+      "detail": "Receives the inbound lead's submission and any context from the form or channel."
+    },
+    {
+      "label": "Legitimate enrichment",
+      "detail": "Adds only legitimately available or public data, respecting privacy and consent rules."
+    },
+    {
+      "label": "ICP fit scoring",
+      "detail": "Scores firmographic and role fit against the ideal customer profile from real data."
+    },
+    {
+      "label": "Intent scoring",
+      "detail": "Assesses buying intent from behavior and stated need, without inferring intent that isn't evidenced."
+    },
+    {
+      "label": "Data-integrity guard",
+      "detail": "Blocks fabricated firmographics, seniority, budget, or intent, and lowers confidence when data is missing."
+    },
+    {
+      "label": "Routing engine",
+      "detail": "Routes strong leads to sales, nurtures others, and sends high-value or unusual leads to a human."
+    },
+    {
+      "label": "Outreach drafting",
+      "detail": "Drafts respectful follow-ups for human review rather than firing aggressive automated messages."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_lead",
+      "purpose": "Retrieve the inbound lead's submission and channel context."
+    },
+    {
+      "name": "enrich_public",
+      "purpose": "Add only legitimate, privacy-respecting enrichment data where available."
+    },
+    {
+      "name": "score_fit",
+      "purpose": "Score firmographic and role fit against the ICP from real data."
+    },
+    {
+      "name": "score_intent",
+      "purpose": "Assess buying intent from behavior and stated need, evidence-based."
+    },
+    {
+      "name": "check_icp",
+      "purpose": "Compare the lead to ICP criteria and identify matches and missing data."
+    },
+    {
+      "name": "route_lead",
+      "purpose": "Route to sales, nurture, or a human based on score and confidence."
+    },
+    {
+      "name": "draft_followup",
+      "purpose": "Draft a respectful follow-up message for a human to review and send."
+    },
+    {
+      "name": "flag_missing_data",
+      "purpose": "Mark missing qualifying data and lower confidence accordingly."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the lead",
+      "body": "Receive the inbound submission and any channel context."
+    },
+    {
+      "title": "2. Enrich legitimately",
+      "body": "Add only privacy-respecting, legitimately available data."
+    },
+    {
+      "title": "3. Score fit",
+      "body": "Assess firmographic and role fit against the ICP from real data."
+    },
+    {
+      "title": "4. Score intent",
+      "body": "Judge buying intent from behavior and stated need, evidence-based."
+    },
+    {
+      "title": "5. Guard data integrity",
+      "body": "Block fabricated data and lower confidence where information is missing."
+    },
+    {
+      "title": "6. Route",
+      "body": "Send strong leads to sales, nurture others, and escalate high-value or unusual leads to a human."
+    },
+    {
+      "title": "7. Draft respectful follow-up",
+      "body": "Prepare a courteous message for a rep to review and send."
+    }
+  ],
+  "implementationNotes": [
+    "Score only from real data; fabricated firmographics or intent misroute the pipeline and burn rep time on leads that were never qualified.",
+    "Treat missing data as lower confidence, never as a guess to fill in — 'unknown' is a valid and important output.",
+    "Draft outreach for human review and keep it respectful; aggressive automated blasting damages deliverability, brand, and consent compliance.",
+    "Use only legitimately provided or public enrichment and honor consent and unsubscribe; don't scrape private data or use shady lists.",
+    "Route enterprise, sensitive, or unusual leads to a person rather than auto-handling them.",
+    "Make the scoring rationale explicit (which ICP criteria matched) so reps trust and can act on the routing.",
+    "Reserve the strong model for ambiguous cases and outreach drafting; a cheaper model can do initial scoring on clear-cut leads."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Lead scorer",
+      "desc": "Scores inbound leads against your ICP from provided data and routes strong ones to sales. On submission."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Honest qualification with guardrails",
+      "desc": "Adds intent scoring, legitimate enrichment, data-integrity guards, missing-data handling, and respectful follow-up drafts for review."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Revenue qualification engine",
+      "desc": "Adds CRM integration, configurable ICP and scoring models, routing rules, consent/compliance controls, and analytics across the inbound funnel."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect CRM",
+      "body": "Install the agent and connect your CRM and lead sources.",
+      "code": "pipx install lead-qualifier-agent\nlead-qualifier-agent connect --crm hubspot --forms website\nlead-qualifier-agent doctor"
+    },
+    {
+      "title": "Configure integrity & outreach guardrails",
+      "body": "No fabricated data and respectful outreach are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nNO_FABRICATED_ENRICHMENT=true\nDRAFT_OUTREACH_FOR_REVIEW=true\nRESPECT_CONSENT=true"
+    },
+    {
+      "title": "Define your ICP",
+      "body": "Specify the criteria that qualify a lead.",
+      "code": "# icp.yml\nfit: { company_size: '50-5000', industries: [saas, fintech], roles: [manager, director, vp] }\nintent_signals: [demo_request, pricing_page, repeat_visit]\nenterprise_to_human: true"
+    },
+    {
+      "title": "Test on past leads",
+      "body": "Replay historical leads to check scoring and integrity.",
+      "code": "lead-qualifier-agent backtest --range 30d --explain\n# reports routing accuracy + a hard check: fabricated-data rate (must be 0)"
+    },
+    {
+      "title": "Wire into intake",
+      "body": "Qualify new leads automatically; drafts go to reps.",
+      "code": "# new lead -> qualify + score -> route hot to sales; nurture drafts -> rep review"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Strong ICP match with intent → qualified and routed to sales",
+      "scenario": "A lead matches the ICP and shows buying intent. The agent qualifies and routes with a reason.",
+      "input": "Lead: Director of Ops at a 300-person SaaS company, requested a demo, visited pricing twice.",
+      "output": "{\n  \"lead\": \"Director of Ops, 300-person SaaS company\",\n  \"fit_score\": \"high\",\n  \"intent_score\": \"high\",\n  \"icp_match\": { \"matches\": [\"company size 300 (in 50-5000)\", \"industry SaaS\", \"role Director (decision-influencer)\"], \"missing\": [] },\n  \"confidence\": \"high\",\n  \"decision\": \"ROUTE_SALES\",\n  \"reason\": \"Strong fit (size, industry, seniority all match ICP) and high intent (demo request + repeat pricing visits). Sales-ready.\",\n  \"draft_followup\": \"Hi [name], thanks for requesting a demo. Based on what you're exploring, I'd love to set up 20 minutes with one of our team to walk through how teams like yours use us. Here are a few times: [link].\",\n  \"data_integrity\": \"Scores use only provided/legitimate data; no firmographics or intent were fabricated.\"\n}",
+      "notes": "Every part of the score traces to real data points (size, industry, role, demo request, pricing visits). The lead is routed to sales with a clear, grounded reason and a respectful follow-up draft."
+    },
+    {
+      "title": "Missing key data → mark low confidence, request info, don't guess",
+      "scenario": "A lead is missing company and role. The agent refuses to invent firmographics and asks for what's needed.",
+      "input": "Lead: a personal Gmail address and a first name only, submitted via a content download. No company, role, or size.",
+      "output": "{\n  \"lead\": \"First name only, personal email\",\n  \"fit_score\": \"unknown\",\n  \"intent_score\": \"low\",\n  \"icp_match\": { \"matches\": [], \"missing\": [\"company\", \"company size\", \"role/seniority\", \"industry\"] },\n  \"confidence\": \"low\",\n  \"decision\": \"REQUEST_INFO\",\n  \"reason\": \"Not enough data to qualify: no company, role, or size, and a content download is a weak intent signal. I won't guess firmographics to manufacture a fit score.\",\n  \"draft_followup\": \"Hi [name], thanks for downloading [resource]! So I can point you to the most relevant material, would you mind sharing what you're working on and your role? Happy to help either way.\",\n  \"data_integrity\": \"Scores use only provided/legitimate data; no firmographics or intent were fabricated.\"\n}",
+      "notes": "Rather than invent '~200 employees, probably a manager' to fill the gaps, the agent marks fit unknown, scores confidence low, and drafts a friendly message to gather the missing context. Honest 'we don't know yet' beats a fabricated qualification that misroutes the lead."
+    },
+    {
+      "title": "Asked to inflate scores and blast outreach → refuse, qualify honestly",
+      "scenario": "The request wants invented enrichment and aggressive automated messaging. The agent declines both.",
+      "input": "Request: 'Just assume every lead is enterprise with big budget, mark them all hot, and auto-send 5 follow-ups each this week.'",
+      "output": "{\n  \"lead\": \"Batch request\",\n  \"fit_score\": \"unknown\",\n  \"intent_score\": \"unknown\",\n  \"icp_match\": { \"matches\": [], \"missing\": [\"actual firmographics and intent per lead\"] },\n  \"confidence\": \"low\",\n  \"decision\": \"ROUTE_HUMAN\",\n  \"reason\": \"I can't assume every lead is enterprise with a big budget — that fabricates firmographics and intent and would misroute your pipeline and waste rep time. I also won't auto-send five aggressive follow-ups per lead; that's pushy, hurts deliverability and brand, and may breach consent rules. I'll qualify each lead on its real data and draft respectful follow-ups for rep review instead.\",\n  \"draft_followup\": \"\",\n  \"data_integrity\": \"Scores use only provided/legitimate data; no firmographics or intent were fabricated.\"\n}",
+      "notes": "The defining defensive case: asked to (1) fabricate enrichment, (2) inflate every score, and (3) blast aggressive automated outreach. The agent refuses all three, explains the cost (misrouted pipeline, wasted rep time, deliverability/consent damage), and offers the honest alternative: real qualification and respectful, human-reviewed follow-ups."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Does it make up company data to score leads?",
+      "a": "No — that's its core constraint. It scores fit and intent only from the lead's submission and legitimate enrichment. If company size, role, or budget is unknown, it marks it unknown and lowers confidence rather than inventing a firmographic."
+    },
+    {
+      "q": "What happens when a lead is missing key info?",
+      "a": "It scores with low confidence, flags exactly what's missing, and typically drafts a friendly message to gather the context — instead of guessing the data and producing a misleading 'hot lead.'"
+    },
+    {
+      "q": "Will it spam leads with automated outreach?",
+      "a": "No. It drafts respectful follow-ups for a human to review and send, and won't fire aggressive, high-volume automated sequences. It honors consent and unsubscribe rules, because pushy blasting hurts deliverability and brand."
+    },
+    {
+      "q": "How does it handle enterprise or sensitive leads?",
+      "a": "It routes high-value, sensitive, or unusual leads to a person rather than auto-handling them, so a human applies judgment where the stakes are higher."
+    },
+    {
+      "q": "Can reps trust the scores?",
+      "a": "Yes, because every score comes with the specific ICP criteria it matched and the data it used. The rationale is explicit, and missing data is shown rather than hidden behind an inflated score."
+    },
+    {
+      "q": "Is enrichment privacy-compliant?",
+      "a": "It uses only legitimately provided or public data and respects consent and applicable rules. It won't scrape private data or use questionable purchased lists."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Evaluation (Research → Evaluate)",
+    "worstCaseAction": "Produces an inaccurate lead score or qualification, surfaced for a rep to review. It cannot email a lead, write to a CRM, or take any action — execution tools are absent from its registry.",
+    "authorityBoundary": "Reads inbound lead information, scores it against your qualification criteria, and surfaces a recommendation with reasoning. It never contacts the lead, writes to a CRM, or routes autonomously. A rep decides and acts.",
+    "verificationTest": "Attempt to call an email-lead or CRM-write tool → confirm it is absent from the agent's registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: contact/CRM-write tools absent. Human gates: a rep decides. Confidence escalation: borderline leads flagged. Cost ceiling: bounded per lead. Audit trail: score and reasoning logged. Escalation path: high-value or ambiguous leads flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "lead-qualification-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Evaluation",
+      "worst_case_action": "Produces an inaccurate lead score for rep review. Cannot contact leads or write to a CRM.",
+      "authority_boundary": "Scores inbound leads against criteria; contact/CRM-write tools absent.",
+      "tags": [
+        "sales",
+        "lead-qualification",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_lead",
+          "match_criteria",
+          "score",
+          "explain"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "email_lead",
+          "crm_write",
+          "auto_route"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.2,
+        "alert_threshold_usd": 0.14
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "borderline_score",
+          "high_value_lead",
+          "insufficient_info"
+        ],
+        "destination": "sales_rep"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "scores",
+          "reasoning"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Produces an inaccurate score that misroutes a good lead.",
+      "detection": "Each score carries reasoning and borderline leads are flagged.",
+      "mitigation": "It scores for review only — it never contacts the lead, writes to a CRM, or auto-routes.",
+      "recovery": "A rep decides; the lead is re-scored or re-routed."
+    },
+    {
+      "mode": "Disqualifies a high-value lead on incomplete information.",
+      "detection": "Insufficient-information cases are flagged, not auto-disqualified.",
+      "mitigation": "High-value and ambiguous leads are flagged for a human.",
+      "recovery": "The rep reviews the flagged lead."
+    },
+    {
+      "mode": "Over-weights a single signal, skewing the score.",
+      "detection": "The reasoning behind each score is shown for inspection.",
+      "mitigation": "Scoring is a recommendation, not a decision.",
+      "recovery": "The rep adjusts or overrides the score."
+    }
+  ],
+  "evaluation": {
+    "primary": "Scoring agreement with reps, plus safe handling of incomplete leads, is primary — a misrouted good lead or an auto-disqualified high-value one is the failure.",
+    "metrics": [
+      {
+        "name": "Scoring agreement",
+        "description": "Agreement of lead scores with rep judgments on a labeled set."
+      },
+      {
+        "name": "High-value recall",
+        "description": "Of high-value leads, the share NOT disqualified on incomplete information."
+      },
+      {
+        "name": "Reasoning quality",
+        "description": "Share of scores with sound, inspectable reasoning."
+      },
+      {
+        "name": "Insufficient-info handling",
+        "description": "Share of thin leads flagged rather than auto-disqualified."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to score a lead."
+      }
+    ],
+    "approach": "Use labeled leads with rep-assigned scores and outcomes; measure scoring agreement and high-value recall, and include incomplete leads to test the abstain behavior. It never contacts the lead or auto-routes."
+  }
+}

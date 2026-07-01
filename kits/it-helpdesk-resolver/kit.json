@@ -1,0 +1,355 @@
+{
+  "slug": "it-helpdesk-resolver",
+  "title": "IT Helpdesk Resolution Agent",
+  "category": "itsm-helpdesk",
+  "shortDescription": "An IT helpdesk agent that resolves common tickets from your runbooks, verifies identity for sensitive actions, and escalates security incidents and privileged access.",
+  "description": "An agent that handles the bulk of routine IT helpdesk tickets — password resets, software how-tos, common errors, and in-policy access requests — by guiding users through documented runbook steps and resolving what is safe to resolve. It is built defensively: it only follows documented, safe procedures, verifies identity before any sensitive action, never performs risky or destructive operations or grants privileged access without approval and change control, escalates security incidents and anything it does not have a runbook for, and never invents a fix that could break a system.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "itsm",
+    "helpdesk",
+    "it-support",
+    "tickets",
+    "runbooks",
+    "autonomous-agent",
+    "service-desk",
+    "l1-support",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Advanced",
+  "setupTime": "45 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Resolves routine IT tickets by guiding users through documented runbook steps.",
+    "Verifies identity before any sensitive action like an account or password change.",
+    "Escalates security incidents, privileged-access requests, and anything without a runbook.",
+    "Defensive: never runs risky/destructive actions without approval and never invents a fix."
+  ],
+  "whenToUse": [
+    "You want L1 tickets (password, how-to, common errors) handled from runbooks.",
+    "You have documented procedures the agent can follow safely.",
+    "You want identity verified before sensitive actions and risky ones escalated.",
+    "You want consistent, policy-bound support with security escalation built in."
+  ],
+  "whenNotToUse": [
+    "You want it to perform privileged or destructive actions autonomously — it won't.",
+    "You have no runbooks or knowledge base for it to follow.",
+    "You can't provide escalation paths for security and complex issues.",
+    "Your tickets are mostly novel incidents needing a human from the start."
+  ],
+  "systemPrompt": "You are an IT Helpdesk Resolution Agent (L1). You resolve routine IT tickets by following documented runbooks and guiding users, and you escalate anything risky or undocumented. You are judged on safely resolving common issues and on never performing a dangerous action, granting privileged access, or inventing a fix.\n\n== CORE PRINCIPLES ==\n1. Runbook-driven. Resolve only issues you have a documented, safe procedure for. Follow the runbook steps. If there's no runbook or the situation is novel, escalate rather than improvise.\n2. Verify before sensitive actions. For anything touching accounts, access, or data (password reset, account unlock, access change), verify the user's identity first per policy.\n3. Safe by default. Never run destructive or high-risk operations, never grant privileged/admin access, and never bypass change control. Those require human approval.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO RISKY/DESTRUCTIVE ACTIONS: Never delete data, modify production systems, change security settings, or run anything irreversible without explicit human approval and change control.\n- NO PRIVILEGED ACCESS: Never grant admin/elevated/privileged access. Route to approval workflow.\n- IDENTITY FIRST: Verify identity before account/password/access actions. No verification = no sensitive action.\n- NO FABRICATED FIXES: Never invent commands or steps not in a runbook; a wrong \"fix\" can break systems. Unknown = escalate.\n- ESCALATE SECURITY: Phishing, malware, suspected breach, or unusual access = escalate to security immediately; preserve info; don't attempt a casual fix.\n- AUDIT: Log actions taken and escalations.\n\n== METHOD ==\n- Classify the ticket. If a safe runbook exists and identity is verified where needed, guide the resolution. Otherwise escalate with context. Always log.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"ticket_summary\": \"<short>\",\n  \"category\": \"<password|access|software|error|security|other>\",\n  \"identity_verified\": <bool>,\n  \"has_runbook\": <bool>,\n  \"decision\": \"RESOLVE|GUIDE_USER|REQUIRE_APPROVAL|ESCALATE_SECURITY|ESCALATE_HUMAN\",\n  \"steps\": [\"<runbook steps taken/guided, or empty>\"],\n  \"user_message\": \"<helpful response>\",\n  \"risk_flag\": { \"flag\": <bool>, \"reason\": \"<privileged/destructive/security, or empty>\" },\n  \"escalation\": { \"needed\": <bool>, \"to\": \"security|sysadmin|approver|none\", \"reason\": \"<why>\" }\n}\nNever perform a risky or privileged action. Verify identity for sensitive actions. Escalate the undocumented.",
+  "architecture": [
+    {
+      "label": "Ticket intake",
+      "detail": "Receives the ticket and identifies the issue type to route it correctly."
+    },
+    {
+      "label": "Runbook matcher",
+      "detail": "Finds a documented, safe procedure for the issue, or determines there isn't one."
+    },
+    {
+      "label": "Identity verification",
+      "detail": "Confirms the user's identity before any account, password, or access action."
+    },
+    {
+      "label": "Safety & privilege gate",
+      "detail": "Blocks destructive actions and privileged-access grants, routing them to approval and change control."
+    },
+    {
+      "label": "Guided resolution",
+      "detail": "Walks the user through the runbook steps or performs the safe, in-scope action."
+    },
+    {
+      "label": "Security escalation",
+      "detail": "Detects security signals and escalates immediately, preserving information rather than improvising a fix."
+    },
+    {
+      "label": "Audit & handoff",
+      "detail": "Logs actions and escalations and hands complex or undocumented tickets to a human with context."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_ticket",
+      "purpose": "Retrieve the helpdesk ticket and its context."
+    },
+    {
+      "name": "classify_issue",
+      "purpose": "Categorize the issue (password, access, software, error, security)."
+    },
+    {
+      "name": "kb_runbook_search",
+      "purpose": "Find a documented, safe runbook for the issue."
+    },
+    {
+      "name": "verify_identity",
+      "purpose": "Verify the user's identity before any sensitive action."
+    },
+    {
+      "name": "guided_resolution",
+      "purpose": "Guide the user through runbook steps or perform a safe in-scope action."
+    },
+    {
+      "name": "check_policy",
+      "purpose": "Check whether an action requires approval or change control."
+    },
+    {
+      "name": "escalate",
+      "purpose": "Escalate security incidents, privileged requests, or undocumented issues to the right team."
+    },
+    {
+      "name": "log_action",
+      "purpose": "Record actions taken and escalations for audit."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the ticket",
+      "body": "Receive the ticket and identify the issue type."
+    },
+    {
+      "title": "2. Find a runbook",
+      "body": "Match to a documented, safe procedure, or determine none exists."
+    },
+    {
+      "title": "3. Verify identity",
+      "body": "Confirm identity before any account, password, or access action."
+    },
+    {
+      "title": "4. Check safety & privilege",
+      "body": "Route destructive or privileged actions to approval and change control."
+    },
+    {
+      "title": "5. Guide the fix",
+      "body": "Walk the user through runbook steps or perform the safe in-scope action."
+    },
+    {
+      "title": "6. Escalate when needed",
+      "body": "Escalate security signals and undocumented issues immediately with context."
+    },
+    {
+      "title": "7. Log it",
+      "body": "Record actions and escalations for audit."
+    }
+  ],
+  "implementationNotes": [
+    "Resolve only from documented runbooks and escalate the undocumented; an invented command or step can take down a system, so 'I don't have a procedure for that' must route to a human.",
+    "Hard-block privileged-access grants and destructive/production actions behind approval and change control, even for verified users.",
+    "Verify identity before any account, password, or access action; an unverified sensitive action is an account-takeover risk.",
+    "Treat security signals (phishing, malware, compromise) as incidents to escalate immediately, preserving evidence rather than attempting a casual fix.",
+    "Keep a full audit log of actions and escalations for accountability and compliance.",
+    "Give clear interim guidance to users during escalations so they don't make a situation worse.",
+    "The strong model earns its cost on ambiguous issues and security triage, while a cheaper model can handle clear runbook tickets."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Runbook assistant",
+      "desc": "Guides users through documented fixes for common tickets and escalates the rest. Read/guide only."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Safe L1 resolver",
+      "desc": "Adds identity verification, safe in-scope actions, privileged/destructive guards, security escalation, and audit logging."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Service-desk automation",
+      "desc": "Adds ITSM integration, change-control workflows, approval routing, security incident handoff, and analytics across the ticket queue."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect ITSM",
+      "body": "Install the agent and connect your ticketing and runbook sources.",
+      "code": "pipx install it-helpdesk-agent\nit-helpdesk-agent connect --itsm servicenow --runbooks ./runbooks\nit-helpdesk-agent doctor"
+    },
+    {
+      "title": "Configure safety guardrails",
+      "body": "No privileged/destructive actions and identity-first are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nALLOW_PRIVILEGED_ACTIONS=false\nVERIFY_IDENTITY_FOR_SENSITIVE=true\nESCALATE_SECURITY=true"
+    },
+    {
+      "title": "Define runbooks & escalation",
+      "body": "List safe procedures and where to escalate.",
+      "code": "# helpdesk.yml\nsafe_runbooks: [password_reset, vpn_setup, software_install, printer]\nrequire_approval: [admin_access, group_membership]\nescalate: { security: '#secops', sysadmin: '#infra' }"
+    },
+    {
+      "title": "Dry-run on past tickets",
+      "body": "Replay tickets to verify safe resolution and escalation.",
+      "code": "it-helpdesk-agent backtest --range 30d --explain\n# reports resolution rate + a hard check: privileged/destructive actions (must be 0)"
+    },
+    {
+      "title": "Wire into the queue",
+      "body": "Route L1 tickets through the agent; risky ones escalate.",
+      "code": "# new ticket -> classify -> resolve from runbook OR escalate; all actions logged"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Password reset with verified identity → guided resolution",
+      "scenario": "A user needs a password reset. With identity verified, the agent guides the documented steps.",
+      "input": "Ticket: 'I'm locked out, need a password reset.' User passes identity verification (MFA challenge).",
+      "output": "{\n  \"ticket_summary\": \"User locked out, requesting password reset.\",\n  \"category\": \"password\",\n  \"identity_verified\": true,\n  \"has_runbook\": true,\n  \"decision\": \"GUIDE_USER\",\n  \"steps\": [\"Verified identity via MFA challenge\", \"Triggered self-service reset link per runbook\", \"Guided user to set a new password and re-enroll MFA if needed\"],\n  \"user_message\": \"You're verified. I've sent a secure reset link to your registered method — follow it to set a new password. It expires in 15 minutes. Let me know if it doesn't arrive.\",\n  \"risk_flag\": { \"flag\": false, \"reason\": \"\" },\n  \"escalation\": { \"needed\": false, \"reason\": \"\" }\n}",
+      "notes": "Identity is verified first, then the documented self-service reset runbook is followed. A common, safe ticket resolved end to end with the verification gate respected."
+    },
+    {
+      "title": "Privileged/destructive request → require approval, don't do it",
+      "scenario": "A user asks for admin rights and to delete a production resource. The agent refuses to act and routes to approval.",
+      "input": "Ticket: 'Make me a domain admin and delete the old prod database to free space.'",
+      "output": "{\n  \"ticket_summary\": \"Request for domain admin access and deletion of a production database.\",\n  \"category\": \"access\",\n  \"identity_verified\": true,\n  \"has_runbook\": false,\n  \"decision\": \"REQUIRE_APPROVAL\",\n  \"steps\": [],\n  \"user_message\": \"I can't grant domain admin access or delete a production database from here — both require manager and change-control approval for safety. I've opened an approval request for the access and flagged the database request to the infrastructure team to assess properly. They'll follow up.\",\n  \"risk_flag\": { \"flag\": true, \"reason\": \"Privileged access grant + destructive production action\" },\n  \"escalation\": { \"needed\": true, \"to\": \"approver\", \"reason\": \"Domain admin requires approval workflow; prod DB deletion requires change control and infra review — agent will not perform either.\" }\n}",
+      "notes": "The agent will not grant admin access or delete production data, even for a verified user. Both are routed to approval and change control. Privileged and destructive actions are exactly what an L1 agent must never do autonomously."
+    },
+    {
+      "title": "Security signal → escalate to security immediately, don't 'fix' it",
+      "scenario": "A ticket describes a likely phishing/compromise. The agent escalates rather than attempting a casual fix.",
+      "input": "Ticket: 'I clicked a link in a weird email, entered my password, and now my account is sending emails I didn't write.'",
+      "output": "{\n  \"ticket_summary\": \"User entered credentials via a suspicious link; account now sending unauthorized emails — likely phishing/account compromise.\",\n  \"category\": \"security\",\n  \"identity_verified\": true,\n  \"has_runbook\": true,\n  \"decision\": \"ESCALATE_SECURITY\",\n  \"steps\": [\"Recognized indicators of credential phishing and account compromise\", \"Initiated containment per security runbook: flagged account for forced session revocation + password reset by security\", \"Preserved details (email, timestamps) for investigation\"],\n  \"user_message\": \"Thanks for reporting this quickly — this looks like a phishing compromise, so I'm escalating it to our security team right now. Please don't delete the suspicious email or send anything further from the account. Security will contact you shortly with next steps.\",\n  \"risk_flag\": { \"flag\": true, \"reason\": \"Suspected account compromise / active phishing incident\" },\n  \"escalation\": { \"needed\": true, \"to\": \"security\", \"reason\": \"Credential phishing with signs of active compromise — escalated to security immediately; info preserved; not handled as a routine reset.\" }\n}",
+      "notes": "The defining defensive case: signs of an active compromise. The agent does not treat it as a routine password reset. It recognizes the security incident, escalates to the security team immediately, preserves evidence, and gives safe interim guidance. A casual self-service fix here could destroy evidence and let an attacker persist."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it perform admin actions or delete things?",
+      "a": "No. It never grants privileged/admin access or runs destructive or production-changing actions on its own. Those are routed to approval and change control, even when the user is verified."
+    },
+    {
+      "q": "How does it avoid breaking things?",
+      "a": "It only follows documented, safe runbook procedures. If there's no runbook or the situation is novel, it escalates to a human rather than inventing a command or step that could cause damage."
+    },
+    {
+      "q": "Does it check who it's helping?",
+      "a": "Yes. For anything touching accounts, passwords, or access, it verifies the user's identity per your policy first. No verification means no sensitive action."
+    },
+    {
+      "q": "What happens with a security issue?",
+      "a": "Signals like phishing, malware, or a suspected compromise are escalated to your security team immediately, with evidence preserved and safe interim guidance to the user — not handled as a routine fix."
+    },
+    {
+      "q": "Is there an audit trail?",
+      "a": "Yes. It logs the actions it takes and every escalation, so support activity is traceable for accountability and compliance."
+    },
+    {
+      "q": "What can it actually resolve on its own?",
+      "a": "Routine, documented L1 issues — password resets (after verification), common how-tos, known errors, and in-policy requests — while routing anything risky, privileged, or undocumented to the right human."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Escalation (Research → Evaluate → Plan → Escalate)",
+    "worstCaseAction": "Suggests an incorrect resolution or misroutes a ticket, reviewed before anyone acts. It cannot change systems, reset credentials, or modify access on its own — those tools are absent from its registry.",
+    "authorityBoundary": "Reads a helpdesk ticket, searches the knowledge base, drafts a suggested resolution, and routes or escalates. A technician applies any change. It never resets credentials, changes configuration, or modifies access autonomously.",
+    "verificationTest": "Attempt to call a credential-reset, config-change, or access-modify tool → confirm it is absent from the registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: system-change tools absent. Human gates: a technician applies changes. Confidence escalation: unresolved or risky tickets escalated. Cost ceiling: bounded per ticket. Audit trail: suggested resolution and routing logged. Escalation path: privileged or risky requests routed to IT.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "it-helpdesk-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Escalation",
+      "worst_case_action": "Suggests a wrong resolution or misroutes a ticket, reviewed before action. Cannot change systems or reset credentials.",
+      "authority_boundary": "Drafts KB-based resolutions and routes tickets; system-change/credential tools absent.",
+      "tags": [
+        "itsm",
+        "helpdesk",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_ticket",
+          "search_kb",
+          "draft_resolution",
+          "route"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "credential_reset",
+          "config_change",
+          "access_modify"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.2,
+        "alert_threshold_usd": 0.14
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "privileged_request",
+          "risky_change",
+          "unresolved"
+        ],
+        "destination": "it_technician"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "resolution",
+          "routing"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Suggests a resolution that, if applied, breaks the user's system.",
+      "detection": "The suggestion is a recommendation and its risk level is noted.",
+      "mitigation": "It never changes systems, resets credentials, or modifies access.",
+      "recovery": "A technician reviews before applying any change."
+    },
+    {
+      "mode": "Misroutes a privileged or risky ticket to the wrong team.",
+      "detection": "Privileged and risky requests are flagged for routing.",
+      "mitigation": "Privileged requests are escalated to IT, never auto-resolved.",
+      "recovery": "The team bounces it back and it is re-routed."
+    },
+    {
+      "mode": "Pulls an outdated knowledge-base article.",
+      "detection": "Article version and freshness are checked.",
+      "mitigation": "Stale articles are flagged.",
+      "recovery": "The technician verifies against current documentation."
+    }
+  ],
+  "evaluation": {
+    "primary": "Resolution-suggestion correctness and safe routing are primary — a bad suggestion can break a system and a misrouted privileged ticket is a security gap.",
+    "metrics": [
+      {
+        "name": "Suggestion accuracy",
+        "description": "Share of suggested resolutions that correctly address the issue."
+      },
+      {
+        "name": "Routing accuracy",
+        "description": "Share of tickets routed to the correct team."
+      },
+      {
+        "name": "Privileged-ticket recall",
+        "description": "Of privileged or risky tickets, the share correctly escalated rather than auto-resolved."
+      },
+      {
+        "name": "KB-freshness rate",
+        "description": "Share of suggestions citing current articles."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to a suggestion or route."
+      }
+    ],
+    "approach": "Label a set of tickets with correct resolutions and routing; measure suggestion accuracy and routing accuracy, and include privileged requests to test escalation. Verify it never changes systems or credentials."
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "claims-intake-triage-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Extraction",
+  "worst_case_action": "Misroutes a claim, surfaced for human review. Cannot approve, deny, or pay claims.",
+  "authority_boundary": "Extracts claim data and triages/routes for human handling; decision/payment tools absent.",
+  "tags": [
+    "insurance",
+    "claims",
+    "intake",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_claim",
+      "extract_fields",
+      "validate_schema",
+      "classify",
+      "route"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "claim_approve",
+      "claim_deny",
+      "payment"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.25,
+    "alert_threshold_usd": 0.16
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "low_confidence_extraction",
+      "complex_claim",
+      "missing_data"
+    ],
+    "destination": "adjuster_queue"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "extraction",
+      "classification",
+      "routing"
+    ]
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "code-review-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Evaluation",
+  "worst_case_action": "Posts an incorrect review comment a human can dismiss. Cannot merge, push, or modify code.",
+  "authority_boundary": "Reviews diffs and posts comments; merge/push/approve tools absent.",
+  "tags": [
+    "code-review",
+    "software-engineering",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_diff",
+      "analyze_code",
+      "check_security",
+      "post_comment",
+      "suggest_change"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "merge",
+      "push",
+      "approve_pr",
+      "code_write"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.3,
+    "alert_threshold_usd": 0.2
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 10
+  },
+  "human_handoff": {
+    "triggers": [
+      "security_finding",
+      "high_severity",
+      "low_confidence"
+    ],
+    "destination": "reviewer"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "comments",
+      "findings",
+      "rationale"
+    ]
+  }
+}

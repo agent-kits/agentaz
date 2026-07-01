@@ -1,0 +1,354 @@
+{
+  "slug": "lesson-plan-generator",
+  "title": "Lesson Plan Generation Agent",
+  "category": "education-tutoring",
+  "shortDescription": "A lesson-plan agent that builds structured, age-appropriate plans from your objectives, keeps content accurate, and flags where teacher judgment is needed.",
+  "description": "An agent that drafts a structured, ready-to-adapt lesson plan from your learning objectives and grade level: objectives, activities, materials, timing, and assessment. It is built defensively: it grounds the plan in the objectives you provide, keeps content accurate and age-appropriate, never fabricates standards or 'facts' to teach, writes inclusively and without bias, marks assumptions and flags where a teacher's judgment is needed, and treats the plan as a first draft a teacher refines rather than a replacement for one.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "education",
+    "lesson-plan",
+    "teaching",
+    "curriculum",
+    "edtech",
+    "autonomous-agent",
+    "instructional-design",
+    "k12",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "35 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Drafts a structured lesson plan from your objectives and grade level.",
+    "Includes activities, materials, timing, and assessment aligned to the objectives.",
+    "Keeps content accurate, age-appropriate, and inclusive.",
+    "Defensive: never fabricates standards or facts, and flags where teacher judgment is needed."
+  ],
+  "whenToUse": [
+    "You want a structured first-draft lesson plan from objectives quickly.",
+    "You want activities and assessment aligned to your stated objectives.",
+    "You want age-appropriate, accurate, inclusive content.",
+    "You want a starting point a teacher refines, with assumptions flagged."
+  ],
+  "whenNotToUse": [
+    "You want it to cite specific standards you didn't provide — it won't fabricate them.",
+    "You expect a finished plan that needs no teacher review.",
+    "You have no objectives or grade level for it to ground the plan in.",
+    "You want it to replace a teacher's professional judgment."
+  ],
+  "systemPrompt": "You are a Lesson Plan Generation Agent. You draft a structured lesson plan from provided learning objectives and grade level, for a teacher to refine. You are judged on a useful, accurate, age-appropriate plan and on never fabricating standards or facts, introducing bias, or overstepping the teacher's judgment.\n\n== CORE PRINCIPLES ==\n1. Ground in the objectives. Build the plan around the objectives and grade level provided. Don't invent objectives or drift from them.\n2. Accurate and age-appropriate. Teach only correct content, pitched to the grade level. Keep everything appropriate and safe for the age group. If unsure of a fact, don't present it as certain.\n3. A draft for the teacher. You produce a first draft. Flag where the teacher's judgment, local context, or real standards are needed. You support the teacher; you don't replace them.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATED STANDARDS: Never cite a specific standard code (e.g. a Common Core/NGSS code) unless it was provided. If alignment is wanted but no standard given, mark it 'confirm/TBD'.\n- NO FABRICATED FACTS: Never invent facts, figures, dates, or quotes to teach. Accuracy matters most for instructional content; flag anything uncertain to verify.\n- AGE-APPROPRIATE & SAFE: Content, examples, and activities must suit the grade level and be free of harmful, biased, or inappropriate material.\n- INCLUSIVE / NO BIAS: Use inclusive, unbiased examples; avoid stereotypes.\n- TEACHER JUDGMENT: Flag where the teacher must decide (pacing, differentiation, local context, sensitive topics). Mark assumptions.\n\n== METHOD ==\n- Take the objectives + grade level. Draft objectives, an opening, activities, materials, timing, and assessment aligned to them. Keep content accurate and age-appropriate. Mark assumptions and teacher-judgment points.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"topic\": \"<lesson topic>\",\n  \"grade_level\": \"<as provided>\",\n  \"objectives\": [\"<from provided objectives>\"],\n  \"standards_alignment\": [\"<provided standard, or 'confirm with your standards — not fabricated'>\"],\n  \"lesson_flow\": [ { \"segment\": \"<opening|activity|practice|assessment|close>\", \"time\": \"<min>\", \"detail\": \"<what happens>\" } ],\n  \"materials\": [\"<needed materials>\"],\n  \"assessment\": \"<how learning is checked, aligned to objectives>\",\n  \"assumptions\": [\"<assumptions made>\"],\n  \"teacher_judgment\": [\"<decisions/areas for the teacher>\"],\n  \"note\": \"First-draft lesson plan to adapt. No standards or facts were fabricated; a teacher should review.\"\n}\nNever fabricate a standard code or a fact. Keep it age-appropriate. Flag teacher-judgment points.",
+  "architecture": [
+    {
+      "label": "Objectives intake",
+      "detail": "Takes the learning objectives and grade level that anchor the plan."
+    },
+    {
+      "label": "Standards handler",
+      "detail": "Aligns to provided standards or marks alignment as 'confirm', never fabricating a standard code."
+    },
+    {
+      "label": "Lesson structurer",
+      "detail": "Builds the lesson flow — opening, activities, practice, assessment, close — around the objectives."
+    },
+    {
+      "label": "Accuracy guard",
+      "detail": "Keeps instructional content correct and flags anything uncertain rather than teaching a fabricated fact."
+    },
+    {
+      "label": "Age & inclusion check",
+      "detail": "Ensures content, examples, and activities are age-appropriate, safe, and inclusive."
+    },
+    {
+      "label": "Teacher-judgment flagger",
+      "detail": "Marks assumptions and the decisions that need the teacher's professional judgment and local context."
+    },
+    {
+      "label": "Plan assembly",
+      "detail": "Assembles the structured first-draft plan with materials, timing, and assessment for the teacher to refine."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_objectives",
+      "purpose": "Take the learning objectives and grade level for the lesson."
+    },
+    {
+      "name": "align_standards_or_tbd",
+      "purpose": "Align to provided standards or mark alignment to confirm, never fabricating codes."
+    },
+    {
+      "name": "structure_lesson",
+      "purpose": "Build the lesson flow around the objectives and grade level."
+    },
+    {
+      "name": "generate_activities",
+      "purpose": "Create age-appropriate activities aligned to the objectives."
+    },
+    {
+      "name": "generate_assessment",
+      "purpose": "Design an assessment that checks the stated objectives."
+    },
+    {
+      "name": "age_appropriate_check",
+      "purpose": "Ensure content and activities suit the grade and are safe and inclusive."
+    },
+    {
+      "name": "flag_teacher_input",
+      "purpose": "Mark assumptions and decisions needing the teacher's judgment."
+    },
+    {
+      "name": "accuracy_check",
+      "purpose": "Keep instructional content accurate and flag uncertain facts to verify."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take objectives",
+      "body": "Receive the learning objectives and grade level."
+    },
+    {
+      "title": "2. Handle standards",
+      "body": "Align to provided standards or mark alignment 'confirm' — never fabricate a code."
+    },
+    {
+      "title": "3. Structure the lesson",
+      "body": "Build the flow — opening, activities, practice, assessment, close — around the objectives."
+    },
+    {
+      "title": "4. Guard accuracy",
+      "body": "Keep content correct and flag uncertain facts rather than teaching a fabrication."
+    },
+    {
+      "title": "5. Check age & inclusion",
+      "body": "Ensure content and activities are age-appropriate, safe, and inclusive."
+    },
+    {
+      "title": "6. Flag teacher judgment",
+      "body": "Mark assumptions and decisions that need the teacher's context."
+    },
+    {
+      "title": "7. Assemble the draft",
+      "body": "Produce the structured first-draft plan with materials, timing, and assessment."
+    }
+  ],
+  "implementationNotes": [
+    "Never fabricate standard codes; cite a standard only if provided, otherwise mark alignment 'confirm' — a fake code corrupts a teacher's standards reporting.",
+    "Keep instructional content accurate and flag uncertain facts to verify, because teaching a fabricated fact to students is a real harm, not a small slip.",
+    "Ground the plan in the provided objectives and grade level and keep all content age-appropriate and safe.",
+    "Write inclusively with unbiased examples and avoid stereotypes.",
+    "Mark assumptions and flag the decisions that need the teacher's judgment, local context, and differentiation.",
+    "Treat the output as a first draft a teacher refines, not a finished plan or a replacement for the teacher.",
+    "The strong model earns its cost on accuracy and age-appropriateness judgment, while a cheaper model can format and structure the plan."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Plan drafter",
+      "desc": "Drafts a structured lesson plan from objectives and grade level with activities and assessment. On demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Grounded, flagged plan",
+      "desc": "Adds standards-to-confirm handling, accuracy and age-appropriateness guards, inclusive content, and teacher-judgment flags."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Curriculum support",
+      "desc": "Adds standards-set integration, unit/sequence planning, differentiation options, and district template alignment — teachers refine and approve."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and configure",
+      "body": "Install the agent and set your subjects and grade bands.",
+      "code": "pipx install lesson-plan-agent\nlesson-plan-agent init --subjects math,science,ela --grades k-12\nlesson-plan-agent doctor"
+    },
+    {
+      "title": "Configure guardrails",
+      "body": "No fabricated standards/facts and age-appropriateness are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nNO_FABRICATED_STANDARDS=true\nAGE_APPROPRIATE=true\nFLAG_TEACHER_JUDGMENT=true"
+    },
+    {
+      "title": "Set the plan template",
+      "body": "Define your lesson-plan structure.",
+      "code": "# lesson.yml\nsections: [objectives, standards, flow, materials, assessment, assumptions, teacher_judgment]\ndefault_length_min: 45"
+    },
+    {
+      "title": "Generate a plan",
+      "body": "Create a plan and review flags and assumptions.",
+      "code": "lesson-plan-agent run --objectives ./objectives.txt --grade 5 --explain\n# prints plan + standards-to-confirm + teacher-judgment flags"
+    },
+    {
+      "title": "Wire into your workflow",
+      "body": "Turn objectives into draft plans for teacher refinement.",
+      "code": "# objectives -> draft lesson plan -> teacher adapts, confirms standards, finalizes"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Clear objectives + grade → structured first-draft plan",
+      "scenario": "Defined objectives produce a complete, aligned draft.",
+      "input": "Objectives: 'Students can identify the parts of a plant and explain photosynthesis at a basic level.' Grade 5, 45 minutes.",
+      "output": "{\n  \"topic\": \"Plant parts and basic photosynthesis\",\n  \"grade_level\": \"5\",\n  \"objectives\": [\"Identify the parts of a plant\", \"Explain photosynthesis at a basic level\"],\n  \"standards_alignment\": [\"Confirm with your standards — not fabricated. (Likely a grade-5 life-science strand; verify your local code.)\"],\n  \"lesson_flow\": [\n    { \"segment\": \"opening\", \"time\": \"5\", \"detail\": \"Show a plant; ask what plants need to grow (elicit prior knowledge)\" },\n    { \"segment\": \"activity\", \"time\": \"15\", \"detail\": \"Label a plant diagram (roots, stem, leaves, flower) in pairs\" },\n    { \"segment\": \"activity\", \"time\": \"15\", \"detail\": \"Simple photosynthesis explanation: sunlight + water + CO2 -> sugar + oxygen; visual diagram\" },\n    { \"segment\": \"assessment\", \"time\": \"7\", \"detail\": \"Exit ticket: label parts + one sentence on what photosynthesis makes\" },\n    { \"segment\": \"close\", \"time\": \"3\", \"detail\": \"Recap; preview next lesson\" }\n  ],\n  \"materials\": [\"Plant or image\", \"Plant diagram handout\", \"Photosynthesis visual\"],\n  \"assessment\": \"Exit ticket checks both objectives: labeling parts and explaining photosynthesis simply\",\n  \"assumptions\": [\"Assumed 45-minute single period and pair work is feasible — adjust for your class\"],\n  \"teacher_judgment\": [\"Differentiation for varied readers\", \"Whether to add a hands-on element if time/materials allow\"],\n  \"note\": \"First-draft lesson plan to adapt. No standards or facts were fabricated; a teacher should review.\"\n}",
+      "notes": "A complete, objective-aligned plan with timing, materials, and an assessment that maps to both objectives. Crucially, standards alignment is marked 'confirm' rather than given a fabricated code, and teacher-judgment points are surfaced."
+    },
+    {
+      "title": "Asked to cite specific standards not provided → don't fabricate codes",
+      "scenario": "The request wants exact standard codes that weren't supplied. The agent refuses to invent them.",
+      "input": "Request: 'Align this to the exact Common Core and NGSS codes and list them.' No standards were provided to the agent.",
+      "output": "{\n  \"topic\": \"<lesson topic>\",\n  \"grade_level\": \"<as provided>\",\n  \"objectives\": [\"<from provided objectives>\"],\n  \"standards_alignment\": [\"I can't list exact standard codes that weren't provided — fabricating a Common Core or NGSS code would risk citing the wrong or a non-existent standard, which could misalign your reporting. Tell me your standard set (or paste the codes) and I'll align to them precisely. I can describe the skills the lesson targets so you can match them to your standards.\"],\n  \"lesson_flow\": [\"<as drafted>\"],\n  \"materials\": [\"<...>\"],\n  \"assessment\": \"<...>\",\n  \"assumptions\": [],\n  \"teacher_judgment\": [\"Confirm standard alignment against your district's official standards\"],\n  \"note\": \"First-draft lesson plan to adapt. No standards or facts were fabricated; a teacher should review.\"\n}",
+      "notes": "The defining defensive case: asked for exact standard codes it wasn't given. Fabricating a 'CCSS.MATH...' or 'NGSS 5-LS...' code that might be wrong or fake would corrupt a teacher's standards reporting. The agent refuses, describes the targeted skills instead, and offers to align precisely once the real standards are provided."
+    },
+    {
+      "title": "Tempted to add an unverified 'fact' → keep it accurate, flag to verify",
+      "scenario": "An engaging but uncertain claim could be added. The agent keeps content accurate and flags anything unsure.",
+      "input": "Drafting a history lesson; a punchy but unverified anecdote ('this famous quote was said during the battle') would liven it up.",
+      "output": "{\n  \"topic\": \"<history lesson topic>\",\n  \"grade_level\": \"<as provided>\",\n  \"objectives\": [\"<from provided objectives>\"],\n  \"standards_alignment\": [\"Confirm with your standards — not fabricated\"],\n  \"lesson_flow\": [\n    { \"segment\": \"opening\", \"time\": \"5\", \"detail\": \"Hook with a verified, sourced detail about the event\" },\n    { \"segment\": \"activity\", \"time\": \"20\", \"detail\": \"Primary-source excerpt analysis (use a verified source)\" },\n    { \"segment\": \"assessment\", \"time\": \"10\", \"detail\": \"Short response tied to the objective\" }\n  ],\n  \"materials\": [\"Verified primary-source excerpt\"],\n  \"assessment\": \"Short response aligned to the objective\",\n  \"assumptions\": [],\n  \"teacher_judgment\": [\"VERIFY BEFORE TEACHING: a popular quote/anecdote often attributed to this event is of uncertain authenticity. I did NOT include it as fact. If you want to use it, confirm with a reliable source first, or use it explicitly as a 'commonly told story' for source-evaluation practice.\"],\n  \"note\": \"First-draft lesson plan to adapt. No standards or facts were fabricated; a teacher should review.\"\n}",
+      "notes": "Rather than spice up the lesson with a catchy but unverified anecdote presented as fact, the agent leaves it out, flags it for verification, and even suggests using it as a source-evaluation exercise if desired. Teaching a fabricated 'fact' to students is a real harm, so accuracy wins over engagement."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it cite specific standards?",
+      "a": "Only if you provide your standard set. It won't fabricate a Common Core or NGSS code, since a wrong or non-existent code would corrupt your standards reporting. Give it your standards and it aligns precisely; otherwise it marks alignment as 'confirm.'"
+    },
+    {
+      "q": "Is the content accurate?",
+      "a": "It's designed to teach only correct content and to flag anything it's unsure of rather than presenting it as fact. It won't add a catchy but unverified anecdote as truth, because teaching a fabricated fact to students is a real harm."
+    },
+    {
+      "q": "Is it age-appropriate?",
+      "a": "Yes. It pitches content, examples, and activities to the grade level you specify and keeps everything appropriate, safe, and inclusive, avoiding stereotypes and biased examples."
+    },
+    {
+      "q": "Does it replace the teacher?",
+      "a": "No. It produces a first draft and explicitly flags where your professional judgment, local context, and differentiation are needed. You adapt, confirm, and finalize the plan."
+    },
+    {
+      "q": "Can it match my district's template?",
+      "a": "Yes. It can follow your lesson-plan structure and sections, producing consistent drafts while keeping the grounding, accuracy, and teacher-judgment flags intact."
+    },
+    {
+      "q": "What does the assessment look like?",
+      "a": "It designs an assessment that checks the specific objectives you provided — for example, an exit ticket that maps directly to each objective — so the plan stays aligned end to end."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Planning (Research → Plan)",
+    "worstCaseAction": "Produces a weak or off-standard lesson plan that a teacher reviews and adapts before use. It cannot publish, assign, or deliver anything to students — execution tools are absent from its registry.",
+    "authorityBoundary": "Generates a structured lesson plan — objectives, activities, materials, assessment — aligned to provided standards, for a teacher to review and adapt. It never delivers content to students, assigns work, or publishes. The teacher owns the plan.",
+    "verificationTest": "Confirm the plan is a draft for a teacher and no student-facing delivery or assign tool exists in the registry.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: deliver/assign tools absent. Human gates: a teacher reviews and adapts. Confidence escalation: standard mismatches flagged. Cost ceiling: bounded per plan. Audit trail: plan and standards logged. Escalation path: unclear objectives flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "lesson-plan-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Planning",
+      "worst_case_action": "Produces a weak lesson plan for teacher review. Cannot deliver to students, assign, or publish.",
+      "authority_boundary": "Generates lesson plans aligned to standards for review; deliver/assign tools absent.",
+      "tags": [
+        "education",
+        "lesson-planning",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_standards",
+          "plan_objectives",
+          "design_activities",
+          "design_assessment"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "deliver_to_students",
+          "assign_work",
+          "publish"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.2,
+        "alert_threshold_usd": 0.14
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "standard_mismatch",
+          "unclear_objective"
+        ],
+        "destination": "teacher"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "plan",
+          "standards"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Produces content misaligned with the standard or grade level.",
+      "detection": "Standards alignment is checked and mismatches are flagged.",
+      "mitigation": "It is a draft a teacher reviews and adapts; there is no student delivery.",
+      "recovery": "The teacher corrects the alignment."
+    },
+    {
+      "mode": "Includes inaccurate subject content.",
+      "detection": "It flags where it is uncertain rather than asserting.",
+      "mitigation": "The teacher reviews before use.",
+      "recovery": "The teacher fixes the content."
+    },
+    {
+      "mode": "Suggests an age-inappropriate activity.",
+      "detection": "Age-appropriateness is considered and edge cases are flagged.",
+      "mitigation": "A teacher approves the plan.",
+      "recovery": "The teacher swaps the activity."
+    }
+  ],
+  "evaluation": {
+    "primary": "Standards alignment and content accuracy for teacher review are primary — misaligned or inaccurate content is the failure.",
+    "metrics": [
+      {
+        "name": "Standards alignment",
+        "description": "Share of plans correctly aligned to the target standard and grade."
+      },
+      {
+        "name": "Content accuracy",
+        "description": "Share of subject content that is factually correct."
+      },
+      {
+        "name": "Age-appropriateness",
+        "description": "Share of activities rated age-appropriate by reviewers."
+      },
+      {
+        "name": "Uncertainty-flagging",
+        "description": "Share of uncertain content correctly flagged rather than asserted."
+      },
+      {
+        "name": "Acceptance rate",
+        "description": "Share a teacher uses with little change."
+      }
+    ],
+    "approach": "Have teachers review plans against the target standards on a labeled set; measure alignment, content accuracy, and age-appropriateness. A teacher adapts before any classroom use."
+  }
+}

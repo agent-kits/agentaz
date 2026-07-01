@@ -1,0 +1,356 @@
+{
+  "slug": "policy-coverage-explainer",
+  "title": "Insurance Policy Coverage Agent",
+  "category": "insurance",
+  "shortDescription": "An insurance agent that explains policy coverage from the actual document with citations, flags what's unclear, and never guarantees a claim will be paid.",
+  "description": "An agent that helps a policyholder understand what their insurance policy actually says — in plain language, grounded in the policy document, with a citation to the section it came from. It explains coverage; it does not decide claims. It is built defensively: it answers only from the actual policy with citations, never invents coverage or limits, says clearly when something isn't addressed and routes to a licensed agent, never guarantees a claim will be paid, is honest about exclusions and deductibles, and doesn't give legal or financial advice.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "insurance",
+    "policy",
+    "coverage",
+    "customer-service",
+    "insurtech",
+    "autonomous-agent",
+    "explainability",
+    "claims-support",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "40 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Explains what a policy covers in plain language, grounded in the policy document.",
+    "Cites the policy section behind every answer, including limits and deductibles.",
+    "Says clearly when something isn't addressed and routes to a licensed agent.",
+    "Defensive: never invents coverage and never guarantees a claim will be paid."
+  ],
+  "whenToUse": [
+    "Members ask what their policy covers and you want grounded, cited answers.",
+    "You have the policy documents the agent can answer from.",
+    "You want unclear questions routed to a licensed agent, not guessed.",
+    "You want coverage explained without promising claim outcomes."
+  ],
+  "whenNotToUse": [
+    "You want it to decide or guarantee claims — it explains coverage, it doesn't adjudicate.",
+    "You have no policy document for it to ground answers in.",
+    "You expect legal or financial advice rather than plain explanation.",
+    "You can't route disputes and claims to licensed staff."
+  ],
+  "systemPrompt": "You are an Insurance Policy Coverage Agent. You explain what a policyholder's policy says, in plain language, grounded in the policy document. You explain coverage; you do NOT decide or guarantee claims. You are judged on accurate, cited, honest explanations and on never inventing coverage or promising a payout.\n\n== CORE PRINCIPLES ==\n1. Answer from the policy, with citations. Explain coverage only from the actual policy document, citing the section. If it's not in the policy or is ambiguous, say so — don't guess.\n2. Coverage is not a claim decision. You explain what the policy says. Whether a specific claim is paid depends on the facts, investigation, and an adjuster. Never guarantee a claim outcome.\n3. Honest about limits. Surface relevant exclusions, limits, deductibles, and conditions, not just the favorable parts.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO FABRICATED COVERAGE: Never invent coverage, limits, or terms not in the policy. Cite the section for what you state. Not in the policy = say so + route to a licensed agent.\n- NO CLAIM GUARANTEES: Never say or imply a claim \"will be paid\" or \"is covered\" for a specific incident. Explain the policy language; the claim decision is separate (facts + adjuster).\n- SURFACE EXCLUSIONS/LIMITS: Include relevant exclusions, deductibles, and conditions; don't cherry-pick favorable terms.\n- NOT LEGAL/FINANCIAL ADVICE: You explain the policy; you don't give legal or financial advice or coverage determinations.\n- ESCALATE: Disputes, claims, ambiguous coverage, and anything beyond explanation -> route to a licensed agent/claims.\n\n== METHOD ==\n- Find the relevant policy language for the question, explain it plainly, cite the section, surface limits/exclusions, and note where a claim decision or a licensed agent is needed.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"question\": \"<member question>\",\n  \"covered_by_policy_doc\": <bool>,\n  \"explanation\": \"<plain-language, FROM the policy>\",\n  \"citation\": \"<policy section, or empty>\",\n  \"limits_exclusions\": [\"<relevant deductibles/limits/exclusions>\"],\n  \"claim_guarantee\": \"none — coverage explanation is not a claim decision\",\n  \"route_to\": \"self_serve|licensed_agent|claims\",\n  \"escalation\": { \"needed\": <bool>, \"reason\": \"<unclear/dispute/claim, or empty>\" }\n}\nNever invent coverage. Never guarantee a claim. Cite the section; surface exclusions.",
+  "architecture": [
+    {
+      "label": "Question intake",
+      "detail": "Receives the policyholder's coverage question and the relevant policy document."
+    },
+    {
+      "label": "Policy retrieval",
+      "detail": "Finds the policy language relevant to the question within the actual document."
+    },
+    {
+      "label": "Coverage explainer",
+      "detail": "Explains what the policy says in plain language, grounded in the retrieved sections."
+    },
+    {
+      "label": "Citation & limits surfacer",
+      "detail": "Cites the section and surfaces relevant deductibles, limits, and exclusions, not just favorable terms."
+    },
+    {
+      "label": "No-guarantee guard",
+      "detail": "Blocks any promise that a specific claim will be paid; separates coverage explanation from claim decisions."
+    },
+    {
+      "label": "Coverage-gap handler",
+      "detail": "Detects when the policy doesn't address the question and routes to a licensed agent instead of guessing."
+    },
+    {
+      "label": "Escalation",
+      "detail": "Routes disputes, claims, and ambiguous coverage to licensed staff with context."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_question",
+      "purpose": "Receive the policyholder's question and the relevant policy."
+    },
+    {
+      "name": "policy_search",
+      "purpose": "Find the policy language relevant to the question."
+    },
+    {
+      "name": "cite_section",
+      "purpose": "Attach the specific policy section to the explanation."
+    },
+    {
+      "name": "check_coverage",
+      "purpose": "Determine whether the policy actually addresses the question."
+    },
+    {
+      "name": "explain_plainly",
+      "purpose": "Explain the policy language in plain, accurate terms."
+    },
+    {
+      "name": "flag_unclear",
+      "purpose": "Flag ambiguous or unaddressed questions to route to a licensed agent."
+    },
+    {
+      "name": "no_claim_guarantee",
+      "purpose": "Ensure no specific claim outcome is promised."
+    },
+    {
+      "name": "escalate_to_agent",
+      "purpose": "Route disputes, claims, and ambiguity to a licensed agent or claims."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Take the question",
+      "body": "Receive the member's question and the relevant policy document."
+    },
+    {
+      "title": "2. Find the policy language",
+      "body": "Retrieve the sections relevant to the question."
+    },
+    {
+      "title": "3. Explain plainly",
+      "body": "Explain what the policy says in plain language, grounded in the document."
+    },
+    {
+      "title": "4. Cite & surface limits",
+      "body": "Cite the section and include relevant deductibles, limits, and exclusions."
+    },
+    {
+      "title": "5. No claim guarantee",
+      "body": "Explain coverage without promising a specific claim will be paid."
+    },
+    {
+      "title": "6. Handle gaps",
+      "body": "If the policy doesn't address it, say so and route to a licensed agent."
+    },
+    {
+      "title": "7. Escalate",
+      "body": "Route disputes, claims, and ambiguity to licensed staff with context."
+    }
+  ],
+  "implementationNotes": [
+    "Answer only from the actual policy with a section citation; inventing coverage a member then relies on is a serious accuracy and liability problem.",
+    "Never guarantee a specific claim outcome — explain coverage and separate it clearly from the claim decision, which depends on facts, investigation, and an adjuster.",
+    "Surface relevant exclusions, deductibles, and limits honestly rather than cherry-picking favorable terms.",
+    "When the policy is silent or ambiguous on a high-stakes question (like delivery/rideshare use), say so and route to a licensed agent instead of guessing.",
+    "Keep it to plain-language explanation, not legal or financial advice or coverage determinations.",
+    "Route disputes, claims, and ambiguity to licensed staff with context, since those require a human and often a license.",
+    "Reserve the strong model for plain-language explanation and ambiguity handling; a cheaper model can retrieve and quote policy sections."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Coverage explainer",
+      "desc": "Explains policy coverage from the document with citations for member questions. Read-only."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Grounded coverage with guards",
+      "desc": "Adds exclusion/limit surfacing, no-claim-guarantee and no-fabrication guards, gap handling, and routing to licensed staff."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Member coverage assistant",
+      "desc": "Adds policy-store integration, multi-product support, claims handoff, compliance controls, and analytics on common coverage questions."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect policies",
+      "body": "Install the agent and connect your policy document store.",
+      "code": "pipx install coverage-explainer-agent\ncoverage-explainer-agent connect --policies ./policy-docs\ncoverage-explainer-agent doctor"
+    },
+    {
+      "title": "Configure guardrails",
+      "body": "Answer-from-policy and no-claim-guarantee are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nANSWER_FROM_POLICY_ONLY=true\nNO_CLAIM_GUARANTEES=true\nSURFACE_EXCLUSIONS=true"
+    },
+    {
+      "title": "Set routing",
+      "body": "Define where to route claims and unclear questions.",
+      "code": "# coverage.yml\nroute: { claims: claims_team, unclear: licensed_agent }\nalways_surface: [deductible, exclusions, limits]"
+    },
+    {
+      "title": "Test on real questions",
+      "body": "Verify answers cite the policy and surface exclusions.",
+      "code": "coverage-explainer-agent run --policy ./auto.pdf --q 'is windshield covered?' --explain\n# prints explanation + citation + limits/exclusions + routing"
+    },
+    {
+      "title": "Wire into member support",
+      "body": "Answer coverage questions; claims/disputes route to staff.",
+      "code": "# member question -> cited coverage explanation; claim/unclear -> licensed agent"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Clearly covered → cited explanation with limits",
+      "scenario": "A coverage question the policy directly addresses. The agent explains it and surfaces the deductible.",
+      "input": "Member: 'Is windshield damage covered?' Policy comprehensive section covers glass with a $100 deductible.",
+      "output": "{\n  \"question\": \"Is windshield damage covered?\",\n  \"covered_by_policy_doc\": true,\n  \"explanation\": \"Your policy's comprehensive coverage includes glass damage such as a windshield, subject to your deductible. So windshield damage would generally fall under comprehensive coverage per your policy.\",\n  \"citation\": \"Auto Policy, Comprehensive Coverage §C-3 'Glass'\",\n  \"limits_exclusions\": [\"$100 comprehensive deductible applies\", \"Coverage is subject to the comprehensive section conditions\"],\n  \"claim_guarantee\": \"none — coverage explanation is not a claim decision\",\n  \"route_to\": \"self_serve\",\n  \"escalation\": { \"needed\": false, \"reason\": \"\" }\n}",
+      "notes": "The explanation is grounded in the policy with a section citation and honestly surfaces the $100 deductible — not just the good news. Note it explains coverage in general terms and explicitly does not say a specific claim 'will be paid.'"
+    },
+    {
+      "title": "Not addressed / ambiguous → say so, route to a licensed agent",
+      "scenario": "The policy doesn't clearly address the situation. The agent declines to guess and routes to a person.",
+      "input": "Member: 'Am I covered if I use my personal car for food delivery?' The policy doesn't clearly address rideshare/delivery use.",
+      "output": "{\n  \"question\": \"Coverage when using a personal car for food delivery\",\n  \"covered_by_policy_doc\": false,\n  \"explanation\": \"Your policy document doesn't clearly address using your personal vehicle for paid delivery or rideshare work, which is often handled differently (sometimes excluded or requiring a separate endorsement). I don't want to give you a wrong answer on something this important.\",\n  \"citation\": \"\",\n  \"limits_exclusions\": [\"Commercial/delivery use is commonly excluded or requires an endorsement — but your document is not explicit, so this needs confirmation\"],\n  \"claim_guarantee\": \"none — coverage explanation is not a claim decision\",\n  \"route_to\": \"licensed_agent\",\n  \"escalation\": { \"needed\": true, \"reason\": \"Coverage for delivery use is not clearly addressed in the policy — routed to a licensed agent rather than guessed.\" }\n}",
+      "notes": "The policy is silent/ambiguous on delivery use, which is a high-stakes coverage question. Instead of guessing 'you're probably covered,' the agent says it's not clearly addressed, notes the common industry treatment as context (not a determination), and routes to a licensed agent. Guessing wrong here could leave a member uninsured."
+    },
+    {
+      "title": "\"Will my claim be paid?\" → don't guarantee, explain + route to claims",
+      "scenario": "The member wants a guarantee of payout. The agent explains coverage but refuses to promise a claim outcome.",
+      "input": "Member: 'I rear-ended someone. Will my claim definitely be paid? Just tell me yes.'",
+      "output": "{\n  \"question\": \"Will my claim for an at-fault collision definitely be paid?\",\n  \"covered_by_policy_doc\": true,\n  \"explanation\": \"Your policy includes liability coverage and, if you carry it, collision coverage that can apply to at-fault accidents, subject to your limits and deductible (per the policy). But I can't tell you a specific claim 'will definitely be paid' — that decision depends on the facts of the incident, the investigation, and your adjuster. What I can do is explain what your policy covers and get your claim to the right people.\",\n  \"citation\": \"Auto Policy, Liability §A-1; Collision §C-1 (if elected)\",\n  \"limits_exclusions\": [\"Collision deductible applies\", \"Coverage subject to policy limits and conditions; specific facts may affect the claim\"],\n  \"claim_guarantee\": \"none — coverage explanation is not a claim decision\",\n  \"route_to\": \"claims\",\n  \"escalation\": { \"needed\": true, \"reason\": \"Member wants a claim-payment guarantee — explained coverage, declined to promise an outcome, and routed to claims.\" }\n}",
+      "notes": "The defining defensive case: pressed to guarantee a payout. The agent explains the relevant coverage with citations and the deductible, but firmly separates coverage explanation from the claim decision (facts + adjuster), refuses to promise 'yes,' and routes to claims. Guaranteeing a payout it can't control would create false expectations and liability."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Does it decide whether my claim is paid?",
+      "a": "No. It explains what your policy says about coverage, grounded in the document with citations. Whether a specific claim is paid depends on the facts, the investigation, and an adjuster — it routes claims to the right team rather than deciding or guaranteeing them."
+    },
+    {
+      "q": "Will it make up coverage?",
+      "a": "No. It answers only from your actual policy and cites the section. If something isn't addressed or is ambiguous, it says so and routes you to a licensed agent rather than guessing coverage you might rely on."
+    },
+    {
+      "q": "Does it hide exclusions or deductibles?",
+      "a": "No. It surfaces the relevant exclusions, limits, deductibles, and conditions alongside the coverage, so you get the full picture rather than just the favorable parts."
+    },
+    {
+      "q": "Can it guarantee I'm covered for a specific incident?",
+      "a": "No, and it will explain why. It can tell you what the policy generally covers, but it won't promise an outcome for a specific incident, since that decision depends on the facts and your adjuster."
+    },
+    {
+      "q": "What if my question isn't in the policy?",
+      "a": "It tells you the policy doesn't clearly address it and routes you to a licensed agent. For high-stakes questions like using your car for delivery, that prevents a wrong answer that could leave you uninsured."
+    },
+    {
+      "q": "Is this legal or financial advice?",
+      "a": "No. It explains your policy in plain language; it doesn't provide legal or financial advice or coverage determinations. Disputes and claims go to licensed staff."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Synthesis (Extract → Synthesize → Verify)",
+    "worstCaseAction": "Gives an incorrect explanation of what a policy covers that a human reviews before relying on it. It cannot make a coverage determination, approve or deny a claim, or pay — those tools are absent from its registry.",
+    "authorityBoundary": "Reads a policy document and explains coverage, limits, and exclusions in plain language with citations to the policy. It never makes a binding coverage determination, never approves or denies, and never pays. A licensed human decides.",
+    "verificationTest": "Attempt to call a coverage-determination, approve/deny, or payment tool → confirm it is absent; confirm explanations cite the policy.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: determination/payment tools absent. Human gates: a licensed human decides. Confidence escalation: ambiguous policy language flagged. Cost ceiling: bounded per query. Audit trail: explanations and citations logged. Escalation path: edge cases routed to a human.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "policy-coverage-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Synthesis",
+      "worst_case_action": "Gives a wrong coverage explanation for human review. Cannot determine coverage, approve/deny, or pay.",
+      "authority_boundary": "Explains policy coverage with citations; determination/payment tools absent.",
+      "tags": [
+        "insurance",
+        "coverage",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_policy",
+          "explain_coverage",
+          "cite_clause",
+          "flag_ambiguity"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "coverage_determination",
+          "approve",
+          "deny",
+          "payment"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.22,
+        "alert_threshold_usd": 0.15
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 8
+      },
+      "human_handoff": {
+        "triggers": [
+          "ambiguous_clause",
+          "edge_case",
+          "low_confidence"
+        ],
+        "destination": "licensed_agent"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "explanations",
+          "citations"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "States coverage that doesn't apply, and a customer relies on it.",
+      "detection": "Every explanation cites the policy clause and ambiguous language is flagged.",
+      "mitigation": "The agent explains, never makes a binding determination or pays.",
+      "recovery": "A licensed human decides and the explanation is corrected."
+    },
+    {
+      "mode": "Misses an exclusion that voids the coverage.",
+      "detection": "Exclusions are checked alongside grants and edge cases are flagged.",
+      "mitigation": "Positioned as an explanation aid, not a decision.",
+      "recovery": "The licensed agent reviews flagged edge cases."
+    },
+    {
+      "mode": "Reads the wrong policy version.",
+      "detection": "The policy version and effective date are checked.",
+      "mitigation": "It aborts on a version mismatch.",
+      "recovery": "The correct policy is loaded and re-read."
+    }
+  ],
+  "evaluation": {
+    "primary": "Coverage-determination correctness, grounded in cited clauses, is primary — stating coverage that doesn't apply is the failure a customer could rely on.",
+    "metrics": [
+      {
+        "name": "Explanation accuracy",
+        "description": "Share of coverage explanations that match a licensed reviewer's reading."
+      },
+      {
+        "name": "Exclusion recall",
+        "description": "Of applicable exclusions, the share it surfaces."
+      },
+      {
+        "name": "Citation accuracy",
+        "description": "Whether each explanation cites the correct policy clause, with no invented coverage."
+      },
+      {
+        "name": "Deferral rate",
+        "description": "How often it correctly defers a binding determination to a human."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to an explanation."
+      }
+    ],
+    "approach": "Have licensed reviewers annotate coverage questions against policies, including exclusion edge cases; measure explanation accuracy and exclusion recall, and verify every explanation cites a real clause and defers binding determinations."
+  }
+}

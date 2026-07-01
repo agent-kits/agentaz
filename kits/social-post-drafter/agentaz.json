@@ -1,0 +1,54 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "social-post-drafter-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Synthesis",
+  "worst_case_action": "Drafts an off-brand post for human review. Cannot post or schedule; never fabricates claims.",
+  "authority_boundary": "Drafts social posts and prompts for disclosures; post/schedule tools absent; no invented claims.",
+  "tags": [
+    "social-media",
+    "drafting",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_material",
+      "draft_post",
+      "check_brand_voice",
+      "prompt_disclosure",
+      "flag_unverifiable"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "post",
+      "schedule"
+    ],
+    "never_fabricates": true
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.18,
+    "alert_threshold_usd": 0.12
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 6
+  },
+  "human_handoff": {
+    "triggers": [
+      "unverifiable_claim",
+      "missing_disclosure"
+    ],
+    "destination": "social_owner"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "drafts"
+    ]
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "agent_id": "transaction-reconciliation-agent",
+  "version": "2.0.0",
+  "trust_level": "A2",
+  "dna_pattern": "Synthesis",
+  "worst_case_action": "Surfaces an incorrect reconciliation result for human review. Cannot write to financial systems.",
+  "authority_boundary": "Reads bank + ledger sources only. Flags discrepancies for human review. No mutating tools present.",
+  "last_reviewed": "2026-06-24",
+  "tags": [
+    "finance",
+    "reconciliation",
+    "read-only",
+    "human-review",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "get_bank",
+      "get_ledger",
+      "match_transactions",
+      "detect_discrepancies",
+      "flag_duplicates",
+      "confidence_score",
+      "route_review",
+      "reconciliation_report"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "ledger_write",
+      "balancing_adjustment",
+      "payment_instruction"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.2,
+    "alert_threshold_usd": 0.14
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "unmatched_item",
+      "amount_mismatch",
+      "duplicate",
+      "low_confidence_match"
+    ],
+    "destination": "accountant_review_queue"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "matches",
+      "flags",
+      "confidence"
+    ]
+  }
+}

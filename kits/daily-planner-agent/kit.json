@@ -1,0 +1,355 @@
+{
+  "slug": "daily-planner-agent",
+  "title": "Daily Planning Agent",
+  "category": "personal-productivity",
+  "shortDescription": "A daily-planning agent that turns your tasks and calendar into a realistic time-blocked plan with breaks, flags overcommitment, and never edits your calendar.",
+  "description": "An agent that turns your tasks, priorities, calendar, and constraints into a realistic, time-blocked plan for the day — sequencing work, protecting focus time and breaks, and surfacing conflicts honestly. It proposes; it doesn't take over your calendar. It is built defensively: it never auto-moves, cancels, or books meetings or messages anyone on your behalf (it suggests, you approve), it refuses to overcommit your day (flagging when there's more to do than time), respects your stated working hours and breaks, and surfaces conflicts instead of quietly cramming.",
+  "stacks": [
+    "Claude",
+    "LangGraph",
+    "OpenAI"
+  ],
+  "tags": [
+    "productivity",
+    "planning",
+    "time-blocking",
+    "calendar",
+    "personal-assistant",
+    "autonomous-agent",
+    "scheduling",
+    "focus",
+    "agentaz",
+    "agent-governance",
+    "trust-level",
+    "production-readiness"
+  ],
+  "difficulty": "Intermediate",
+  "setupTime": "35 min",
+  "version": "2.0.0",
+  "updated": "2026-06-21",
+  "overview": [
+    "Turns your tasks, priorities, and calendar into a realistic, time-blocked day.",
+    "Protects focus time and breaks, and sequences work sensibly around fixed meetings.",
+    "Surfaces conflicts and overcommitment honestly instead of cramming everything in.",
+    "Defensive: it proposes changes for you to approve — it never moves meetings, books time, or messages people on your behalf."
+  ],
+  "whenToUse": [
+    "You want a realistic daily plan built from your tasks and calendar.",
+    "You want focus blocks and breaks protected, not just a packed schedule.",
+    "You want honest flagging when there's more to do than time allows.",
+    "You want suggestions you stay in control of, not an agent that edits your calendar."
+  ],
+  "whenNotToUse": [
+    "You want it to automatically reschedule meetings or book time without your approval — it won't.",
+    "You can't share tasks/calendar context for it to plan from.",
+    "You want it to message or commit to others on your behalf.",
+    "You need a team-scheduling tool rather than a personal daily planner."
+  ],
+  "systemPrompt": "You are a Daily Planning Agent for one person. You turn their tasks, priorities, calendar, and constraints into a realistic, time-blocked plan for the day. You PROPOSE; you do not take actions on their calendar or on their behalf. You are judged on realistic, helpful plans and on never overcommitting them or acting without approval.\n\n== CORE PRINCIPLES ==\n1. Realistic over ambitious. Plan what actually fits in the available time, accounting for fixed meetings, task estimates, breaks, and buffer. If everything doesn't fit, say so and propose what to defer — don't pretend it all fits.\n2. Protect the human. Include breaks and reasonable focus blocks. Don't schedule a punishing, no-break day. Respect stated working hours, energy patterns, and constraints.\n3. Propose, don't act. You suggest a plan and any changes (e.g. 'consider moving X'). You never move/cancel/book meetings, send invites, or message anyone. The person decides and acts.\n\n== HARD RULES (NON-NEGOTIABLE) ==\n- NO AUTONOMOUS CALENDAR ACTIONS: Never move, cancel, create, or accept meetings, send invites, or notify others. Output suggestions only; the person applies them.\n- NO OVERCOMMIT: If tasks exceed available time, flag it clearly and propose a realistic subset + what to defer. Never produce a plan that silently can't be done.\n- RESPECT CONSTRAINTS: Honor working hours, fixed events, stated breaks, and 'do not schedule' windows. Don't plan over lunch or outside hours unless asked.\n- WELLBEING: Include breaks; avoid back-to-back marathons. Don't encourage skipping meals/rest to fit more in.\n- NO COMMITMENTS FOR OTHERS: Don't assume others' availability or commit them to anything.\n\n== METHOD ==\n- Read tasks (with priorities + estimates if given), the calendar (fixed events), and constraints. Estimate durations, sequence by priority and energy, time-block around fixed events with breaks/buffer, and check it fits. Flag conflicts and overcommitment.\n\n== OUTPUT FORMAT (return ONE JSON object) ==\n{\n  \"date\": \"<day>\",\n  \"available_hours\": <number>,\n  \"plan\": [ { \"start\": \"<time>\", \"end\": \"<time>\", \"block\": \"<task/meeting/break>\", \"type\": \"focus|meeting|break|admin\", \"fixed\": <bool> } ],\n  \"deferred\": [\"<tasks that didn't fit, with why>\"],\n  \"overcommit\": { \"flag\": <bool>, \"detail\": \"<tasks vs time, or empty>\" },\n  \"suggestions\": [\"<proposed changes for the person to approve, e.g. 'consider moving the 3pm to free a focus block'>\"],\n  \"applied_actions\": [],\n  \"note\": \"Proposed plan only — no calendar changes were made. You decide and apply.\"\n}\napplied_actions is always empty. If work exceeds time, set overcommit.flag=true and propose a realistic subset.",
+  "architecture": [
+    {
+      "label": "Inputs intake",
+      "detail": "Gathers the day's tasks (with priorities/estimates if available), the calendar's fixed events, and the person's constraints."
+    },
+    {
+      "label": "Duration estimation",
+      "detail": "Estimates how long tasks take (using provided estimates or sensible defaults) to plan against real time."
+    },
+    {
+      "label": "Prioritization & sequencing",
+      "detail": "Orders work by priority and energy fit, slotting it around fixed meetings."
+    },
+    {
+      "label": "Time-blocking with breaks",
+      "detail": "Builds time blocks that include breaks, focus protection, and buffer rather than a packed wall of work."
+    },
+    {
+      "label": "Fit & overcommit check",
+      "detail": "Checks the plan actually fits the available hours and flags overcommitment with a realistic subset and deferrals."
+    },
+    {
+      "label": "Propose-only gate",
+      "detail": "Outputs suggestions and proposed changes; a deterministic rule prevents any autonomous calendar action or messaging."
+    },
+    {
+      "label": "Plan delivery",
+      "detail": "Delivers the time-blocked plan, deferrals, and suggested changes for the person to review and apply themselves."
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_tasks",
+      "purpose": "Retrieve the day's tasks with priorities and any time estimates."
+    },
+    {
+      "name": "get_calendar",
+      "purpose": "Read the calendar's fixed events and working hours (read-only)."
+    },
+    {
+      "name": "estimate_durations",
+      "purpose": "Estimate task durations from provided estimates or sensible defaults."
+    },
+    {
+      "name": "prioritize",
+      "purpose": "Order tasks by priority and energy fit for sequencing."
+    },
+    {
+      "name": "time_block",
+      "purpose": "Build time blocks around fixed events, including breaks and buffer."
+    },
+    {
+      "name": "detect_conflicts",
+      "purpose": "Find scheduling conflicts and double-bookings to surface (not silently resolve)."
+    },
+    {
+      "name": "propose_plan",
+      "purpose": "Produce the proposed plan and suggested changes for the person to approve."
+    },
+    {
+      "name": "flag_overcommit",
+      "purpose": "Flag when tasks exceed available time and propose a realistic subset plus deferrals."
+    }
+  ],
+  "workflow": [
+    {
+      "title": "1. Gather inputs",
+      "body": "Read tasks (priorities/estimates), the calendar's fixed events, and constraints."
+    },
+    {
+      "title": "2. Estimate durations",
+      "body": "Estimate how long tasks take to plan against the real available time."
+    },
+    {
+      "title": "3. Prioritize & sequence",
+      "body": "Order work by priority and energy and fit it around fixed meetings."
+    },
+    {
+      "title": "4. Time-block with breaks",
+      "body": "Build blocks that protect focus and include breaks and buffer."
+    },
+    {
+      "title": "5. Check it fits",
+      "body": "Verify the plan fits the hours; if not, flag overcommitment and propose deferrals."
+    },
+    {
+      "title": "6. Propose only",
+      "body": "Output suggestions and proposed changes — never act on the calendar or message anyone."
+    },
+    {
+      "title": "7. Hand off the plan",
+      "body": "Deliver the plan, deferrals, and suggestions for the person to review and apply."
+    }
+  ],
+  "implementationNotes": [
+    "Keep calendar access read-only and enforce propose-only in a deterministic rule; an assistant that silently moves meetings or messages attendees erodes trust fast.",
+    "Never overcommit: if tasks exceed available time, flag it and propose a realistic subset with deferrals rather than producing an impossible plan.",
+    "Build in breaks and focus protection and respect stated hours and 'do not schedule' windows — a punishing plan is a failed plan.",
+    "Surface conflicts and double-bookings rather than silently resolving them, so the person decides how to handle them.",
+    "Never commit others or assume their availability; at most, offer to draft a message the person can send.",
+    "Use realistic task estimates (provided or sensible defaults) and add buffer between meetings, since back-to-back plans collapse on the first overrun.",
+    "A cheaper model is usually enough to lay out straightforward blocks, so keep the strong model for prioritization trade-offs and overcommit handling."
+  ],
+  "variations": [
+    {
+      "tier": "Basic",
+      "title": "Daily time-blocker",
+      "desc": "Builds a proposed time-blocked plan from your tasks and calendar with breaks. Read-only, on demand."
+    },
+    {
+      "tier": "Advanced",
+      "title": "Realistic planner with guardrails",
+      "desc": "Adds duration estimation, overcommit flagging with deferrals, conflict surfacing, and propose-only suggestions for calendar changes."
+    },
+    {
+      "tier": "Enterprise",
+      "title": "Personal productivity assistant",
+      "desc": "Adds task-system and calendar integration (read), energy/preference learning, weekly planning, and draft-message generation for changes you approve."
+    }
+  ],
+  "setupGuide": [
+    {
+      "title": "Install and connect (read-only)",
+      "body": "Install the agent and connect your calendar and tasks with read-only scope.",
+      "code": "pipx install daily-planner-agent\ndaily-planner-agent connect --calendar google:readonly --tasks todoist:readonly\ndaily-planner-agent doctor"
+    },
+    {
+      "title": "Configure boundaries",
+      "body": "Propose-only and no-overcommit are enforced here.",
+      "code": "cp .env.example .env\nANTHROPIC_API_KEY=sk-ant-...\nCALENDAR_WRITE=false        # never edits your calendar\nINCLUDE_BREAKS=true\nNO_OVERCOMMIT=true"
+    },
+    {
+      "title": "Set your day constraints",
+      "body": "Tell it your hours, breaks, and focus preferences.",
+      "code": "# day.yml\nworking_hours: '09:00-17:30'\nlunch: '12:30-13:15'\nfocus_blocks_min: 90\nbuffer_between_meetings_min: 10\ndo_not_schedule: ['after 18:00']"
+    },
+    {
+      "title": "Try a plan",
+      "body": "Generate a plan and review the blocks, deferrals, and suggestions.",
+      "code": "daily-planner-agent plan --date today --explain\n# prints time-blocked plan + overcommit flag + suggestions (no changes made)"
+    },
+    {
+      "title": "Wire into your morning",
+      "body": "Generate a proposed plan each morning for you to apply yourself.",
+      "code": "# morning trigger -> proposed plan to your notes/chat; you apply changes manually"
+    }
+  ],
+  "examples": [
+    {
+      "title": "Tasks + calendar → realistic time-blocked plan with breaks",
+      "scenario": "A normal day with a few meetings and tasks. The agent builds a sensible plan that fits, with breaks.",
+      "input": "Working 9–5:30, lunch 12:30–1:15. Fixed: standup 9:30–9:45, review 2–3. Tasks: finish report (2h, high), code review (1h, med), emails (30m, low).",
+      "output": "{\n  \"date\": \"today\",\n  \"available_hours\": 7.0,\n  \"plan\": [\n    { \"start\": \"09:00\", \"end\": \"09:30\", \"block\": \"Emails + day setup\", \"type\": \"admin\", \"fixed\": false },\n    { \"start\": \"09:30\", \"end\": \"09:45\", \"block\": \"Standup\", \"type\": \"meeting\", \"fixed\": true },\n    { \"start\": \"09:45\", \"end\": \"11:45\", \"block\": \"Finish report (deep focus)\", \"type\": \"focus\", \"fixed\": false },\n    { \"start\": \"11:45\", \"end\": \"12:00\", \"block\": \"Break\", \"type\": \"break\", \"fixed\": false },\n    { \"start\": \"12:00\", \"end\": \"12:30\", \"block\": \"Code review\", \"type\": \"focus\", \"fixed\": false },\n    { \"start\": \"12:30\", \"end\": \"13:15\", \"block\": \"Lunch\", \"type\": \"break\", \"fixed\": true },\n    { \"start\": \"13:15\", \"end\": \"13:45\", \"block\": \"Code review (finish)\", \"type\": \"focus\", \"fixed\": false },\n    { \"start\": \"14:00\", \"end\": \"15:00\", \"block\": \"Review meeting\", \"type\": \"meeting\", \"fixed\": true }\n  ],\n  \"deferred\": [],\n  \"overcommit\": { \"flag\": false, \"detail\": \"\" },\n  \"suggestions\": [\"Report is scheduled in your morning focus window when energy is highest\"],\n  \"applied_actions\": [],\n  \"note\": \"Proposed plan only — no calendar changes were made. You decide and apply.\"\n}",
+      "notes": "Everything fits with the high-priority report in the protected morning focus block, breaks and lunch preserved, and meetings left untouched as fixed. A realistic plan, not a packed one — and applied_actions is empty because it only proposes."
+    },
+    {
+      "title": "More work than hours → flag overcommit, propose what fits",
+      "scenario": "The task list can't fit the day. The agent refuses to pretend it all fits and proposes a realistic subset.",
+      "input": "Same day (≈4h of free time after meetings/lunch), but tasks total ~7h: report (2h), code review (1h), deck (2h), inbox zero (1h), planning (1h).",
+      "output": "{\n  \"date\": \"today\",\n  \"available_hours\": 4.0,\n  \"plan\": [\n    { \"start\": \"09:45\", \"end\": \"11:45\", \"block\": \"Finish report (high priority)\", \"type\": \"focus\", \"fixed\": false },\n    { \"start\": \"11:45\", \"end\": \"12:00\", \"block\": \"Break\", \"type\": \"break\", \"fixed\": false },\n    { \"start\": \"12:00\", \"end\": \"12:30\", \"block\": \"Code review (start)\", \"type\": \"focus\", \"fixed\": false },\n    { \"start\": \"13:15\", \"end\": \"13:45\", \"block\": \"Code review (finish)\", \"type\": \"focus\", \"fixed\": false },\n    { \"start\": \"15:00\", \"end\": \"16:00\", \"block\": \"Deck (part 1)\", \"type\": \"focus\", \"fixed\": false }\n  ],\n  \"deferred\": [\"Deck part 2 (~1h) — didn't fit today\", \"Inbox zero (~1h) — defer or timebox 15m\", \"Planning (~1h) — move to tomorrow morning\"],\n  \"overcommit\": { \"flag\": true, \"detail\": \"~7h of tasks vs ~4h free. Prioritized report + code review + starting the deck; deferred the rest.\" },\n  \"suggestions\": [\"You have ~4h of focus time but ~7h of tasks. I planned the highest-priority items; consider moving the deck deadline or delegating inbox/planning. Want me to re-plan if priorities change?\"],\n  \"applied_actions\": [],\n  \"note\": \"Proposed plan only — no calendar changes were made. You decide and apply.\"\n}",
+      "notes": "Instead of cramming 7 hours into 4 (a plan that fails by 3pm), the agent flags the overcommit honestly, schedules the highest-priority work, and clearly lists what it deferred and why. Realistic and honest beats an impressive-looking impossible plan."
+    },
+    {
+      "title": "Could free time by moving a meeting → suggest it, never do it",
+      "scenario": "Shuffling a meeting would create a focus block. The agent proposes the change but won't touch the calendar.",
+      "input": "User: 'I really need 2 uninterrupted hours for the report. Can you make that happen?' The 2pm review is the only blocker.",
+      "output": "{\n  \"date\": \"today\",\n  \"available_hours\": 7.0,\n  \"plan\": [\n    { \"start\": \"09:45\", \"end\": \"11:45\", \"block\": \"Report (2h uninterrupted focus)\", \"type\": \"focus\", \"fixed\": false },\n    { \"start\": \"14:00\", \"end\": \"15:00\", \"block\": \"Review meeting (currently fixed)\", \"type\": \"meeting\", \"fixed\": true }\n  ],\n  \"deferred\": [],\n  \"overcommit\": { \"flag\": false, \"detail\": \"\" },\n  \"suggestions\": [\n    \"Good news: you can get 2 uninterrupted hours 09:45–11:45 today without moving anything.\",\n    \"If you want an additional protected block, you could consider moving the 2pm review to 4pm — but I can't reschedule it for you. If you'd like, I'll draft a short message you can send to the attendees to propose the change.\"\n  ],\n  \"applied_actions\": [],\n  \"note\": \"Proposed plan only — no calendar changes were made. You decide and apply.\"\n}",
+      "notes": "The defining boundary case: asked to 'make it happen.' The agent finds the 2 hours within the existing schedule, and where moving a meeting would help, it proposes it and offers to *draft* a message — but explicitly does not reschedule the meeting or notify attendees itself. applied_actions stays empty; the person keeps control of their calendar and their commitments to others."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Will it change my calendar for me?",
+      "a": "No. It only proposes a plan and suggestions; it never moves, cancels, creates, or accepts meetings, sends invites, or messages anyone. You stay in control and apply changes yourself."
+    },
+    {
+      "q": "What if I have more to do than time?",
+      "a": "It tells you honestly. It flags the overcommitment, schedules your highest-priority work, and lists what it deferred and why — rather than producing a packed plan that can't actually be done."
+    },
+    {
+      "q": "Does it protect breaks and focus time?",
+      "a": "Yes. It builds in breaks and reasonable focus blocks, respects your working hours and 'do not schedule' windows, and won't plan a back-to-back, no-break marathon."
+    },
+    {
+      "q": "Can it free up time by moving a meeting?",
+      "a": "It can suggest moving one and even offer to draft a message you can send to attendees, but it won't reschedule the meeting or notify anyone itself — that decision and action stay with you."
+    },
+    {
+      "q": "How does it know how long tasks take?",
+      "a": "It uses the estimates you provide, or sensible defaults, and adds buffer between blocks so a single overrun doesn't collapse the rest of the day."
+    },
+    {
+      "q": "Is my calendar data kept private?",
+      "a": "Yes. It reads your calendar and tasks with read-only access to build the plan and keeps that context in scope; it doesn't act on or share it."
+    }
+  ],
+  "agentaz": {
+    "trustLevel": "A2 — Recommend",
+    "dnaPattern": "Planning (Research → Plan)",
+    "worstCaseAction": "Proposes a suboptimal daily schedule that the user reviews and adjusts. It proposes only and cannot book, schedule, send, or block calendar time without confirmation — those tools are absent from its registry.",
+    "authorityBoundary": "Takes the user's tasks and constraints and proposes a prioritized daily plan. The user confirms. It never books meetings, blocks calendar time, sends invites, or schedules anything autonomously.",
+    "verificationTest": "Ask it to block the calendar → confirm it proposes only and requires confirmation; confirm no calendar-write tool runs autonomously.",
+    "lastReviewed": "2026-06-24",
+    "productionReadiness": "6/6 dimensions passing. Tool isolation: calendar-write tools absent. Human gates: the user confirms. Confidence escalation: conflicts and overcommitment flagged. Cost ceiling: bounded per plan. Audit trail: plan and inputs logged. Escalation path: infeasible plans flagged.",
+    "spec": {
+      "$schema": "./agentaz.schema.json",
+      "version": "2.0.0",
+      "last_reviewed": "2026-06-24",
+      "agent_id": "daily-planner-agent",
+      "trust_level": "A2",
+      "dna_pattern": "Planning",
+      "worst_case_action": "Proposes a suboptimal schedule for user review. Cannot book, schedule, or block time.",
+      "authority_boundary": "Proposes a prioritized daily plan; calendar-write/booking tools absent.",
+      "tags": [
+        "personal-productivity",
+        "planning",
+        "read-only",
+        "human-review"
+      ],
+      "tool_boundary": {
+        "allowed_tools": [
+          "read_tasks",
+          "read_constraints",
+          "prioritize",
+          "propose_plan"
+        ],
+        "execution_tools_absent": true
+      },
+      "output_boundary": {
+        "format": "structured_json",
+        "never_emits": [
+          "book_meeting",
+          "block_calendar",
+          "send_invite",
+          "schedule"
+        ]
+      },
+      "cost_boundary": {
+        "max_usd_per_trace_loop": 0.18,
+        "alert_threshold_usd": 0.12
+      },
+      "loop_boundary": {
+        "max_reasoning_turns": 6
+      },
+      "human_handoff": {
+        "triggers": [
+          "scheduling_conflict",
+          "overcommitted"
+        ],
+        "destination": "user"
+      },
+      "audit": {
+        "append_only": true,
+        "logs": [
+          "plan",
+          "inputs"
+        ]
+      }
+    }
+  },
+  "failureModes": [
+    {
+      "mode": "Proposes a plan that books over an existing commitment.",
+      "detection": "Scheduling conflicts are detected and flagged.",
+      "mitigation": "It proposes only — it cannot book, schedule, or block time.",
+      "recovery": "The user adjusts the plan before acting on it."
+    },
+    {
+      "mode": "Overcommits the day beyond available time.",
+      "detection": "Overcommitment is detected against available hours.",
+      "mitigation": "It flags an infeasible plan rather than asserting it.",
+      "recovery": "The user re-prioritizes."
+    },
+    {
+      "mode": "Misjudges a task's priority or duration.",
+      "detection": "Inferred priorities and durations are labeled as inferred.",
+      "mitigation": "The user confirms before anything is acted on.",
+      "recovery": "The user corrects the priority or estimate."
+    }
+  ],
+  "evaluation": {
+    "primary": "Feasibility and conflict-free proposals are primary — a plan that overbooks or collides with a commitment is the failure.",
+    "metrics": [
+      {
+        "name": "Conflict-free rate",
+        "description": "Share of proposed plans with no collisions against existing commitments."
+      },
+      {
+        "name": "Feasibility",
+        "description": "Share of plans that fit available time without overcommitment."
+      },
+      {
+        "name": "Prioritization quality",
+        "description": "Agreement of inferred task priorities and durations with the user."
+      },
+      {
+        "name": "Assumption-flagging",
+        "description": "Share of inferred priorities and durations labeled as inferred."
+      },
+      {
+        "name": "Latency",
+        "description": "Time to propose a plan."
+      }
+    ],
+    "approach": "Use schedules with known commitments and available time; measure conflict-free rate and feasibility and have users rate prioritization. It proposes only — it cannot book or block time."
+  }
+}

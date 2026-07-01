@@ -1,0 +1,55 @@
+{
+  "$schema": "./agentaz.schema.json",
+  "version": "2.0.0",
+  "last_reviewed": "2026-06-24",
+  "agent_id": "order-support-agent",
+  "trust_level": "A2",
+  "dna_pattern": "Escalation",
+  "worst_case_action": "Drafts a wrong order reply, caught before send. Cannot cancel, refund, or modify orders.",
+  "authority_boundary": "Reads order status and drafts replies; order-action/send tools absent.",
+  "tags": [
+    "ecommerce",
+    "order-support",
+    "read-only",
+    "human-review"
+  ],
+  "tool_boundary": {
+    "allowed_tools": [
+      "read_order_status",
+      "draft_reply",
+      "route"
+    ],
+    "execution_tools_absent": true
+  },
+  "output_boundary": {
+    "format": "structured_json",
+    "never_emits": [
+      "cancel_order",
+      "refund",
+      "modify_order",
+      "send"
+    ]
+  },
+  "cost_boundary": {
+    "max_usd_per_trace_loop": 0.2,
+    "alert_threshold_usd": 0.14
+  },
+  "loop_boundary": {
+    "max_reasoning_turns": 8
+  },
+  "human_handoff": {
+    "triggers": [
+      "account_action_needed",
+      "sensitive_issue",
+      "low_confidence"
+    ],
+    "destination": "support_agent"
+  },
+  "audit": {
+    "append_only": true,
+    "logs": [
+      "lookups",
+      "drafts"
+    ]
+  }
+}
